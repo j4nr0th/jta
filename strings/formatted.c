@@ -1116,7 +1116,6 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 buffer_usage += 1;
                 //  The part missing is the sign and padding
 
-                //  TODO: check how this part behaves, as it is copy-pasted from the part of the switch for 'd'/'i'
 
                 while (buffer_usage < precision)
                 {
