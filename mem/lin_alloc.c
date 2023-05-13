@@ -7,6 +7,8 @@
 #include <string.h>
 #include <malloc.h>
 #include <assert.h>
+#include <sys/unistd.h>
+#include <sys/mman.h>
 
 
 struct linear_allocator_struct
@@ -19,7 +21,8 @@ struct linear_allocator_struct
 void lin_alloc_destroy(linear_allocator allocator)
 {
     linear_allocator this = (linear_allocator)allocator;
-    free(this->base);
+    int res = munmap(this->base, this->max - this->base);
+    assert(res == 0);
     free(this);
 }
 
@@ -32,7 +35,8 @@ void* lin_alloc_allocate(linear_allocator allocator, uint_fast64_t size)
     //  Check if it overflows
     if (new_bottom > this->max)
     {
-        return malloc(size);
+//        return malloc(size);
+        return NULL;
     }
     this->current = new_bottom;
     return ret;
@@ -46,11 +50,11 @@ void lin_alloc_deallocate(linear_allocator allocator, void* ptr)
         //  ptr is from the allocator
         if (this->current > ptr) this->current = ptr;
     }
-    else
-    {
-        //  ptr is not from the allocator, should probably be freed
-        free(ptr);
-    }
+//    else
+//    {
+//        //  ptr is not from the allocator, should probably be freed
+//        free(ptr);
+//    }
 }
 
 void* lin_alloc_reallocate(linear_allocator allocator, void* ptr, uint_fast64_t new_size)
@@ -78,15 +82,22 @@ void* lin_alloc_reallocate(linear_allocator allocator, void* ptr, uint_fast64_t 
         return ptr;
     }
     //  ptr was not from this allocator, so assume it was malloced and just pass it on to realloc
-    return realloc(ptr, new_size);
+//    return realloc(ptr, new_size);
+    return NULL;
 }
 
 linear_allocator lin_alloc_create(uint_fast64_t total_size)
 {
+    uint64_t PAGE_SIZE = sysconf(_SC_PAGESIZE);
     linear_allocator this = malloc(sizeof(*this));
     if (!this) return this;
-    void* mem = calloc(total_size, 1);
-    if (!mem)
+    uint64_t extra = (total_size % PAGE_SIZE);
+    if (extra)
+    {
+        total_size += (PAGE_SIZE - extra);
+    }
+    void* mem = mmap(NULL, total_size, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
+    if (mem == MAP_FAILED)
     {
         free(this);
         return NULL;

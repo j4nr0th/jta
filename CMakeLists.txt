@@ -12,8 +12,9 @@ list(APPEND JFW_HEADER_FILES jfw/gfx_math.h jfw/jfw_common.h jfw/unicode_block_l
 list(APPEND ALLOCATORS_SOURCE_FILES mem/jalloc.c mem/lin_alloc.c)
 list(APPEND ALLOCATORS_HEADER_FILES mem/jalloc.h mem/lin_alloc.h)
 
-add_executable(jtb main.c ${JFW_SOURCE_FILES} ${JFW_HEADER_FILES} ${ALLOCATORS_SOURCE_FILES} ${ALLOCATORS_HEADER_FILES} mem/aligned_jalloc.c mem/aligned_jalloc.h)
+add_executable(jtb main.c ${JFW_SOURCE_FILES} ${JFW_HEADER_FILES} ${ALLOCATORS_SOURCE_FILES} ${ALLOCATORS_HEADER_FILES} mem/aligned_jalloc.c mem/aligned_jalloc.h strings/formatted.c strings/formatted.h)
 target_link_libraries(jtb PRIVATE vulkan X11)
 
 enable_testing()
 add_subdirectory(mem)
+add_subdirectory(strings)
