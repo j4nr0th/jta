@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <math.h>
 
+
 static inline char* write_character_to_memory(linear_allocator allocator, char* memory, size_t* p_used, size_t* p_reserved, unsigned char c)
 {
     if (*p_used == *p_reserved)
@@ -72,6 +73,33 @@ static inline char unsigned_get_lsd_HEX_and_shift(uintmax_t* p_value)
     static_assert('0' + 1 == '1');
     v &= 15;
     return (char) (v > 9 ? 'A' + (v - 10) : '0' + v);
+}
+
+static inline char double_get_dig_and_shift(double* p_value)
+{
+    double v = *p_value;
+    assert(v >= 0.0 && v <= 10.0);
+    const unsigned c = (unsigned)v;
+    *p_value = (v - (double)c) * 10;
+    return (char)(c + '0');
+}
+
+static inline char double_get_hex_and_shift(double* p_value)
+{
+    double v = *p_value;
+    assert(v >= 0.0 && v <= 16.0);
+    const unsigned c = (unsigned)v;
+    *p_value = (v - (double)c) * 16;
+    return (char)(c > 9 ? c + 'a' : c + '0');
+}
+
+static inline char double_get_HEX_and_shift(double* p_value)
+{
+    double v = *p_value;
+    assert(v >= 0.0 && v <= 16.0);
+    const unsigned c = (unsigned)v;
+    *p_value = (v - (double)c) * 16;
+    return (char)(c > 9 ? c + 'A' : c + '0');
 }
 
 
@@ -175,14 +203,13 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                     min_width += *ptr - '1' + 1;    //  Add numeric value
                     ptr += 1;
                 }
-                while (*ptr >= '1' && *ptr <= '9');
+                while (*ptr >= '0' && *ptr <= '9');
             }
             if (!*ptr) break;
 
             //  Check for precision specifier
             if (*ptr == '.')
             {
-                flag_pad_leading_zeros = 0;
                 ptr += 1;
                 if (*ptr == '*')
                 {
@@ -247,7 +274,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
 
 
 
-
+            double d_abnorm;
             switch (*ptr)
             {
             case 'c':
@@ -311,6 +338,10 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
             case 'i':
                 //  Signed decimal integer
                 {
+                    if (precision_set)
+                    {
+                        flag_pad_leading_zeros = 0;
+                    }
                     uintmax_t c;
                     int is_negative = 0;
                     switch (length)
@@ -444,7 +475,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                     {
                         buffer[(reserved_buffer - ++buffer_usage)] = '-';
                     }
-                    else if (flag_space_pre_appended)
+                    else if (flag_sign_pre_appended)
                     {
                         buffer[(reserved_buffer - ++buffer_usage)] = '+';
                     }
@@ -485,6 +516,10 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
             case 'o':
                 //  Unsigned octal integer
             {
+                if (precision_set)
+                {
+                    flag_pad_leading_zeros = 0;
+                }
                 uintmax_t c;
                 switch (length)
                 {
@@ -538,7 +573,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 {
                     buffer[(reserved_buffer - ++buffer_usage)] = '0';
                 }
-                else if (flag_space_pre_appended)
+                else if (flag_sign_pre_appended)
                 {
                     buffer[(reserved_buffer - ++buffer_usage)] = '+';
                 }
@@ -579,6 +614,10 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
             case 'x':
                 //  Unsigned octal integer
             {
+                if (precision_set)
+                {
+                    flag_pad_leading_zeros = 0;
+                }
                 uintmax_t c;
                 switch (length)
                 {
@@ -634,7 +673,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                     buffer[(reserved_buffer - ++buffer_usage)] = 'x';
                     buffer[(reserved_buffer - ++buffer_usage)] = '0';
                 }
-                else if (flag_space_pre_appended)
+                else if (flag_sign_pre_appended)
                 {
                     buffer[(reserved_buffer - ++buffer_usage)] = '+';
                 }
@@ -675,6 +714,10 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
             case 'X':
                 //  Unsigned octal integer
             {
+                if (precision_set)
+                {
+                    flag_pad_leading_zeros = 0;
+                }
                 uintmax_t c;
                 switch (length)
                 {
@@ -730,7 +773,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                     buffer[(reserved_buffer - ++buffer_usage)] = 'X';
                     buffer[(reserved_buffer - ++buffer_usage)] = '0';
                 }
-                else if (flag_space_pre_appended)
+                else if (flag_sign_pre_appended)
                 {
                     buffer[(reserved_buffer - ++buffer_usage)] = '+';
                 }
@@ -771,6 +814,10 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
             case 'u':
                 //  Signed decimal integer
             {
+                if (precision_set)
+                {
+                    flag_pad_leading_zeros = 0;
+                }
                 uintmax_t c;
                 switch (length)
                 {
@@ -823,7 +870,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                     buffer[(reserved_buffer - ++buffer_usage)] = '0';
                 }
                 //  Add sign (or a space) if needed
-                if (flag_space_pre_appended)
+                if (flag_sign_pre_appended)
                 {
                     buffer[(reserved_buffer - ++buffer_usage)] = '+';
                 }
@@ -922,19 +969,55 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 }
             }
                 break;
-            //  missing: f & F, e & E, a & A, g & G
+            //  missing: f & F, a & A, g & G
             case 'e':
             case 'E':
             {
                 intmax_t exponent;
                 double base;
+                int less_than_zero = 0;
                 //  To convert it into form of a * 10^b, find a (base) and b (exponent)
                 switch (length)
                 {
                 case LENGTH_MOD_NONE:
                 case LENGTH_MOD_l:
                     {
-                        const double v = va_arg(args, double);
+                        double v = va_arg(args, double);
+                        if (v == 0.0)
+                        {
+                            exponent = 0;
+                            base = 0.0;
+                        }
+                        else if (isnan(v))
+                        {
+                            d_abnorm = v;
+                            if (*ptr == 'e')
+                            {
+                                goto print_nan_small;
+                            }
+                            else
+                            {
+                                goto print_nan_big;
+                            }
+                        }
+                        else if (isinf(v))
+                        {
+                            d_abnorm = v;
+                            if (*ptr == 'e')
+                            {
+                                goto print_inf_small;
+                            }
+                            else
+                            {
+                                goto print_inf_big;
+                            }
+                        }
+                        if (v < 0.0)
+                        {
+                            less_than_zero = 1;
+                            v = fabs(v);
+                        }
+
                         double l10 = log10(v);
                         exponent = (intmax_t)l10;
                         base = exp10(l10 - (double) exponent);
@@ -943,7 +1026,42 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
 
                 case LENGTH_MOD_L:
                     {
-                        const long double v = va_arg(args, long double);
+                        long double v = va_arg(args, long double);
+                        if (v == 0.0)
+                        {
+                            exponent = 0;
+                            base = 0.0;
+                        }
+                        else if (isnan(v))
+                        {
+                            d_abnorm = (double)v;
+                            if (*ptr == 'e')
+                            {
+                                goto print_nan_small;
+                            }
+                            else
+                            {
+                                goto print_nan_big;
+                            }
+                        }
+                        else if (isinf(v))
+                        {
+                            d_abnorm = (double)v;
+                            if (*ptr == 'e')
+                            {
+                                goto print_inf_small;
+                            }
+                            else
+                            {
+                                goto print_inf_big;
+                            }
+                        }
+                        if (v < 0.0)
+                        {
+                            less_than_zero = 1;
+                            v = fabsl(v);
+                        }
+
                         long double l10 = log10l(v);
                         exponent = (intmax_t)l10;
                         base = (double)exp10l(l10 - (long double) exponent);
@@ -964,6 +1082,90 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                     precision = 6;
                 }
 
+                //  Since we're printing the numbers into the buffer backwards, first put in the exponent
+                int was_negative = exponent < 0;
+                if (exponent < 0)
+                {
+                    exponent = -exponent;
+                }
+                for (uintmax_t e = exponent; e;)
+                {
+                    buffer[(reserved_buffer - ++buffer_usage)] = unsigned_get_lsd_dec_and_shift(&e);
+                }
+
+                while (buffer_usage < 2)
+                {
+                    //  Exponent has less than two digits, fill it up with zeros
+                    buffer[(reserved_buffer - ++buffer_usage)] = '0';
+                }
+                //  Put the exponent sign and 'e'/'E'
+                buffer[(reserved_buffer - ++buffer_usage)] = was_negative ? '-' : '+';
+                assert(*ptr == 'e' || *ptr == 'E');
+                buffer[(reserved_buffer - ++buffer_usage)] = *ptr;  //  This is either 'e' or 'E'
+                //  Now print the d.dddddd part
+                uint32_t i;
+                precision += 1;
+                for (i = 0; i < precision; ++i)
+                {
+                    buffer[(reserved_buffer - buffer_usage - precision + i)] = double_get_dig_and_shift(&base);
+                }
+                buffer_usage += i;
+                //  Move the last digit forward to make space for the decimal point
+                buffer[(reserved_buffer - (buffer_usage + 1))] = buffer[(reserved_buffer - buffer_usage)];
+                buffer[(reserved_buffer - buffer_usage)] = '.';
+                buffer_usage += 1;
+                //  The part missing is the sign and padding
+
+                //  TODO: check how this part behaves, as it is copy-pasted from the part of the switch for 'd'/'i'
+
+                while (buffer_usage < precision)
+                {
+                    buffer[(reserved_buffer - ++buffer_usage)] = '0';
+                }
+                assert(flag_pad_leading_zeros == 0 || (flag_left_justify == 0));
+                while ((buffer_usage + (less_than_zero || flag_sign_pre_appended || flag_space_pre_appended)) < min_width && flag_pad_leading_zeros)
+                {
+                    buffer[(reserved_buffer - ++buffer_usage)] = '0';
+                }
+                //  Add sign (or a space) if needed
+                if (less_than_zero)
+                {
+                    buffer[(reserved_buffer - ++buffer_usage)] = '-';
+                }
+                else if (flag_sign_pre_appended)
+                {
+                    buffer[(reserved_buffer - ++buffer_usage)] = '+';
+                }
+                else if (flag_space_pre_appended)
+                {
+                    buffer[(reserved_buffer - ++buffer_usage)] = ' ';
+                }
+
+                //  If we pad with zeros, this should be it
+                if (flag_pad_leading_zeros)
+                {
+                    assert(buffer_usage >= min_width);
+                    assert(buffer_usage >= precision + (less_than_zero || flag_sign_pre_appended || flag_space_pre_appended));
+                }
+                //  If we don't justify left, we must pad now
+                if (!flag_pad_leading_zeros && !(flag_left_justify))
+                {
+                    while (buffer_usage < min_width)
+                    {
+                        buffer[(reserved_buffer - ++buffer_usage)] = ' ';
+                    }
+                }
+                assert(flag_left_justify == 1 || buffer_usage >= min_width);
+                //  Move to main string buffer
+                memcpy(memory + used, buffer + reserved_buffer - buffer_usage, buffer_usage);
+                //  If we justify right, pad spaces to main buffer
+                used += buffer_usage;
+                if (flag_left_justify && buffer_usage < min_width)
+                {
+                    memset(memory + used, ' ', min_width - buffer_usage);
+                    used += min_width - buffer_usage;
+                }
+                //  Release the temporary buffer
 
                 //  Free the buffer
                 lin_alloc_deallocate(allocator, buffer);
@@ -971,17 +1173,65 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 break;
             }
 
-
+            continue;
+            {
+                print_nan_small:;
+                static const char SMALL_NAN_STR[3] = "nan";
+                static_assert(sizeof(SMALL_NAN_STR) == 3);
+                for (uint32_t i = 0; min_width > sizeof(SMALL_NAN_STR) + i + flag_sign_pre_appended; ++i)
+                {
+                    if (!write_character_to_memory(allocator, memory, &used, &reserved, ' ')) goto end;
+                }
+                if ((flag_sign_pre_appended && !signbit(d_abnorm) && !write_character_to_memory(allocator, memory, &used, &reserved, '+')) || (signbit(d_abnorm) && !write_character_to_memory(allocator, memory, &used, &reserved, '-'))) goto end;
+                if (!reserve_memory(allocator, memory, &reserved, sizeof(SMALL_NAN_STR))) goto end;
+                memcpy(memory + used, SMALL_NAN_STR, sizeof(SMALL_NAN_STR));
+                used += sizeof(SMALL_NAN_STR);
+                continue;
+            }
+            {
+                print_nan_big:;
+                static const char BIG_NAN_STR[3] = "NAN";
+                for (uint32_t i = 0; min_width > sizeof(BIG_NAN_STR) + i + flag_sign_pre_appended; ++i)
+                {
+                    if (!write_character_to_memory(allocator, memory, &used, &reserved, ' ')) goto end;
+                }
+                if ((flag_sign_pre_appended && !signbit(d_abnorm) && !write_character_to_memory(allocator, memory, &used, &reserved, '+')) || (signbit(d_abnorm) && !write_character_to_memory(allocator, memory, &used, &reserved, '-'))) goto end;
+                if (!reserve_memory(allocator, memory, &reserved, sizeof(BIG_NAN_STR))) goto end;
+                memcpy(memory + used, BIG_NAN_STR, sizeof(BIG_NAN_STR));
+                static_assert(sizeof(BIG_NAN_STR) == 3);
+                used += sizeof(BIG_NAN_STR);
+                continue;
+            }
+            {
+                print_inf_small:;
+                static const char SMALL_INF_STR[3] = "inf";
+                for (uint32_t i = 0; min_width > sizeof(SMALL_INF_STR) + i + flag_sign_pre_appended; ++i)
+                {
+                    if (!write_character_to_memory(allocator, memory, &used, &reserved, ' ')) goto end;
+                }
+                if ((flag_sign_pre_appended && !signbit(d_abnorm) && !write_character_to_memory(allocator, memory, &used, &reserved, '+')) || (signbit(d_abnorm) && !write_character_to_memory(allocator, memory, &used, &reserved, '-'))) goto end;
+                if (!reserve_memory(allocator, memory, &reserved, sizeof(SMALL_INF_STR))) goto end;
+                memcpy(memory + used, SMALL_INF_STR, sizeof(SMALL_INF_STR));
+                static_assert(sizeof(SMALL_INF_STR) == 3);
+                used += sizeof(SMALL_INF_STR);
+                continue;
+            }
+            {
+                print_inf_big:;
+                static const char BIG_INF_STR[3] = "INF";
+                for (uint32_t i = 0; min_width > sizeof(BIG_INF_STR) + i + flag_sign_pre_appended; ++i)
+                {
+                    if (!write_character_to_memory(allocator, memory, &used, &reserved, ' ')) goto end;
+                }
+                if ((flag_sign_pre_appended && !signbit(d_abnorm) && !write_character_to_memory(allocator, memory, &used, &reserved, '+')) || (signbit(d_abnorm) && !write_character_to_memory(allocator, memory, &used, &reserved, '-'))) goto end;
+                if (!reserve_memory(allocator, memory, &reserved, sizeof(BIG_INF_STR))) goto end;
+                memcpy(memory + used, BIG_INF_STR, sizeof(BIG_INF_STR));
+                static_assert(sizeof(BIG_INF_STR) == 3);
+                used += sizeof(BIG_INF_STR);
+                continue;
+            }
         }
         else if (!write_character_to_memory(allocator, memory, &used, &reserved, *ptr)) goto end;
-//            if (used == reserved)
-//            {
-//                reserved += 64;
-//                void* new_mem = lin_alloc_reallocate(allocator, memory, reserved);
-//                assert(new_mem == memory);
-//                memory = new_mem;
-//            }
-//            memory[used++] = *ptr;
     }
 end:;
     //  Make the string fit perfectly
