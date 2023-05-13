@@ -2,7 +2,7 @@
 // Created by jan on 4.5.2023.
 //
 #include <stdlib.h>
-#include "../vk_allocator.h"
+#include "../aligned_jalloc.h"
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>

@@ -5,7 +5,7 @@
 #define _GNU_SOURCE
 
 #include <sys/mman.h>
-#include "vk_allocator.h"
+#include "aligned_jalloc.h"
 #include <assert.h>
 #include <malloc.h>
 #include <unistd.h>
