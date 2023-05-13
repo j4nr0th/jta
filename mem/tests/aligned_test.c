@@ -16,12 +16,24 @@
 #define ALLOC_MIN 32
 #define ALLOC_MAX (1 << 16)
 
+void* POINTER_ARRAY[A] = {};
+size_t ALIGN_ARRAY[A] = {};
+size_t SIZE_ARRAY[A] = {};
+
+int check_allocated_blocks(aligned_jallocator* allocator, void* exclude)
+{
+    for (uint32_t j = 0; j < A; ++j)
+    {
+        if (POINTER_ARRAY[j] == exclude) continue;
+        size_t size = aligned_jalloc_block_size(allocator, POINTER_ARRAY[j]);
+        assert(size >= SIZE_ARRAY[j]);
+        assert(((uintptr_t)POINTER_ARRAY[j] & (ALIGN_ARRAY[j] - 1)) == 0);
+    }
+    return 1;
+}
 
 int main()
 {
-    void* POINTER_ARRAY[A] = {};
-    size_t ALIGN_ARRAY[A] = {};
-    size_t SIZE_ARRAY[A] = {};
 
     aligned_jallocator* allocator = aligned_jallocator_create(4, 4);
 
@@ -158,10 +170,10 @@ int main()
         NEW_SIZES[i] = SIZE_ARRAY[SHUFFLE_ARRAY_1[i]];
         NEW_ALIGN[i] = ALIGN_ARRAY[SHUFFLE_ARRAY_1[i]];
     }
-
+    struct {uint8_t v;} *p;
     for (uint32_t i = 0; i < A; ++i)
     {
-        for (uint32_t j = 0; j <= i; ++j)
+        for (uint32_t j = 0; j < A; ++j)
         {
             uint32_t smaller_size = SIZE_ARRAY[j] > NEW_SIZES[j] ? NEW_SIZES[j] : SIZE_ARRAY[j];
             for (uint32_t k = 0; k < smaller_size; ++k)
@@ -171,15 +183,20 @@ int main()
         }
         for (uint32_t j = 0; j < A; ++j)
         {
-            assert(aligned_jalloc_block_size(allocator, POINTER_ARRAY[j]) >= SIZE_ARRAY[j]);
+            size_t size = aligned_jalloc_block_size(allocator, POINTER_ARRAY[j]);
+            assert(size >= SIZE_ARRAY[j]);
         }
         assert(aligned_jallocator_verify(allocator));
         void* new_ptr = aligned_jrealloc(allocator, POINTER_ARRAY[i], NEW_ALIGN[i], NEW_SIZES[i]);
         assert(new_ptr != NULL);
+        if (i == 7)
+        {
+            p = new_ptr + 0;
+        }
         assert(((uintptr_t)new_ptr % NEW_ALIGN[i]) == 0);
         assert(aligned_jallocator_verify(allocator));
         POINTER_ARRAY[i] = new_ptr;
-        for (uint32_t j = 0; j <= i; ++j)
+        for (uint32_t j = 0; j < A; ++j)
         {
             uint32_t smaller_size = SIZE_ARRAY[j] > NEW_SIZES[j] ? NEW_SIZES[j] : SIZE_ARRAY[j];
             for (uint32_t k = 0; k < smaller_size; ++k)
