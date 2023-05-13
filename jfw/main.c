@@ -562,7 +562,7 @@ static VkSampleCountFlagBits find_max_sample_flag(VkSampleCountFlagBits flags)
     return VK_SAMPLE_COUNT_1_BIT;
 }
 
-int main()
+int mained()
 {
     jfw_error_init_thread("master", jfw_error_level_none, 64, 64);
     JFW_ENTER_FUNCTION;

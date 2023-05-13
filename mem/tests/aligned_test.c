@@ -228,6 +228,105 @@ int main()
     aligned_jallocator_destroy(allocator);
 
 
+    allocator = aligned_jallocator_create(0, 4);
+    assert(allocator);
+    assert(aligned_jallocator_verify(allocator));
+
+    void** small_ptrs = aligned_jalloc(allocator, 32, sizeof(*small_ptrs) * 2048);
+
+    for (uint64_t i = 0; i < 2048; ++i)
+    {
+        small_ptrs[i] = aligned_jalloc(allocator, 8, 64);
+        assert(small_ptrs[i]);
+    }
+
+    for (uint64_t i = 0; i < 2048; ++i)
+    {
+        aligned_jfree(allocator, small_ptrs[i]);
+    }
+
+    {
+        void* tmp = aligned_jrealloc(allocator, small_ptrs[69], 256, 256);
+        assert(tmp == small_ptrs[69]);
+    }
+    aligned_jfree(allocator, small_ptrs);
+
+
+    void* big_pointers[4];
+    for (uint32_t i = 0; i < 4; ++i)
+    {
+        big_pointers[i] = aligned_jalloc(allocator, 2048, 1 << 20);
+        assert(big_pointers[i]);
+        memset(big_pointers[i], 69, 1 << 20);
+    }
+
+    {
+        void* tmp = aligned_jrealloc(allocator, big_pointers[0], 64, 64);
+        assert(tmp);
+        big_pointers[0] = tmp;
+        for (uint32_t i = 0; i < 64; ++i)
+        {
+            assert(((uint8_t*)tmp)[i] == 69);
+        }
+        memset(tmp, 69, 64);
+        tmp = 0;
+        tmp = aligned_jrealloc(allocator, big_pointers[1], 64, 512);
+        assert(tmp);
+        big_pointers[1] = tmp;
+        for (uint32_t i = 0; i < 512; ++i)
+        {
+            assert(((uint8_t*)tmp)[i] == 69);
+        }
+        memset(tmp, 69, 512);
+        tmp = 0;
+        tmp = aligned_jrealloc(allocator, big_pointers[2], 8, 1 << 21);
+        assert(tmp);
+        big_pointers[2] = tmp;
+        for (uint32_t i = 0; i < 1 << 20; ++i)
+        {
+            assert(((uint8_t*)tmp)[i] == 69);
+        }
+        memset(tmp, 69, 1 << 21);
+    }
+    for (uint32_t i = 0; i < 4; ++i)
+    {
+        aligned_jfree(allocator, big_pointers[i]);
+    }
+
+    void* lmao = aligned_jalloc(allocator, 8, 512 + 8);
+    void* ptr = aligned_jalloc(allocator, 8, 1024);
+    assert(ptr);
+    memset(ptr, 69, 1024);
+    void* tmp = aligned_jrealloc(allocator, ptr, 2048, 2048);
+    assert(aligned_jallocator_verify(allocator));
+    for (uint32_t i = 0; i < 1024; ++i)
+    {
+        assert(((uint8_t*)tmp)[i] == 69);
+    }
+    aligned_jfree(allocator, tmp);
+    assert(aligned_jallocator_verify(allocator));
+    aligned_jfree(allocator, lmao);
+    assert(aligned_jallocator_verify(allocator));
+
+
+    void* med_array[4] = {};
+    for (uint32_t i = 0; i < 4; ++i)
+    {
+        med_array[i] = aligned_jrealloc(allocator, NULL, 8, ((1 << 16) - (1 << 10)));
+        assert(med_array[i]);
+    }
+    ptr = aligned_jrealloc(allocator, med_array[3], 8, 1 << 8);
+    assert(ptr == med_array[3]);
+    med_array[3] = ptr;
+    for (uint32_t i = 0; i < 4; ++i)
+    {
+        aligned_jfree(allocator, med_array[i]);
+    }
+
+
+    assert(aligned_jallocator_verify(allocator));
+    printf("Wasted memory: %zu bytes\n", aligned_jallocator_lifetime_waste(allocator));
+    aligned_jallocator_destroy(allocator);
 
     return 0;
 }

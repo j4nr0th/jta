@@ -43,18 +43,18 @@ static_assert(_Alignof(mem_chunk_small) <= ASSUMED_PAGE_SIZE);
 typedef struct mem_chunk_med_struct mem_chunk_med;
 struct mem_chunk_med_struct
 {
-    uint32_t used;
-    uint32_t offset;
-    u64 size;
+    uint32_t used:1;
+    uint32_t offset:31;
+    uint32_t size;
 };
 //  Check size is small :)
-static_assert(sizeof(mem_chunk_med) == 2 * sizeof(void*));
+static_assert(sizeof(mem_chunk_med) == sizeof(void*));
 typedef struct mem_pool_med_struct mem_pool_med;
 #define MED_CHUNK_CAPACITY (ASSUMED_PAGE_SIZE / sizeof(mem_chunk_med) - 1)
 struct mem_pool_med_struct
 {
-    u64 chunk_count;
-    u64 chunk_max;
+    uint32_t chunk_count;
+    uint32_t chunk_max;
     //  Chunk list has to be sorted by address make merging simpler
     mem_chunk_med chunk_list[MED_CHUNK_CAPACITY];
     uint8_t bytes[];
@@ -65,6 +65,7 @@ static_assert(sizeof(mem_pool_med) == ASSUMED_PAGE_SIZE);
 
 //  To handle allocations larger than MED_CHUNK_LIMIT use mmap directly
 #define MED_CHUNK_LIMIT (1 << 16)
+static_assert((UINT32_MAX >> 1) >= MED_CHUNK_LIMIT);
 static_assert(((ASSUMED_PAGE_SIZE / sizeof(mem_chunk_med) - 1) * (1 << 10)) >= MED_CHUNK_LIMIT);
 typedef struct mem_pool_big_struct mem_pool_big;
 #define BIG_ALLOCATION_CAPACITY (ASSUMED_PAGE_SIZE / 2 / sizeof(void*) - 1)
@@ -191,6 +192,7 @@ void aligned_jallocator_destroy(aligned_jallocator* allocator)
         allocator->big_pool.pointer_array[i] = 0;
         allocator->big_pool.size_array[i] = 0;
     }
+    allocator->big_pool.ptr_count = 0;
 
     assert(allocator->p_small_pools);
     for (u64 j = 0; j < allocator->small_pool_count; ++j)
@@ -226,9 +228,15 @@ void aligned_jallocator_destroy(aligned_jallocator* allocator)
 
 void* aligned_jalloc(aligned_jallocator* allocator, uint_fast64_t alignment, uint_fast64_t size)
 {
+    assert(alignment <= ASSUMED_PAGE_SIZE);
     if (alignment > ASSUMED_PAGE_SIZE)
     {
         //  Not going to align more than a page man
+        return NULL;
+    }
+    assert(size % alignment == 0);
+    if (size & (alignment - 1))
+    {
         return NULL;
     }
 
@@ -246,7 +254,7 @@ void* aligned_jalloc(aligned_jallocator* allocator, uint_fast64_t alignment, uin
             for (j = 0, v = 0; j < sizeof(pool->bitmap); ++j)
             {
                 v = pool->bitmap[j];
-                if (v ^ ~0) break;
+                if (v ^ ((uint8_t)~0)) break;
             }
             if (j == sizeof(pool->bitmap))
             {
@@ -265,7 +273,8 @@ void* aligned_jalloc(aligned_jallocator* allocator, uint_fast64_t alignment, uin
             //  Get the memory address
             void* const ptr = pool->chunks + offset - 1;
             //  Mark the chunk as being in use now
-            pool->bitmap[j] ^= (1 << k);
+            assert(!(pool->bitmap[j] & (uint8_t)(1 << k)));
+            pool->bitmap[j] ^= (uint8_t)(1 << k);
             //  Compute memory waste
             allocator->lifetime_memory_waste += sizeof(mem_chunk_small) - size;
             //  Return the pointer
@@ -293,7 +302,7 @@ void* aligned_jalloc(aligned_jallocator* allocator, uint_fast64_t alignment, uin
         }
         pool->bitmap[0] = 3;
         void* ptr = pool->chunks + 0;
-        assert(allocator->p_small_pools[allocator->small_pool_count]);
+        assert(allocator->p_small_pools[allocator->small_pool_count] == NULL);
         allocator->p_small_pools[allocator->small_pool_count++] = pool;
         //  Return first chunk
         return ptr;
@@ -435,6 +444,15 @@ void* aligned_jrealloc(aligned_jallocator* allocator, void* ptr, uint_fast64_t a
     {
         return NULL;
     }
+    assert(new_size % alignment == 0);
+    if (new_size & (alignment - 1))
+    {
+        return NULL;
+    }
+    if (!ptr)
+    {
+        return aligned_jalloc(allocator, alignment, new_size);
+    }
     //  Search where the pointer is from
     //  Check small block pools
     for (u64 i = 0; i < allocator->small_pool_count; ++i)
@@ -458,8 +476,8 @@ void* aligned_jrealloc(aligned_jallocator* allocator, void* ptr, uint_fast64_t a
             memcpy(new_ptr, ptr, new_size > sizeof(mem_chunk_small) ? sizeof(mem_chunk_small) : new_size);
             //  Give the chunk back to the pool
             u64 index = ((mem_chunk_small*)ptr) - pool->chunks + 1;
-            assert(pool->bitmap[index >> 3] & (1 << (index & 7)));
-            pool->bitmap[index >> 3] ^= 1 << (index & 7);
+            assert(pool->bitmap[index >> 3] & (uint8_t)((1 << (index & 7))));
+            pool->bitmap[index >> 3] ^= (uint8_t)(1 << (index & 7));
         }
         return new_ptr;
     }
@@ -494,7 +512,7 @@ void* aligned_jrealloc(aligned_jallocator* allocator, void* ptr, uint_fast64_t a
         }
         uintptr_t ptr_v = (uintptr_t)pool + chunk->offset;
         uintptr_t extra = ptr_v & (alignment - 1);
-        uint_fast64_t padding = alignment - extra;
+        uint_fast64_t padding = extra ? alignment - extra : 0;
         if (extra)
         {
             ptr_v += padding;
@@ -507,39 +525,8 @@ void* aligned_jrealloc(aligned_jallocator* allocator, void* ptr, uint_fast64_t a
             {
                 return (void*) ptr_v;
             }
-            if (new_size > chunk->size)  //  Has to be expanded
-            {
-                //  Check if the block can be extended in place
-                mem_chunk_med* possible = pool->chunk_list + j + 1;
-                if (
-                        j + 1 != pool->chunk_count //  The chunk is not the last one in the list
-                        && possible->used == 0 //   The chunk is not in use
-                        && possible->size + chunk->size >= new_size + padding // joining both together gives enough space
-                        )
-                {
-                    u64 remainder = possible->size + chunk->size - new_size - padding;
-                    chunk->size += possible->size - remainder;
-                    possible->offset += remainder;
-                    possible->size = remainder;
-                    if (!remainder)
-                    {
-                        //  There is no remaining memory left in the other chunk, remove the empty chunk with no size
-                        memmove(possible, possible + 1, sizeof(*possible) * (pool->chunk_count - j - 2));
-                        pool->chunk_count -= 1;
-                        memset(pool->chunk_list + pool->chunk_count, 0, sizeof(pool->chunk_list[pool->chunk_count]));
-                    }
-                    //  Chunk has been expanded, return the original space
-                    allocator->lifetime_memory_waste += chunk->size - new_size;
-                    if (ptr_v != (uintptr_t)ptr)
-                    {
-                        uintptr_t size = ptr_v > (uintptr_t)ptr ? (uintptr_t)pool + chunk->offset + chunk->size - ptr_v : (uintptr_t)pool + chunk->offset + chunk->size - (uintptr_t)ptr;
-                        assert(size <= chunk->size);
-                        memmove((void*) ptr_v, ptr, size);
-                    }
-                    return (void*) ptr_v;
-                }
-            }
-            else if (new_size < chunk->size)  //  Has to be shrunken
+
+            if (new_size < chunk->size)  //  Has to be shrunken
             {
                 mem_chunk_med* possible = pool->chunk_list + j + 1;
                 u64 shrinkage = chunk->size - new_size - padding;
@@ -576,6 +563,41 @@ void* aligned_jrealloc(aligned_jallocator* allocator, void* ptr, uint_fast64_t a
             }
         }
 
+        if (new_size + padding > chunk->size)  //  Has to be expanded
+        {
+            //  Check if the block can be extended in place
+            mem_chunk_med* possible = pool->chunk_list + j + 1;
+            if (
+                    j + 1 != pool->chunk_count //  The chunk is not the last one in the list
+                    && possible->used == 0 //   The chunk is not in use
+                    && possible->size + chunk->size >= new_size + padding // joining both together gives enough space
+                    )
+            {
+                assert(aligned_jallocator_verify(allocator));
+                u64 remainder = possible->size + chunk->size - new_size - padding;
+                chunk->size += possible->size - remainder;
+                possible->offset += possible->size - remainder;
+                possible->size = remainder;
+                if (!remainder)
+                {
+                    //  There is no remaining memory left in the other chunk, remove the empty chunk with no size
+                    memmove(possible, possible + 1, sizeof(*possible) * (pool->chunk_count - j - 2));
+                    pool->chunk_count -= 1;
+                    memset(pool->chunk_list + pool->chunk_count, 0, sizeof(pool->chunk_list[pool->chunk_count]));
+                }
+                //  Chunk has been expanded, return the original space
+                allocator->lifetime_memory_waste += padding;
+                if (ptr_v != (uintptr_t)ptr)
+                {
+                    uintptr_t size = ptr_v > (uintptr_t)ptr ? (uintptr_t)pool + chunk->offset + chunk->size - ptr_v : (uintptr_t)pool + chunk->offset + chunk->size - (uintptr_t)ptr;
+                    assert(size <= chunk->size);
+                    memmove((void*) ptr_v, ptr, size);
+                }
+                assert(aligned_jallocator_verify(allocator));
+                return (void*) ptr_v;
+            }
+        }
+
 //  Return the chunk back to the pool
         chunk->used = 0;
         const u64 original_size = chunk->size - ((uintptr_t)ptr - ((uintptr_t)pool + chunk->offset));
@@ -597,11 +619,9 @@ void* aligned_jrealloc(aligned_jallocator* allocator, void* ptr, uint_fast64_t a
             memset(pool->chunk_list + pool->chunk_count, 0, sizeof(pool->chunk_list[pool->chunk_count]));
         }
         assert(aligned_jallocator_verify(allocator));
-        assert(check_allocated_blocks(allocator, ptr));
         // this can change what the chunk is pointing at, since it can insert/remove new blocks to and from the array
         void* new_memory = aligned_jalloc(allocator, alignment, new_size);
         assert(((uintptr_t)new_memory & (alignment - 1)) == 0);
-        assert(check_allocated_blocks(allocator, ptr));
         memmove(new_memory, ptr, new_size > original_size ? original_size : new_size);
 
         //  Chunk was freed, so return the address now
@@ -659,6 +679,7 @@ void* aligned_jrealloc(aligned_jallocator* allocator, void* ptr, uint_fast64_t a
 
 void aligned_jfree(aligned_jallocator* allocator, void* ptr)
 {
+    if (!ptr) return;
     //  Search where the pointer is from
     //  Check small block pools
     for (u64 i = 0; i < allocator->small_pool_count; ++i)
@@ -672,8 +693,8 @@ void aligned_jfree(aligned_jallocator* allocator, void* ptr)
 
         //  mark the block as free on the pool's bitmap
         u64 index = ((mem_chunk_small*)ptr) - pool->chunks + 1;
-        assert(pool->bitmap[index >> 3] & (1 << (index & 7)));
-        pool->bitmap[index >> 3] ^= 1 << (index & 7);
+        assert(pool->bitmap[index >> 3] & (uint8_t)(1 << (index & 7)));
+        pool->bitmap[index >> 3] ^= (uint8_t)(1 << (index & 7));
         return;
     }
 
@@ -746,6 +767,7 @@ void aligned_jfree(aligned_jallocator* allocator, void* ptr)
         int res = munmap(ptr, pool->size_array[i]);
         memmove(pool->pointer_array + i, pool->pointer_array + i + 1, (pool->ptr_count - i - 1) * sizeof(void*));
         memmove(pool->size_array + i, pool->size_array + i + 1, (pool->ptr_count - i - 1) * sizeof(u64));
+        pool->ptr_count -= 1;
         ptr = NULL;
         assert(res == 0);
 
