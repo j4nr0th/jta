@@ -11,6 +11,8 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <math.h>
+#include <float.h>
+#include <stdio.h>
 
 
 static inline char* write_character_to_memory(linear_allocator allocator, char* memory, size_t* p_used, size_t* p_reserved, unsigned char c)
@@ -89,7 +91,7 @@ static inline char double_get_hex_and_shift(double* p_value)
     double v = *p_value;
     assert(v >= 0.0 && v <= 16.0);
     const unsigned c = (unsigned)v;
-    *p_value = (v - (double)c) * 16;
+    *p_value = ldexp(v - (double)c, -4);//(v - (double)c) * 16;
     return (char)(c > 9 ? (c - 10) + 'a' : c + '0');
 }
 
@@ -98,7 +100,7 @@ static inline char double_get_HEX_and_shift(double* p_value)
     double v = *p_value;
     assert(v >= 0.0 && v <= 16.0);
     const unsigned c = (unsigned)v;
-    *p_value = (v - (double)c) * 16;
+    *p_value = ldexp(v - (double)c, -4);//(v - (double)c) * 16;
     return (char)(c > 9 ? (c - 10) + 'A' : c + '0');
 }
 
@@ -973,6 +975,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
             case 'E':
             {
                 intmax_t exponent;
+                long double original;
                 double base;
                 int less_than_zero = 0;
                 //  To convert it into form of a * 10^b, find a (base) and b (exponent)
@@ -982,12 +985,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 case LENGTH_MOD_l:
                     {
                         double v = va_arg(args, double);
-                        if (v == 0.0)
-                        {
-                            exponent = 0;
-                            base = 0.0;
-                        }
-                        else if (isnan(v))
+                        if (isnan(v))
                         {
                             d_abnorm = v;
                             if (*ptr == 'e')
@@ -1016,22 +1014,26 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                             less_than_zero = 1;
                             v = fabs(v);
                         }
-
-                        double l10 = log10(v);
-                        exponent = (intmax_t)l10;
-                        base = exp10(l10 - (double) exponent);
+                        if (v == 0.0)
+                        {
+                            exponent = 0;
+                            base = 0.0;
+                            original = 0.0;
+                        }
+                        else
+                        {
+                            original = (long double)v;
+                            double l10 = log10(v);
+                            exponent = (intmax_t)l10;
+                            base = exp10(l10 - (double) exponent);
+                        }
                     }
                     break;
 
                 case LENGTH_MOD_L:
                     {
                         long double v = va_arg(args, long double);
-                        if (v == 0.0)
-                        {
-                            exponent = 0;
-                            base = 0.0;
-                        }
-                        else if (isnan(v))
+                        if (isnan(v))
                         {
                             d_abnorm = (double)v;
                             if (*ptr == 'e')
@@ -1061,9 +1063,19 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                             v = fabsl(v);
                         }
 
-                        long double l10 = log10l(v);
-                        exponent = (intmax_t)l10;
-                        base = (double)exp10l(l10 - (long double) exponent);
+                        if (v == 0.0)
+                        {
+                            exponent = 0;
+                            base = 0.0;
+                            original = 0.0;
+                        }
+                        else
+                        {
+                            original = (long double)v;
+                            long double l10 = log10l(v);
+                            exponent = (intmax_t)l10;
+                            base = (double)exp10l(l10 - (long double) exponent);
+                        }
                     }
                     break;
 
@@ -1105,9 +1117,29 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 //  Now print the d.dddddd part
                 uint32_t i;
                 precision += 1;
+                double v = (double)(original * exp10l((long double)(was_negative ? exponent : -exponent)));
                 for (i = 0; i < precision; ++i)
                 {
-                    buffer[(reserved_buffer - buffer_usage - precision + i)] = double_get_dig_and_shift(&base);
+                    char c = double_get_dig_and_shift(&v);
+                    buffer[(reserved_buffer - buffer_usage - precision + i)] = c;//double_get_dig_and_shift(&base);
+                }
+                char remainder = (char)v;
+                assert(remainder < 10);
+                uint32_t j = i - 1;
+                while (remainder)
+                {
+                    char current = buffer[(reserved_buffer - buffer_usage - precision + j)] + (remainder > 5);
+                    if (current > '9')
+                    {
+                        remainder = 10;
+                        current -= 10;
+                    }
+                    else
+                    {
+                        remainder = 0;
+                    }
+                    buffer[(reserved_buffer - buffer_usage - precision + j)] = current;
+                    j -= 1;
                 }
                 buffer_usage += i;
                 //  Move the last digit forward to make space for the decimal point
@@ -1292,8 +1324,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 int was_negative = exponent < 0;
                 if (exponent < 0)
                 {
-                    exponent = -exponent + 1;
-                    base *= 10;
+                    exponent = -exponent;
                 }
                 {
                     uintmax_t e = exponent;
