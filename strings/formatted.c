@@ -914,11 +914,20 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 memory[used++] = '0';
                 memory[used++] = 'x';
                 memset(memory + used, '0', 16);
-                for (uint i = 0; i < 16 && p; ++i)
+                uint i;
+                for (i = 0; i < 16 && p; ++i)
                 {
-                    memory[used + 15 - i] = unsigned_get_lsd_HEX_and_shift(&p);
+                    memory[used + 15 - i] = unsigned_get_lsd_hex_and_shift(&p);
                 }
-                used += 16;
+                //  If we did not fill all 16 characters, move them further forward
+                if (i < 16)
+                {
+                    for (uint j = 0; j < i; ++j)
+                    {
+                        memory[used + j] = memory[used + (16 - i) + j];
+                    }
+                }
+                used += i;
             }
                 break;
             case 'n':
