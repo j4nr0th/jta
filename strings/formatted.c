@@ -11,8 +11,6 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <math.h>
-#include <float.h>
-#include <stdio.h>
 
 
 static inline char* write_character_to_memory(linear_allocator allocator, char* memory, size_t* p_used, size_t* p_reserved, unsigned char c)
@@ -358,7 +356,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                         }
                         else
                         {
-                            c = v;
+                            c = (unsigned char)v;
                         }
                     }
                         break;
@@ -838,11 +836,11 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                     c = va_arg(args, unsigned long long);
                     break;
                 case LENGTH_MOD_j:
-                    c = va_arg(args, uintmax_t);
-                    break;
+//                    c = va_arg(args, uintmax_t);
+//                    break;
                 case LENGTH_MOD_z:
-                    c = va_arg(args, size_t);
-                    break;
+//                    c = va_arg(args, size_t);
+//                    break;
                 case LENGTH_MOD_t:
                     c = va_arg(args, uintptr_t);
                     break;
@@ -970,10 +968,11 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 }
             }
                 break;
-            //  missing: f & F, g & G
+
             case 'e':
             case 'E':
             {
+            print_using_e_format:;
                 intmax_t exponent;
                 long double original;
                 double base;
@@ -988,7 +987,8 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                         if (isnan(v))
                         {
                             d_abnorm = v;
-                            if (*ptr == 'e')
+                            assert(*ptr == 'e' || *ptr == 'g' || *ptr == 'E' || *ptr == 'G');
+                            if (*ptr == 'e' || *ptr == 'g')
                             {
                                 goto print_nan_small;
                             }
@@ -1000,7 +1000,8 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                         else if (isinf(v))
                         {
                             d_abnorm = v;
-                            if (*ptr == 'e')
+                            assert(*ptr == 'e' || *ptr == 'g' || *ptr == 'E' || *ptr == 'G');
+                            if (*ptr == 'e' || *ptr == 'g')
                             {
                                 goto print_inf_small;
                             }
@@ -1036,7 +1037,8 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                         if (isnan(v))
                         {
                             d_abnorm = (double)v;
-                            if (*ptr == 'e')
+                            assert(*ptr == 'e' || *ptr == 'g' || *ptr == 'E' || *ptr == 'G');
+                            if (*ptr == 'e' || *ptr == 'g')
                             {
                                 goto print_nan_small;
                             }
@@ -1048,7 +1050,8 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                         else if (isinf(v))
                         {
                             d_abnorm = (double)v;
-                            if (*ptr == 'e')
+                            assert(*ptr == 'e' || *ptr == 'g' || *ptr == 'E' || *ptr == 'G');
+                            if (*ptr == 'e' || *ptr == 'g')
                             {
                                 goto print_inf_small;
                             }
@@ -1112,8 +1115,8 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 }
                 //  Put the exponent sign and 'e'/'E'
                 buffer[(reserved_buffer - ++buffer_usage)] = was_negative ? '-' : '+';
-                assert(*ptr == 'e' || *ptr == 'E');
-                buffer[(reserved_buffer - ++buffer_usage)] = *ptr;  //  This is either 'e' or 'E'
+                assert(*ptr == 'e' || *ptr == 'g' || *ptr == 'E' || *ptr == 'G');
+                buffer[(reserved_buffer - ++buffer_usage)] = *ptr == 'e' || *ptr == 'g' ? 'e' : 'E';  //  This is either 'e' or 'E'
                 //  Now print the d.dddddd part
                 uint32_t i;
                 precision += 1;
@@ -1128,7 +1131,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 uint32_t j = i - 1;
                 while (remainder)
                 {
-                    char current = buffer[(reserved_buffer - buffer_usage - precision + j)] + (remainder > 5);
+                    char current = (char)(buffer[(reserved_buffer - buffer_usage - precision + j)] + (remainder > 5));
                     if (current > '9')
                     {
                         remainder = 10;
@@ -1224,7 +1227,8 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                     else if (isnan(v))
                     {
                         d_abnorm = v;
-                        if (*ptr == 'e')
+                        assert(*ptr == 'a' || *ptr == 'A');
+                        if (*ptr == 'a')
                         {
                             goto print_nan_small;
                         }
@@ -1236,7 +1240,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                     else if (isinf(v))
                     {
                         d_abnorm = v;
-                        if (*ptr == 'e')
+                        if (*ptr == 'a')
                         {
                             goto print_inf_small;
                         }
@@ -1268,7 +1272,8 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                     else if (isnan(v))
                     {
                         d_abnorm = (double)v;
-                        if (*ptr == 'e')
+                        assert(*ptr == 'a' || *ptr == 'A');
+                        if (*ptr == 'a')
                         {
                             goto print_nan_small;
                         }
@@ -1280,7 +1285,8 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                     else if (isinf(v))
                     {
                         d_abnorm = (double)v;
-                        if (*ptr == 'e')
+                        assert(*ptr == 'a' || *ptr == 'A');
+                        if (*ptr == 'a')
                         {
                             goto print_inf_small;
                         }
@@ -1437,9 +1443,138 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
             }
                 break;
 
+            case 'g':
+            case 'G':
+            {
+                intmax_t P;
+                if (!precision_set)
+                {
+                    P = 6;
+                }
+                else if (precision == 0)
+                {
+                    P = 1;
+                }
+                else
+                {
+                    P = precision;
+                }
+                intmax_t exponent;
+                va_list copy;
+                va_copy(copy, args);
+                switch (length)
+                {
+                case LENGTH_MOD_NONE:
+                case LENGTH_MOD_l:
+                {
+                    double v = va_arg(copy, double);
+                    if (isnan(v))
+                    {
+                        d_abnorm = v;
+                        assert(*ptr == 'g' || *ptr == 'G');
+                        if (*ptr == 'g')
+                        {
+                            goto print_nan_small;
+                        }
+                        else
+                        {
+                            goto print_nan_big;
+                        }
+                    }
+                    else if (isinf(v))
+                    {
+                        d_abnorm = v;
+                        assert(*ptr == 'g' || *ptr == 'G');
+                        if (*ptr == 'g')
+                        {
+                            goto print_inf_small;
+                        }
+                        else
+                        {
+                            goto print_inf_big;
+                        }
+                    }
+                    if (v < 0.0)
+                    {
+                        v = fabs(v);
+                    }
+                    if (v == 0.0)
+                    {
+                        exponent = 0;
+                    }
+                    else
+                    {
+                        double l10 = log10(v);
+                        exponent = (intmax_t)l10;
+                    }
+                }
+                    break;
+
+                case LENGTH_MOD_L:
+                {
+                    long double v = va_arg(copy, long double);
+                    if (isnan(v))
+                    {
+                        d_abnorm = (double)v;
+                        assert(*ptr == 'g' || *ptr == 'G');
+                        if (*ptr == 'g')
+                        {
+                            goto print_nan_small;
+                        }
+                        else
+                        {
+                            goto print_nan_big;
+                        }
+                    }
+                    else if (isinf(v))
+                    {
+                        d_abnorm = (double)v;
+                        assert(*ptr == 'g' || *ptr == 'G');
+                        if (*ptr == 'g')
+                        {
+                            goto print_inf_small;
+                        }
+                        else
+                        {
+                            goto print_inf_big;
+                        }
+                    }
+                    if (v < 0.0)
+                    {
+                        v = fabsl(v);
+                    }
+                    if (v == 0.0)
+                    {
+                        exponent = 0;
+                    }
+                    else
+                    {
+                        long double l10 = log10l(v);
+                        exponent = (intmax_t)l10;
+                    }
+                }
+                    break;
+
+                default:
+                    goto end;
+                }
+                va_end(copy);
+                int X = (int)exponent;
+                precision_set = 1;
+                if (P > X && X >= -4)
+                {
+                    precision = (int)(P - 1 - X);
+                    goto print_using_f_format;
+                }
+                precision = (int)(P - 1);
+                goto print_using_e_format;
+            }
+                break;
+
             case 'f':
             case 'F':
             {
+                print_using_f_format:;
                 double whole;
                 double frac;
                 int less_than_zero = 0;
@@ -1460,7 +1595,8 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                     else if (isnan(v))
                     {
                         d_abnorm = v;
-                        if (*ptr == 'e')
+                        assert(*ptr == 'f' || *ptr == 'g' || *ptr == 'F' || *ptr == 'G');
+                        if (*ptr == 'f' || *ptr == 'g')
                         {
                             goto print_nan_small;
                         }
@@ -1472,7 +1608,8 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                     else if (isinf(v))
                     {
                         d_abnorm = v;
-                        if (*ptr == 'e')
+                        assert(*ptr == 'f' || *ptr == 'g' || *ptr == 'F' || *ptr == 'G');
+                        if (*ptr == 'f' || *ptr == 'g')
                         {
                             goto print_inf_small;
                         }
@@ -1511,7 +1648,8 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                     else if (isnan(v))
                     {
                         d_abnorm = (double)v;
-                        if (*ptr == 'e')
+                        assert(*ptr == 'f' || *ptr == 'g' || *ptr == 'F' || *ptr == 'G');
+                        if (*ptr == 'f' || *ptr == 'g')
                         {
                             goto print_nan_small;
                         }
@@ -1523,7 +1661,8 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                     else if (isinf(v))
                     {
                         d_abnorm = (double)v;
-                        if (*ptr == 'e')
+                        assert(*ptr == 'f' || *ptr == 'g' || *ptr == 'F' || *ptr == 'G');
+                        if (*ptr == 'f' || *ptr == 'g')
                         {
                             goto print_inf_small;
                         }
@@ -1571,12 +1710,12 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
 
                 uint32_t i;
                 {
-                    for (i = 0; i < precision; ++i)
+                    for (i = 0; i < precision && frac != 0.0; ++i)
                     {
                         buffer[(reserved_buffer - buffer_usage - precision + i)] = double_get_dig_and_shift(&frac);
                     }
                     buffer_usage += i;
-                    if (precision || flag_alternative_conversion)
+                    if ((frac != 0.0 && precision) || flag_alternative_conversion)
                     {
                         buffer[(reserved_buffer - ++buffer_usage)] = '.';
                     }
