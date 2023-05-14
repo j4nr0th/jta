@@ -90,7 +90,7 @@ static inline char double_get_hex_and_shift(double* p_value)
     assert(v >= 0.0 && v <= 16.0);
     const unsigned c = (unsigned)v;
     *p_value = (v - (double)c) * 16;
-    return (char)(c > 9 ? c + 'a' : c + '0');
+    return (char)(c > 9 ? (c - 10) + 'a' : c + '0');
 }
 
 static inline char double_get_HEX_and_shift(double* p_value)
@@ -99,7 +99,7 @@ static inline char double_get_HEX_and_shift(double* p_value)
     assert(v >= 0.0 && v <= 16.0);
     const unsigned c = (unsigned)v;
     *p_value = (v - (double)c) * 16;
-    return (char)(c > 9 ? c + 'A' : c + '0');
+    return (char)(c > 9 ? (c - 10) + 'A' : c + '0');
 }
 
 
@@ -210,18 +210,17 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
             //  Check for precision specifier
             if (*ptr == '.')
             {
+                precision_set = 1;
                 ptr += 1;
                 if (*ptr == '*')
                 {
                     //  Precision is given as separate argument
                     precision = va_arg(args, int);
                     if (precision < 0) precision = 0;
-                    precision_set = 1;
                     ptr += 1;
                 }
                 else if (*ptr >= '0' && *ptr <= '9')
                 {
-                    precision_set = 1;
                     //  Minimum precision is given as actual value in the string
                     do
                     {
@@ -969,7 +968,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 }
             }
                 break;
-            //  missing: f & F, a & A, g & G
+            //  missing: f & F, g & G
             case 'e':
             case 'E':
             {
@@ -1086,7 +1085,8 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 int was_negative = exponent < 0;
                 if (exponent < 0)
                 {
-                    exponent = -exponent;
+                    exponent = -exponent + 1;
+                    base *= 10;
                 }
                 for (uintmax_t e = exponent; e;)
                 {
@@ -1121,6 +1121,444 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 {
                     buffer[(reserved_buffer - ++buffer_usage)] = '0';
                 }
+                assert(flag_pad_leading_zeros == 0 || (flag_left_justify == 0));
+                while ((buffer_usage + (less_than_zero || flag_sign_pre_appended || flag_space_pre_appended)) < min_width && flag_pad_leading_zeros)
+                {
+                    buffer[(reserved_buffer - ++buffer_usage)] = '0';
+                }
+                //  Add sign (or a space) if needed
+                if (less_than_zero)
+                {
+                    buffer[(reserved_buffer - ++buffer_usage)] = '-';
+                }
+                else if (flag_sign_pre_appended)
+                {
+                    buffer[(reserved_buffer - ++buffer_usage)] = '+';
+                }
+                else if (flag_space_pre_appended)
+                {
+                    buffer[(reserved_buffer - ++buffer_usage)] = ' ';
+                }
+
+                //  If we pad with zeros, this should be it
+                if (flag_pad_leading_zeros)
+                {
+                    assert(buffer_usage >= min_width);
+                    assert(buffer_usage >= precision + (less_than_zero || flag_sign_pre_appended || flag_space_pre_appended));
+                }
+                //  If we don't justify left, we must pad now
+                if (!flag_pad_leading_zeros && !(flag_left_justify))
+                {
+                    while (buffer_usage < min_width)
+                    {
+                        buffer[(reserved_buffer - ++buffer_usage)] = ' ';
+                    }
+                }
+                assert(flag_left_justify == 1 || buffer_usage >= min_width);
+                //  Move to main string buffer
+                memcpy(memory + used, buffer + reserved_buffer - buffer_usage, buffer_usage);
+                //  If we justify right, pad spaces to main buffer
+                used += buffer_usage;
+                if (flag_left_justify && buffer_usage < min_width)
+                {
+                    memset(memory + used, ' ', min_width - buffer_usage);
+                    used += min_width - buffer_usage;
+                }
+                //  Release the temporary buffer
+
+                //  Free the buffer
+                lin_alloc_deallocate(allocator, buffer);
+            }
+                break;
+
+            case 'a':
+            case 'A':
+            {
+                int exponent;
+                double base;
+                int less_than_zero = 0;
+                //  To convert it into form of a * 10^b, find a (base) and b (exponent)
+                switch (length)
+                {
+                case LENGTH_MOD_NONE:
+                case LENGTH_MOD_l:
+                {
+                    double v = va_arg(args, double);
+                    if (v == 0.0)
+                    {
+                        exponent = 0;
+                        base = 0.0;
+                    }
+                    else if (isnan(v))
+                    {
+                        d_abnorm = v;
+                        if (*ptr == 'e')
+                        {
+                            goto print_nan_small;
+                        }
+                        else
+                        {
+                            goto print_nan_big;
+                        }
+                    }
+                    else if (isinf(v))
+                    {
+                        d_abnorm = v;
+                        if (*ptr == 'e')
+                        {
+                            goto print_inf_small;
+                        }
+                        else
+                        {
+                            goto print_inf_big;
+                        }
+                    }
+                    if (v < 0.0)
+                    {
+                        less_than_zero = 1;
+                        v = fabs(v);
+                    }
+
+                    base = frexp(v, &exponent);
+                    exponent -= 1;
+                    base = ldexp(base, 1);
+                }
+                    break;
+
+                case LENGTH_MOD_L:
+                {
+                    long double v = va_arg(args, long double);
+                    if (v == 0.0)
+                    {
+                        exponent = 0;
+                        base = 0.0;
+                    }
+                    else if (isnan(v))
+                    {
+                        d_abnorm = (double)v;
+                        if (*ptr == 'e')
+                        {
+                            goto print_nan_small;
+                        }
+                        else
+                        {
+                            goto print_nan_big;
+                        }
+                    }
+                    else if (isinf(v))
+                    {
+                        d_abnorm = (double)v;
+                        if (*ptr == 'e')
+                        {
+                            goto print_inf_small;
+                        }
+                        else
+                        {
+                            goto print_inf_big;
+                        }
+                    }
+                    if (v < 0.0)
+                    {
+                        less_than_zero = 1;
+                        v = fabsl(v);
+                    }
+
+                    long double tmp = frexpl(v, &exponent);
+                    exponent -= 1;
+                    base = (double)ldexpl(v, 1);
+                }
+                    break;
+
+                default:
+                    goto end;
+                }
+
+                //  Reserve an auxiliary buffer for conversion
+                const size_t reserved_buffer = 64 < precision ? precision : 64;
+                if (!reserve_memory(allocator, memory, &reserved, reserved_buffer)) goto end;
+                char* restrict buffer = lin_alloc_allocate(allocator, reserved_buffer);
+                size_t buffer_usage = 0;
+                if (!precision_set)
+                {
+                    precision = 6;
+                }
+                if (base == 0.0)
+                {
+                    exponent = 0;
+                    precision = 0;
+                }
+
+                //  Since we're printing the numbers into the buffer backwards, first put in the exponent
+                int was_negative = exponent < 0;
+                if (exponent < 0)
+                {
+                    exponent = -exponent + 1;
+                    base *= 10;
+                }
+                {
+                    uintmax_t e = exponent;
+                    do
+                    {
+                        buffer[(reserved_buffer - ++buffer_usage)] = unsigned_get_lsd_dec_and_shift(&e);
+                    }
+                    while (e);
+                }
+                //  Put the exponent sign and 'p'/'P'
+                buffer[(reserved_buffer - ++buffer_usage)] = was_negative ? '-' : '+';
+                assert(*ptr == 'a' || *ptr == 'A');
+                buffer[(reserved_buffer - ++buffer_usage)] = *ptr == 'A' ? 'P' : 'p';  //  This is either 'e' or 'E'
+                //  Now print the d.dddddd part
+                uint32_t i;
+                precision += 1;
+                if (*ptr == 'a')
+                {
+                    for (i = 0; i < precision; ++i)
+                    {
+                        buffer[(reserved_buffer - buffer_usage - precision + i)] = double_get_hex_and_shift(&base);
+                    }
+                    const char last = double_get_hex_and_shift(&base);
+                    static_assert('a' > '8');
+                    if (last >= '8')
+                    {
+                        buffer[(reserved_buffer - buffer_usage - precision + i - 1)] += 1;
+                    }
+                }
+                else
+                {
+                    for (i = 0; i < precision; ++i)
+                    {
+                        buffer[(reserved_buffer - buffer_usage - precision + i)] = double_get_HEX_and_shift(&base);
+                    }
+                    const char last = double_get_hex_and_shift(&base);
+                    static_assert('a' > '8');
+                    if (last >= '8')
+                    {
+                        buffer[(reserved_buffer - buffer_usage - precision + i - 1)] += 1;
+                    }
+                }
+                buffer_usage += i;
+                if (precision != 1 || flag_alternative_conversion)
+                {
+                    //  Move the last digit forward to make space for the decimal point
+                    buffer[(reserved_buffer - (buffer_usage + 1))] = buffer[(reserved_buffer - buffer_usage)];
+                    buffer[(reserved_buffer - buffer_usage)] = '.';
+                    buffer_usage += 1;
+                }
+                //  Preappend the 0x/0X
+                buffer[(reserved_buffer - ++buffer_usage)] = *ptr == 'A' ? 'X' : 'x';
+                buffer[(reserved_buffer - ++buffer_usage)] = '0';
+
+
+                //  The part missing is the sign and padding
+
+
+                while (buffer_usage < precision)
+                {
+                    buffer[(reserved_buffer - ++buffer_usage)] = '0';
+                }
+                assert(flag_pad_leading_zeros == 0 || (flag_left_justify == 0));
+                while ((buffer_usage + (less_than_zero || flag_sign_pre_appended || flag_space_pre_appended)) < min_width && flag_pad_leading_zeros)
+                {
+                    buffer[(reserved_buffer - ++buffer_usage)] = '0';
+                }
+                //  Add sign (or a space) if needed
+                if (less_than_zero)
+                {
+                    buffer[(reserved_buffer - ++buffer_usage)] = '-';
+                }
+                else if (flag_sign_pre_appended)
+                {
+                    buffer[(reserved_buffer - ++buffer_usage)] = '+';
+                }
+                else if (flag_space_pre_appended)
+                {
+                    buffer[(reserved_buffer - ++buffer_usage)] = ' ';
+                }
+
+                //  If we pad with zeros, this should be it
+                if (flag_pad_leading_zeros)
+                {
+                    assert(buffer_usage >= min_width);
+                    assert(buffer_usage >= precision + (less_than_zero || flag_sign_pre_appended || flag_space_pre_appended));
+                }
+                //  If we don't justify left, we must pad now
+                if (!flag_pad_leading_zeros && !(flag_left_justify))
+                {
+                    while (buffer_usage < min_width)
+                    {
+                        buffer[(reserved_buffer - ++buffer_usage)] = ' ';
+                    }
+                }
+                assert(flag_left_justify == 1 || buffer_usage >= min_width);
+                //  Move to main string buffer
+                memcpy(memory + used, buffer + reserved_buffer - buffer_usage, buffer_usage);
+                //  If we justify right, pad spaces to main buffer
+                used += buffer_usage;
+                if (flag_left_justify && buffer_usage < min_width)
+                {
+                    memset(memory + used, ' ', min_width - buffer_usage);
+                    used += min_width - buffer_usage;
+                }
+                //  Release the temporary buffer
+
+                //  Free the buffer
+                lin_alloc_deallocate(allocator, buffer);
+            }
+                break;
+
+            case 'f':
+            case 'F':
+            {
+                double whole;
+                double frac;
+                int less_than_zero = 0;
+                uint32_t pow_integer_part;
+                //  To convert it into integer part
+                switch (length)
+                {
+                case LENGTH_MOD_NONE:
+                case LENGTH_MOD_l:
+                {
+                    double v = va_arg(args, double);
+                    if (v == 0.0)
+                    {
+                        frac = 0.0;
+                        whole = 0.0;
+                        pow_integer_part = 0;
+                    }
+                    else if (isnan(v))
+                    {
+                        d_abnorm = v;
+                        if (*ptr == 'e')
+                        {
+                            goto print_nan_small;
+                        }
+                        else
+                        {
+                            goto print_nan_big;
+                        }
+                    }
+                    else if (isinf(v))
+                    {
+                        d_abnorm = v;
+                        if (*ptr == 'e')
+                        {
+                            goto print_inf_small;
+                        }
+                        else
+                        {
+                            goto print_inf_big;
+                        }
+                    }
+                    if (v < 0.0)
+                    {
+                        less_than_zero = 1;
+                        v = fabs(v);
+                    }
+
+                    frac = 10 * modf(v, &whole);
+                    if (whole != 0.0)
+                    {
+                        pow_integer_part = (uint)log10(whole);
+                    }
+                    else
+                    {
+                        pow_integer_part = 0;
+                    }
+                }
+                    break;
+
+                case LENGTH_MOD_L:
+                {
+                    long double v = va_arg(args, long double);
+                    if (v == 0.0)
+                    {
+                        frac = 0.0;
+                        whole = 0.0;
+                        pow_integer_part = 0;
+                    }
+                    else if (isnan(v))
+                    {
+                        d_abnorm = (double)v;
+                        if (*ptr == 'e')
+                        {
+                            goto print_nan_small;
+                        }
+                        else
+                        {
+                            goto print_nan_big;
+                        }
+                    }
+                    else if (isinf(v))
+                    {
+                        d_abnorm = (double)v;
+                        if (*ptr == 'e')
+                        {
+                            goto print_inf_small;
+                        }
+                        else
+                        {
+                            goto print_inf_big;
+                        }
+                    }
+                    if (v < 0.0)
+                    {
+                        less_than_zero = 1;
+                        v = fabsl(v);
+                    }
+                    long double tmp_w, tmp_f = 10 * modfl(v, &tmp_w);
+                    whole = (double)tmp_w;
+                    frac = (double)tmp_f;
+                    if (whole != 0.0)
+                    {
+                        pow_integer_part = (uint)log10l(tmp_w);
+                    }
+                    else
+                    {
+                        pow_integer_part = 0;
+                    }
+                }
+                    break;
+
+                default:
+                    goto end;
+                }
+
+                //  Reserve an auxiliary buffer for conversion
+                const size_t reserved_buffer = 64 < precision ? precision : 64;
+                if (!reserve_memory(allocator, memory, &reserved, reserved_buffer)) goto end;
+                char* restrict buffer = lin_alloc_allocate(allocator, reserved_buffer);
+                size_t buffer_usage = 0;
+                if (!precision_set)
+                {
+                    precision = 6;
+                }
+
+                //  Since we're printing the numbers into the buffer backwards, so the first part to be printed is the
+                //  fractional part of the number stored in (frac). It should currently be multiplied by 10, so that
+                //  the function double_get_dig_and_shift can get digits from it directly
+
+                uint32_t i;
+                {
+                    for (i = 0; i < precision; ++i)
+                    {
+                        buffer[(reserved_buffer - buffer_usage - precision + i)] = double_get_dig_and_shift(&frac);
+                    }
+                    buffer_usage += i;
+                    if (precision || flag_alternative_conversion)
+                    {
+                        buffer[(reserved_buffer - ++buffer_usage)] = '.';
+                    }
+                }
+                //  Put in the decimal point
+
+                //  Now print the integer part has to be printed
+                i = 0;
+                for (uintmax_t w = (uintmax_t)whole; w || i < 1; ++i)
+                {
+                    buffer[(reserved_buffer - ++buffer_usage)] = unsigned_get_lsd_dec_and_shift(&w);
+                }
+                //  The part missing is the sign and padding
                 assert(flag_pad_leading_zeros == 0 || (flag_left_justify == 0));
                 while ((buffer_usage + (less_than_zero || flag_sign_pre_appended || flag_space_pre_appended)) < min_width && flag_pad_leading_zeros)
                 {
