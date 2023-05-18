@@ -105,15 +105,24 @@ void jfw_error_push(jfw_error_level level, u32 line, const char* file, const cha
     size_t used = vsnprintf(message->message, error_length, fmt, args2);
     va_end(args2);
     snprintf(message->message + used, error_length - used, " (%s)", JFW_THREAD_ERROR_STATE.thrd_name);
+    i32 put_in_stack = 1;
     if (JFW_THREAD_ERROR_STATE.hook)
     {
-        JFW_THREAD_ERROR_STATE.hook(JFW_THREAD_ERROR_STATE.thrd_name, JFW_THREAD_ERROR_STATE.stacktrace_count, JFW_THREAD_ERROR_STATE.stack_traces, level, line, file, function, message->message, JFW_THREAD_ERROR_STATE.hook_param);
+        put_in_stack = JFW_THREAD_ERROR_STATE.hook(JFW_THREAD_ERROR_STATE.thrd_name, JFW_THREAD_ERROR_STATE.stacktrace_count, JFW_THREAD_ERROR_STATE.stack_traces, level, line, file, function, message->message, JFW_THREAD_ERROR_STATE.hook_param);
     }
-    message->file = file;
-    message->level = level;
-    message->function = function;
-    message->line = line;
-    JFW_THREAD_ERROR_STATE.errors[JFW_THREAD_ERROR_STATE.error_count++] = message;
+
+    if (put_in_stack)
+    {
+        message->file = file;
+        message->level = level;
+        message->function = function;
+        message->line = line;
+        JFW_THREAD_ERROR_STATE.errors[JFW_THREAD_ERROR_STATE.error_count++] = message;
+    }
+    else
+    {
+        free(message);
+    }
 }
 
 [[noreturn]] void jfw_error_report_critical(const char* fmt, ...)

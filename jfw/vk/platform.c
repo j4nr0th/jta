@@ -153,7 +153,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
     return VK_FALSE;
 }
 
-static jfw_res jfw_vulkan_context_create(jfw_vulkan_context* this, const char* app_name, u32 app_version)
+static jfw_res jfw_vulkan_context_create(jfw_vulkan_context* this, const char* app_name, u32 app_version, VkAllocationCallbacks* alloc_callbacks)
 {
     JFW_ENTER_FUNCTION;
     u32 mtx_created = 0;
@@ -278,7 +278,7 @@ static jfw_res jfw_vulkan_context_create(jfw_vulkan_context* this, const char* a
                         .pApplicationInfo = &app_info,
                 };
 
-        vk_res = vkCreateInstance(&create_info, NULL, &instance);
+        vk_res = vkCreateInstance(&create_info, alloc_callbacks, &instance);
         if (vk_res != VK_SUCCESS)
         {
             JFW_ERROR("Failed creating vulkan instance with desired extensions and layers, reason: %s",
@@ -287,6 +287,7 @@ static jfw_res jfw_vulkan_context_create(jfw_vulkan_context* this, const char* a
             goto failed;
         }
         this->instance = instance;
+        this->alloc_callback = *alloc_callbacks;
     }
 
 #ifndef NDEBUG
@@ -414,7 +415,7 @@ static jfw_res jfw_vulkan_context_destroy(jfw_vulkan_context* this)
 #ifndef NDEBUG
     this->vkDestroyDebugUtilsMessengerEXT(this->instance, this->dbg_messenger, NULL);
 #endif
-    vkDestroyInstance(this->instance, NULL);
+    vkDestroyInstance(this->instance, &this->alloc_callback);
     memset(this, 0, sizeof(*this));
     JFW_LEAVE_FUNCTION;
     return jfw_res_success;
@@ -559,8 +560,8 @@ static jfw_res score_physical_device(
 }
 
 jfw_res jfw_platform_create(
-        jfw_ctx* ctx, jfw_platform* platform, u32 w, u32 h, size_t title_len, const char* title,
-        u32 n_frames_in_filght)
+        jfw_ctx* ctx, jfw_platform* platform, u32 w, u32 h, size_t title_len, const char* title, u32 n_frames_in_filght,
+        i32 fixed)
 {
     JFW_ENTER_FUNCTION;
     jfw_res result = jfw_res_success;
@@ -597,10 +598,13 @@ jfw_res jfw_platform_create(
         XSelectInput(ctx->dpy, wnd, wa.event_mask);
         XSizeHints size_hints =
                 {
+                        .flags = PMaxSize|PMinSize,
                         .min_width = (int) w,
                         .min_height = (int) h,
                         .max_width = (int) w,
                         .max_height = (int) h,
+                        .width_inc = 0,
+                        .height_inc = 0,
                 };
         XSetWMNormalHints(ctx->dpy, wnd, &size_hints);
         if (ctx->del_atom != None)
@@ -1237,7 +1241,7 @@ jfw_res jfw_context_remove_window(jfw_ctx* ctx, jfw_window* p_window)
     return jfw_res_invalid_window;
 }
 
-jfw_res jfw_context_create(jfw_ctx** p_ctx)
+jfw_res jfw_context_create(jfw_ctx** p_ctx, VkAllocationCallbacks* alloc_callbacks)
 {
     JFW_ENTER_FUNCTION;
     jfw_res result = jfw_res_success;
@@ -1309,7 +1313,7 @@ jfw_res jfw_context_create(jfw_ctx** p_ctx)
     }
     XSetICFocus(ctx->input_ctx);
 
-    result = jfw_vulkan_context_create(&ctx->vk_ctx, "jfw_context", 1);
+    result = jfw_vulkan_context_create(&ctx->vk_ctx, "jfw_context", 1, alloc_callbacks);
     if (result != jfw_res_success)
     {
         XDestroyIC(ctx->input_ctx);

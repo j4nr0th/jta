@@ -15,23 +15,22 @@
 //
 //  Requirements:
 //      - Provide dynamic memory allocation capabilities
-//      - Do not consume more than TBD bytes of memory overhead
 //      - Provide lower time overhead than malloc and free
 //      - When no more memory is available, return NULL
 //      - Do not allow fragmentation
 //
 
-typedef struct linear_allocator_struct* linear_allocator;
+typedef struct linear_jallocator_struct linear_jallocator;
 
-linear_allocator lin_alloc_create(uint_fast64_t total_size);
+linear_jallocator* lin_jallocator_create(uint_fast64_t total_size);
 
-void* lin_alloc_reallocate(linear_allocator allocator, void* ptr, uint_fast64_t new_size);
+void* lin_jrealloc(linear_jallocator* allocator, void* ptr, uint_fast64_t new_size);
 
-void lin_alloc_deallocate(linear_allocator allocator, void* ptr);
+void lin_jfree(linear_jallocator* allocator, void* ptr);
 
-void* lin_alloc_allocate(linear_allocator allocator, uint_fast64_t size);
+void* lin_jalloc(linear_jallocator* allocator, uint_fast64_t size);
 
-void lin_alloc_destroy(linear_allocator allocator);
+void lin_jallocator_destroy(linear_jallocator* allocator);
 
 
 #endif //JFW_LIN_ALLOC_H

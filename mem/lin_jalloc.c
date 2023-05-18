@@ -3,7 +3,7 @@
 //
 
 #include <errno.h>
-#include "lin_alloc.h"
+#include "lin_jalloc.h"
 #include <string.h>
 #include <malloc.h>
 #include <assert.h>
@@ -11,24 +11,24 @@
 #include <sys/mman.h>
 
 
-struct linear_allocator_struct
+struct linear_jallocator_struct
 {
     void* max;
     void* base;
     void* current;
 };
 
-void lin_alloc_destroy(linear_allocator allocator)
+void lin_jallocator_destroy(linear_jallocator* allocator)
 {
-    linear_allocator this = (linear_allocator)allocator;
+    linear_jallocator* this = (linear_jallocator*)allocator;
     int res = munmap(this->base, this->max - this->base);
     assert(res == 0);
     free(this);
 }
 
-void* lin_alloc_allocate(linear_allocator allocator, uint_fast64_t size)
+void* lin_jalloc(linear_jallocator* allocator, uint_fast64_t size)
 {
-    linear_allocator this = (linear_allocator)allocator;
+    linear_jallocator* this = (linear_jallocator*)allocator;
     //  Get current allocator position and find new bottom
     void* ret = this->current;
     void* new_bottom = ret + size;
@@ -39,16 +39,25 @@ void* lin_alloc_allocate(linear_allocator allocator, uint_fast64_t size)
         return NULL;
     }
     this->current = new_bottom;
+#ifndef NDEBUG
+    memset(ret, 0xCC, size);
+#endif
     return ret;
 }
 
-void lin_alloc_deallocate(linear_allocator allocator, void* ptr)
+void lin_jfree(linear_jallocator* allocator, void* ptr)
 {
-    linear_allocator this = (linear_allocator)allocator;
+    linear_jallocator* this = (linear_jallocator*)allocator;
     if (this->base <= ptr && this->max > ptr)
     {
         //  ptr is from the allocator
-        if (this->current > ptr) this->current = ptr;
+        if (this->current > ptr)
+        {
+#ifndef NDEBUG
+        memset(ptr, 0xCC, this->current - ptr);
+#endif
+            this->current = ptr;
+        }
     }
 //    else
 //    {
@@ -57,10 +66,10 @@ void lin_alloc_deallocate(linear_allocator allocator, void* ptr)
 //    }
 }
 
-void* lin_alloc_reallocate(linear_allocator allocator, void* ptr, uint_fast64_t new_size)
+void* lin_jrealloc(linear_jallocator* allocator, void* ptr, uint_fast64_t new_size)
 {
-    if (!ptr) return lin_alloc_allocate(allocator, new_size);
-    linear_allocator this = allocator;
+    if (!ptr) return lin_jalloc(allocator, new_size);
+    linear_jallocator* this = allocator;
     //  Is the ptr from this allocator
     if (this->base <= ptr && this->max > ptr)
     {
@@ -68,16 +77,27 @@ void* lin_alloc_reallocate(linear_allocator allocator, void* ptr, uint_fast64_t 
         void* new_bottom = new_size + ptr;
         if (new_bottom > this->max)
         {
-            //  Overflow would happen, so use malloc
-            void* new_ptr = malloc(new_size);
-            if (!new_ptr) return NULL;
-            memcpy(new_ptr, ptr, this->current - ptr);
-            //  Free memory (reduce the ptr)
-            assert(ptr < this->current);
-            this->current = ptr;
-            return new_ptr;
+//            //  Overflow would happen, so use malloc
+//            void* new_ptr = malloc(new_size);
+//            if (!new_ptr) return NULL;
+//            memcpy(new_ptr, ptr, this->current - ptr);
+//            //  Free memory (reduce the ptr)
+//            assert(ptr < this->current);
+//            this->current = ptr;
+//            return new_ptr;
+            return NULL;
         }
         //  return ptr if no overflow, but update bottom of stack position
+#ifndef NDEBUG
+        if (new_bottom > this->current)
+        {
+          memset(this->current, 0xCC, new_bottom - this->current);
+        }
+        else if (new_bottom < this->current)
+        {
+            memset(new_bottom, 0xCC, this->current - new_bottom);
+        }
+#endif
         this->current = new_bottom;
         return ptr;
     }
@@ -86,10 +106,10 @@ void* lin_alloc_reallocate(linear_allocator allocator, void* ptr, uint_fast64_t 
     return NULL;
 }
 
-linear_allocator lin_alloc_create(uint_fast64_t total_size)
+linear_jallocator* lin_jallocator_create(uint_fast64_t total_size)
 {
     uint64_t PAGE_SIZE = sysconf(_SC_PAGESIZE);
-    linear_allocator this = malloc(sizeof(*this));
+    linear_jallocator* this = malloc(sizeof(*this));
     if (!this) return this;
     uint64_t extra = (total_size % PAGE_SIZE);
     if (extra)

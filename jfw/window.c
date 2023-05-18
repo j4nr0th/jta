@@ -17,7 +17,7 @@ static jfw_res redraw_background(jfw_widget* this)
     return jfw_res_success;
 }
 
-jfw_res jfw_window_create(jfw_ctx* ctx, u32 w, u32 h, char* title, jfw_color color, jfw_window** p_wnd)
+jfw_res jfw_window_create(jfw_ctx* ctx, u32 w, u32 h, char* title, jfw_color color, jfw_window** p_wnd, i32 fixed)
 {
     JFW_ENTER_FUNCTION;
     jfw_res result;
@@ -45,7 +45,7 @@ jfw_res jfw_window_create(jfw_ctx* ctx, u32 w, u32 h, char* title, jfw_color col
         return result;
     }
     memcpy(this->title, title, title_len + 1);
-    if (!jfw_success(result = jfw_platform_create(ctx, &this->platform, w, h, title_len, title, 2)))
+    if (!jfw_success(result = jfw_platform_create(ctx, &this->platform, w, h, title_len, title, 2, fixed)))
     {
         jfw_free(&this->title);
         jfw_free(&this);
@@ -82,13 +82,13 @@ jfw_res jfw_window_destroy(jfw_ctx* ctx, jfw_window* wnd)
 {
     JFW_ENTER_FUNCTION;
     jfw_res result = jfw_res_success;
-    assert(ctx == wnd->ctx);
     if (!jfw_success(result = jfw_context_remove_window(ctx, wnd)))
     {
         JFW_ERROR("Removing window registration from the library context failed");
         JFW_LEAVE_FUNCTION;
         return result;
     }
+    assert(ctx == wnd->ctx);
     //  Destroy window's widgets
     if (wnd->base)
     {

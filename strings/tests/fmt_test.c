@@ -2,16 +2,12 @@
 // Created by jan on 13.5.2023.
 //
 #include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
 #include <assert.h>
-#include <math.h>
 #include <float.h>
-#include "../../mem/lin_alloc.h"
+#include "../../mem/lin_jalloc.h"
 #include "../formatted.h"
 #include "../../profiling_timer.h"
 
-#include <unistd.h>
 #include <time.h>
 
 //  Note: specifier %p with snprintf does not match with lin_sprintf, because snprintf does not print leading zeros and
@@ -19,9 +15,9 @@
 
 int main()
 {
-    linear_allocator allocator = lin_alloc_create(1 << 16);
+    linear_jallocator* allocator = lin_jallocator_create(1 << 16);
     const char* const fmt_string = "C%#-6.8llX - %10G %12.30G %+025.015d %n si se%cora %p";
-    char* sample_buffer = lin_alloc_allocate(allocator, 1024);
+    char* sample_buffer = lin_jalloc(allocator, 1024);
 //    memset(sample_buffer, 0, 1024);
     int so_far_1 = 0, so_far_2 = 0, so_far_3 = 0;
     struct timespec ts_base_0, ts_base_1, ts_mine_0, ts_mine_1, ts_ext_0, ts_ext_1;
@@ -33,7 +29,7 @@ int main()
     timer_monotonic_get(&ts_mine_1);
 
     printf("Converted value by lin_sprintf was \"%s\" (%zu bytes long), took %li ns\n", comparison, l_compare, timer_diff(&ts_mine_0, &ts_mine_1));
-    lin_alloc_deallocate(allocator, comparison);
+    lin_jfree(allocator, comparison);
 
 
     timer_monotonic_get(&ts_base_0);
@@ -47,14 +43,13 @@ int main()
     timer_monotonic_get(&ts_mine_1);
 
     printf("Converted value by lin_sprintf was \"%s\" (%zu bytes long), took %li ns\n", comparison, l_compare, timer_diff(&ts_mine_0, &ts_mine_1));
-    lin_alloc_deallocate(allocator, comparison);
-    union {double d; uint64_t u;} g = {.d = INFINITY}, h = {.d = -INFINITY};
+    lin_eprintf(allocator, "Converted value by lin_sprintf was \"%s\" (%zu bytes long), took %li ns\n", comparison, l_compare, timer_diff(&ts_mine_0, &ts_mine_1));
     assert(so_far_2 == so_far_1);
     assert(l_compare == l_base);
     assert(strcmp(sample_buffer, comparison) == 0);
+    lin_jfree(allocator, comparison);
 
 
-
-    lin_alloc_destroy(allocator);
+    lin_jallocator_destroy(allocator);
     return 0;
 }

@@ -11,14 +11,15 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <math.h>
+#include <unistd.h>
 
 
-static inline char* write_character_to_memory(linear_allocator allocator, char* memory, size_t* p_used, size_t* p_reserved, unsigned char c)
+static inline char* write_character_to_memory(linear_jallocator* allocator, char* memory, size_t* p_used, size_t* p_reserved, unsigned char c)
 {
     if (*p_used == *p_reserved)
     {
         *p_reserved += 64;
-        char* new_memory = lin_alloc_reallocate(allocator, memory, *p_reserved);
+        char* new_memory = lin_jrealloc(allocator, memory, *p_reserved);
         if (!new_memory)
             return NULL;
         memory = new_memory;
@@ -27,9 +28,9 @@ static inline char* write_character_to_memory(linear_allocator allocator, char* 
     return memory;
 }
 
-static inline char* reserve_memory(linear_allocator allocator, char* memory, size_t* p_reserved, size_t reserve)
+static inline char* reserve_memory(linear_jallocator* allocator, char* memory, size_t* p_reserved, size_t reserve)
 {
-    char* new_memory = lin_alloc_reallocate(allocator, memory, *p_reserved + reserve);
+    char* new_memory = lin_jrealloc(allocator, memory, *p_reserved + reserve);
     if (!new_memory)
     {
         return NULL;
@@ -103,13 +104,20 @@ static inline char double_get_HEX_and_shift(double* p_value)
 }
 
 
-char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* fmt, ...)
+char* lin_sprintf(linear_jallocator* allocator, size_t* const p_size, const char* fmt, ...)
 {
-    if (!p_size || !fmt) return NULL;
     va_list args;
     va_start(args, fmt);
+    char* const ret_v = lin_vasprintf(allocator, p_size, fmt, args);
+    va_end(args);
+    return ret_v;
+}
+
+char* lin_vasprintf(linear_jallocator* allocator, size_t* p_size, const char* fmt, va_list args)
+{
+    if (!p_size || !fmt) return NULL;
     size_t used = 0, reserved = 64;
-    char* memory = lin_alloc_allocate(allocator, reserved);
+    char* memory = lin_jalloc(allocator, reserved);
     for (const char* ptr = fmt; *ptr; ++ptr)
     {
         if (*ptr == '%' && *(ptr += 1) != '%')
@@ -150,7 +158,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
 
 
             //  Check for any flags
-        flag_check:
+            flag_check:
             switch (*ptr)
             {
             case '-':
@@ -308,7 +316,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                         if (len > reserved - used)
                         {
                             reserved += len + 64;
-                            char* new_mem = lin_alloc_reallocate(allocator, memory, reserved);
+                            char* new_mem = lin_jrealloc(allocator, memory, reserved);
                             if (!new_mem)
                             {
                                 goto end;
@@ -336,180 +344,180 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
             case 'd':
             case 'i':
                 //  Signed decimal integer
+            {
+                if (precision_set)
                 {
-                    if (precision_set)
+                    flag_pad_leading_zeros = 0;
+                }
+                uintmax_t c;
+                int is_negative = 0;
+                switch (length)
+                {
+                case LENGTH_MOD_hh:
+                {
+                    const signed char v = (signed char)va_arg(args, int);
+                    //  Add check for sign and put it in the buffer
+                    if (v < 0)
                     {
-                        flag_pad_leading_zeros = 0;
+                        is_negative = 1;
+                        c = -v;
                     }
-                    uintmax_t c;
-                    int is_negative = 0;
-                    switch (length)
+                    else
                     {
-                    case LENGTH_MOD_hh:
-                    {
-                        const signed char v = (signed char)va_arg(args, int);
-                        //  Add check for sign and put it in the buffer
-                        if (v < 0)
-                        {
-                            is_negative = 1;
-                            c = -v;
-                        }
-                        else
-                        {
-                            c = (unsigned char)v;
-                        }
+                        c = (unsigned char)v;
                     }
-                        break;
-                    case LENGTH_MOD_h:
+                }
+                    break;
+                case LENGTH_MOD_h:
+                {
+                    const short v = (short) va_arg(args, int);
+                    if (v < 0)
                     {
-                        const short v = (short) va_arg(args, int);
-                        if (v < 0)
-                        {
-                            is_negative = 1;
-                            c = -v;
-                        }
-                        else
-                        {
-                            c = v;
-                        }
+                        is_negative = 1;
+                        c = -v;
                     }
-                        break;
-                    case LENGTH_MOD_NONE:
+                    else
                     {
-                        const int v = va_arg(args, int);
-                        if (v < 0)
-                        {
-                            is_negative = 1;
-                            c = -v;
-                        }
-                        else
-                        {
-                            c = v;
-                        }
+                        c = v;
                     }
-                        break;
-                    case LENGTH_MOD_l:
+                }
+                    break;
+                case LENGTH_MOD_NONE:
+                {
+                    const int v = va_arg(args, int);
+                    if (v < 0)
                     {
-                        const long v = va_arg(args, long);
-                        if (v < 0)
-                        {
-                            is_negative = 1;
-                            c = -v;
-                        }
-                        else
-                        {
-                            c = v;
-                        }
+                        is_negative = 1;
+                        c = -v;
                     }
-                        break;
-                    case LENGTH_MOD_ll:
+                    else
                     {
-                        const long long v = va_arg(args, long long);
-                        if (v < 0)
-                        {
-                            is_negative = 1;
-                            c = -v;
-                        }
-                        else
-                        {
-                            c = v;
-                        }
+                        c = v;
                     }
-                        break;
-                    case LENGTH_MOD_j:
-                    case LENGTH_MOD_z:
+                }
+                    break;
+                case LENGTH_MOD_l:
+                {
+                    const long v = va_arg(args, long);
+                    if (v < 0)
                     {
-                        const intmax_t v = va_arg(args, intmax_t);
-                        if (v < 0)
-                        {
-                            is_negative = 1;
-                            c = -v;
-                        }
-                        else
-                        {
-                            c = v;
-                        }
+                        is_negative = 1;
+                        c = -v;
                     }
-                        break;
-                    case LENGTH_MOD_t:
+                    else
                     {
-                        intptr_t v = va_arg(args, intptr_t);
-                        if (v < 0)
-                        {
-                            is_negative = 1;
-                            c = -v;
-                        }
-                        else
-                        {
-                            c = v;
-                        }
+                        c = v;
                     }
-                        break;
+                }
+                    break;
+                case LENGTH_MOD_ll:
+                {
+                    const long long v = va_arg(args, long long);
+                    if (v < 0)
+                    {
+                        is_negative = 1;
+                        c = -v;
+                    }
+                    else
+                    {
+                        c = v;
+                    }
+                }
+                    break;
+                case LENGTH_MOD_j:
+                case LENGTH_MOD_z:
+                {
+                    const intmax_t v = va_arg(args, intmax_t);
+                    if (v < 0)
+                    {
+                        is_negative = 1;
+                        c = -v;
+                    }
+                    else
+                    {
+                        c = v;
+                    }
+                }
+                    break;
+                case LENGTH_MOD_t:
+                {
+                    intptr_t v = va_arg(args, intptr_t);
+                    if (v < 0)
+                    {
+                        is_negative = 1;
+                        c = -v;
+                    }
+                    else
+                    {
+                        c = v;
+                    }
+                }
+                    break;
                     //  This is fucked up
-                    case LENGTH_MOD_L:
-                        goto end;
-                    }
+                case LENGTH_MOD_L:
+                    goto end;
+                }
 
-                    //  Put the absolute value in the buffer
-                    const size_t reserved_buffer = 64 < precision ? precision : 64;
-                    if (!reserve_memory(allocator, memory, &reserved, reserved_buffer)) goto end;
-                    char* restrict buffer = lin_alloc_allocate(allocator, reserved_buffer);
-                    size_t buffer_usage = 0;
-                    while (c)
-                    {
-                        assert(buffer_usage < reserved_buffer);
-                        buffer[(reserved_buffer - ++buffer_usage)] = unsigned_get_lsd_dec_and_shift(&c);
-                    }
-                    while (buffer_usage < precision)
-                    {
-                        buffer[(reserved_buffer - ++buffer_usage)] = '0';
-                    }
-                    assert(flag_pad_leading_zeros == 0 || (flag_left_justify == 0));
-                    while ((buffer_usage + (is_negative || flag_sign_pre_appended || flag_space_pre_appended)) < min_width && flag_pad_leading_zeros)
-                    {
-                        buffer[(reserved_buffer - ++buffer_usage)] = '0';
-                    }
-                    //  Add sign (or a space) if needed
-                    if (is_negative)
-                    {
-                        buffer[(reserved_buffer - ++buffer_usage)] = '-';
-                    }
-                    else if (flag_sign_pre_appended)
-                    {
-                        buffer[(reserved_buffer - ++buffer_usage)] = '+';
-                    }
-                    else if (flag_space_pre_appended)
+                //  Put the absolute value in the buffer
+                const size_t reserved_buffer = 64 < precision ? precision : 64;
+                if (!reserve_memory(allocator, memory, &reserved, reserved_buffer)) goto end;
+                char* restrict buffer = lin_jalloc(allocator, reserved_buffer);
+                size_t buffer_usage = 0;
+                while (c)
+                {
+                    assert(buffer_usage < reserved_buffer);
+                    buffer[(reserved_buffer - ++buffer_usage)] = unsigned_get_lsd_dec_and_shift(&c);
+                }
+                while (buffer_usage < precision)
+                {
+                    buffer[(reserved_buffer - ++buffer_usage)] = '0';
+                }
+                assert(flag_pad_leading_zeros == 0 || (flag_left_justify == 0));
+                while ((buffer_usage + (is_negative || flag_sign_pre_appended || flag_space_pre_appended)) < min_width && flag_pad_leading_zeros)
+                {
+                    buffer[(reserved_buffer - ++buffer_usage)] = '0';
+                }
+                //  Add sign (or a space) if needed
+                if (is_negative)
+                {
+                    buffer[(reserved_buffer - ++buffer_usage)] = '-';
+                }
+                else if (flag_sign_pre_appended)
+                {
+                    buffer[(reserved_buffer - ++buffer_usage)] = '+';
+                }
+                else if (flag_space_pre_appended)
+                {
+                    buffer[(reserved_buffer - ++buffer_usage)] = ' ';
+                }
+
+                //  If we pad with zeros, this should be it
+                if (flag_pad_leading_zeros)
+                {
+                    assert(buffer_usage >= min_width);
+                    assert(buffer_usage >= precision + (is_negative || flag_sign_pre_appended || flag_space_pre_appended));
+                }
+                //  If we don't justify left, we must pad now
+                if (!flag_pad_leading_zeros && !(flag_left_justify))
+                {
+                    while (buffer_usage < min_width)
                     {
                         buffer[(reserved_buffer - ++buffer_usage)] = ' ';
                     }
-
-                    //  If we pad with zeros, this should be it
-                    if (flag_pad_leading_zeros)
-                    {
-                        assert(buffer_usage >= min_width);
-                        assert(buffer_usage >= precision + (is_negative || flag_sign_pre_appended || flag_space_pre_appended));
-                    }
-                    //  If we don't justify left, we must pad now
-                    if (!flag_pad_leading_zeros && !(flag_left_justify))
-                    {
-                        while (buffer_usage < min_width)
-                        {
-                            buffer[(reserved_buffer - ++buffer_usage)] = ' ';
-                        }
-                    }
-                    assert(flag_left_justify == 1 || buffer_usage >= min_width);
-                    //  Move to main string buffer
-                    memcpy(memory + used, buffer + reserved_buffer - buffer_usage, buffer_usage);
-                    //  If we justify right, pad spaces to main buffer
-                    used += buffer_usage;
-                    if (flag_left_justify && buffer_usage < min_width)
-                    {
-                        memset(memory + used, ' ', min_width - buffer_usage);
-                        used += min_width - buffer_usage;
-                    }
-                    //  Release the temporary buffer
-                    lin_alloc_deallocate(allocator, buffer);
                 }
+                assert(flag_left_justify == 1 || buffer_usage >= min_width);
+                //  Move to main string buffer
+                memcpy(memory + used, buffer + reserved_buffer - buffer_usage, buffer_usage);
+                //  If we justify right, pad spaces to main buffer
+                used += buffer_usage;
+                if (flag_left_justify && buffer_usage < min_width)
+                {
+                    memset(memory + used, ' ', min_width - buffer_usage);
+                    used += min_width - buffer_usage;
+                }
+                //  Release the temporary buffer
+                lin_jfree(allocator, buffer);
+            }
                 break;
 
             case 'o':
@@ -551,7 +559,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 //  Put the absolute value in the buffer
                 const size_t reserved_buffer = 64 < precision ? precision : 64;
                 if (!reserve_memory(allocator, memory, &reserved, reserved_buffer)) goto end;
-                char* restrict buffer = lin_alloc_allocate(allocator, reserved_buffer);
+                char* restrict buffer = lin_jalloc(allocator, reserved_buffer);
                 size_t buffer_usage = 0;
                 while (c)
                 {
@@ -606,12 +614,12 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                     used += min_width - buffer_usage;
                 }
                 //  Release the temporary buffer
-                lin_alloc_deallocate(allocator, buffer);
+                lin_jfree(allocator, buffer);
             }
                 break;
 
             case 'x':
-                //  Unsigned octal integer
+                //  Unsigned hex integer
             {
                 if (precision_set)
                 {
@@ -649,7 +657,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 //  Put the absolute value in the buffer
                 const size_t reserved_buffer = 64 < precision ? precision : 64;
                 if (!reserve_memory(allocator, memory, &reserved, reserved_buffer)) goto end;
-                char* restrict buffer = lin_alloc_allocate(allocator, reserved_buffer);
+                char* restrict buffer = lin_jalloc(allocator, reserved_buffer);
                 size_t buffer_usage = 0;
                 const int was_zero = c != 0;
                 while (c)
@@ -706,12 +714,12 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                     used += min_width - buffer_usage;
                 }
                 //  Release the temporary buffer
-                lin_alloc_deallocate(allocator, buffer);
+                lin_jfree(allocator, buffer);
             }
                 break;
 
             case 'X':
-                //  Unsigned octal integer
+                //  Unsigned hex integer
             {
                 if (precision_set)
                 {
@@ -749,7 +757,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 //  Put the absolute value in the buffer
                 const size_t reserved_buffer = 64 < precision ? precision : 64;
                 if (!reserve_memory(allocator, memory, &reserved, reserved_buffer)) goto end;
-                char* restrict buffer = lin_alloc_allocate(allocator, reserved_buffer);
+                char* restrict buffer = lin_jalloc(allocator, reserved_buffer);
                 size_t buffer_usage = 0;
                 const int was_zero = c == 0;
                 while (c)
@@ -806,12 +814,12 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                     used += min_width - buffer_usage;
                 }
                 //  Release the temporary buffer
-                lin_alloc_deallocate(allocator, buffer);
+                lin_jfree(allocator, buffer);
             }
                 break;
 
             case 'u':
-                //  Signed decimal integer
+                //  Unsigned decimal integer
             {
                 if (precision_set)
                 {
@@ -852,7 +860,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 //  Put the absolute value in the buffer
                 const size_t reserved_buffer = 64 < precision ? precision : 64;
                 if (!reserve_memory(allocator, memory, &reserved, reserved_buffer)) goto end;
-                char* restrict buffer = lin_alloc_allocate(allocator, reserved_buffer);
+                char* restrict buffer = lin_jalloc(allocator, reserved_buffer);
                 size_t buffer_usage = 0;
                 while (c)
                 {
@@ -903,7 +911,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                     used += min_width - buffer_usage;
                 }
                 //  Release the temporary buffer
-                lin_alloc_deallocate(allocator, buffer);
+                lin_jfree(allocator, buffer);
             }
                 break;
             case 'p':
@@ -981,7 +989,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
             case 'e':
             case 'E':
             {
-            print_using_e_format:;
+                print_using_e_format:;
                 intmax_t exponent;
                 long double original;
                 double base;
@@ -991,104 +999,104 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 {
                 case LENGTH_MOD_NONE:
                 case LENGTH_MOD_l:
+                {
+                    double v = va_arg(args, double);
+                    if (isnan(v))
                     {
-                        double v = va_arg(args, double);
-                        if (isnan(v))
+                        d_abnorm = v;
+                        assert(*ptr == 'e' || *ptr == 'g' || *ptr == 'E' || *ptr == 'G');
+                        if (*ptr == 'e' || *ptr == 'g')
                         {
-                            d_abnorm = v;
-                            assert(*ptr == 'e' || *ptr == 'g' || *ptr == 'E' || *ptr == 'G');
-                            if (*ptr == 'e' || *ptr == 'g')
-                            {
-                                goto print_nan_small;
-                            }
-                            else
-                            {
-                                goto print_nan_big;
-                            }
-                        }
-                        else if (isinf(v))
-                        {
-                            d_abnorm = v;
-                            assert(*ptr == 'e' || *ptr == 'g' || *ptr == 'E' || *ptr == 'G');
-                            if (*ptr == 'e' || *ptr == 'g')
-                            {
-                                goto print_inf_small;
-                            }
-                            else
-                            {
-                                goto print_inf_big;
-                            }
-                        }
-                        if (v < 0.0)
-                        {
-                            less_than_zero = 1;
-                            v = fabs(v);
-                        }
-                        if (v == 0.0)
-                        {
-                            exponent = 0;
-                            base = 0.0;
-                            original = 0.0;
+                            goto print_nan_small;
                         }
                         else
                         {
-                            original = (long double)v;
-                            double l10 = log10(v);
-                            exponent = (intmax_t)l10;
-                            base = exp10(l10 - (double) exponent);
+                            goto print_nan_big;
                         }
                     }
+                    else if (isinf(v))
+                    {
+                        d_abnorm = v;
+                        assert(*ptr == 'e' || *ptr == 'g' || *ptr == 'E' || *ptr == 'G');
+                        if (*ptr == 'e' || *ptr == 'g')
+                        {
+                            goto print_inf_small;
+                        }
+                        else
+                        {
+                            goto print_inf_big;
+                        }
+                    }
+                    if (v < 0.0)
+                    {
+                        less_than_zero = 1;
+                        v = fabs(v);
+                    }
+                    if (v == 0.0)
+                    {
+                        exponent = 0;
+                        base = 0.0;
+                        original = 0.0;
+                    }
+                    else
+                    {
+                        original = (long double)v;
+                        double l10 = log10(v);
+                        exponent = (intmax_t)l10;
+                        base = exp10(l10 - (double) exponent);
+                    }
+                }
                     break;
 
                 case LENGTH_MOD_L:
+                {
+                    long double v = va_arg(args, long double);
+                    if (isnan(v))
                     {
-                        long double v = va_arg(args, long double);
-                        if (isnan(v))
+                        d_abnorm = (double)v;
+                        assert(*ptr == 'e' || *ptr == 'g' || *ptr == 'E' || *ptr == 'G');
+                        if (*ptr == 'e' || *ptr == 'g')
                         {
-                            d_abnorm = (double)v;
-                            assert(*ptr == 'e' || *ptr == 'g' || *ptr == 'E' || *ptr == 'G');
-                            if (*ptr == 'e' || *ptr == 'g')
-                            {
-                                goto print_nan_small;
-                            }
-                            else
-                            {
-                                goto print_nan_big;
-                            }
-                        }
-                        else if (isinf(v))
-                        {
-                            d_abnorm = (double)v;
-                            assert(*ptr == 'e' || *ptr == 'g' || *ptr == 'E' || *ptr == 'G');
-                            if (*ptr == 'e' || *ptr == 'g')
-                            {
-                                goto print_inf_small;
-                            }
-                            else
-                            {
-                                goto print_inf_big;
-                            }
-                        }
-                        if (v < 0.0)
-                        {
-                            less_than_zero = 1;
-                            v = fabsl(v);
-                        }
-
-                        if (v == 0.0)
-                        {
-                            exponent = 0;
-                            base = 0.0;
-                            original = 0.0;
+                            goto print_nan_small;
                         }
                         else
                         {
-                            original = (long double)v;
-                            long double l10 = log10l(v);
-                            exponent = (intmax_t)l10;
-                            base = (double)exp10l(l10 - (long double) exponent);
+                            goto print_nan_big;
                         }
                     }
+                    else if (isinf(v))
+                    {
+                        d_abnorm = (double)v;
+                        assert(*ptr == 'e' || *ptr == 'g' || *ptr == 'E' || *ptr == 'G');
+                        if (*ptr == 'e' || *ptr == 'g')
+                        {
+                            goto print_inf_small;
+                        }
+                        else
+                        {
+                            goto print_inf_big;
+                        }
+                    }
+                    if (v < 0.0)
+                    {
+                        less_than_zero = 1;
+                        v = fabsl(v);
+                    }
+
+                    if (v == 0.0)
+                    {
+                        exponent = 0;
+                        base = 0.0;
+                        original = 0.0;
+                    }
+                    else
+                    {
+                        original = (long double)v;
+                        long double l10 = log10l(v);
+                        exponent = (intmax_t)l10;
+                        base = (double)exp10l(l10 - (long double) exponent);
+                    }
+                }
                     break;
 
                 default:
@@ -1098,7 +1106,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 //  Reserve an auxiliary buffer for conversion
                 const size_t reserved_buffer = 64 < precision ? precision : 64;
                 if (!reserve_memory(allocator, memory, &reserved, reserved_buffer)) goto end;
-                char* restrict buffer = lin_alloc_allocate(allocator, reserved_buffer);
+                char* restrict buffer = lin_jalloc(allocator, reserved_buffer);
                 size_t buffer_usage = 0;
                 if (!precision_set)
                 {
@@ -1211,7 +1219,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 //  Release the temporary buffer
 
                 //  Free the buffer
-                lin_alloc_deallocate(allocator, buffer);
+                lin_jfree(allocator, buffer);
             }
                 break;
 
@@ -1323,7 +1331,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 //  Reserve an auxiliary buffer for conversion
                 const size_t reserved_buffer = 64 < precision ? precision : 64;
                 if (!reserve_memory(allocator, memory, &reserved, reserved_buffer)) goto end;
-                char* restrict buffer = lin_alloc_allocate(allocator, reserved_buffer);
+                char* restrict buffer = lin_jalloc(allocator, reserved_buffer);
                 size_t buffer_usage = 0;
                 if (!precision_set)
                 {
@@ -1448,7 +1456,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 //  Release the temporary buffer
 
                 //  Free the buffer
-                lin_alloc_deallocate(allocator, buffer);
+                lin_jfree(allocator, buffer);
             }
                 break;
 
@@ -1706,7 +1714,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 //  Reserve an auxiliary buffer for conversion
                 const size_t reserved_buffer = 64 < precision ? precision : 64;
                 if (!reserve_memory(allocator, memory, &reserved, reserved_buffer)) goto end;
-                char* restrict buffer = lin_alloc_allocate(allocator, reserved_buffer);
+                char* restrict buffer = lin_jalloc(allocator, reserved_buffer);
                 size_t buffer_usage = 0;
                 if (!precision_set)
                 {
@@ -1784,7 +1792,7 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
                 //  Release the temporary buffer
 
                 //  Free the buffer
-                lin_alloc_deallocate(allocator, buffer);
+                lin_jfree(allocator, buffer);
             }
                 break;
             }
@@ -1849,9 +1857,9 @@ char* lin_sprintf(linear_allocator allocator, size_t* const p_size, const char* 
         }
         else if (!write_character_to_memory(allocator, memory, &used, &reserved, *ptr)) goto end;
     }
-end:;
+    end:;
     //  Make the string fit perfectly
-    void* new_mem = lin_alloc_reallocate(allocator, memory, used + 1);
+    void* new_mem = lin_jrealloc(allocator, memory, used + 1);
     assert(new_mem == memory);
     memory = new_mem;
     if (!used || (used && memory[used - 1 ] != 0))
@@ -1859,8 +1867,24 @@ end:;
         memory[used] = 0;
     }
     assert(used == 0 || memory[used] == 0);
-    va_end(args);
+
     *p_size = used;
     //  Return the linearly obtained allocation
     return memory;
+}
+
+void lin_eprintf(linear_jallocator* allocator, const char* fmt, ...)
+{
+    size_t len;
+    va_list args;
+    va_start(args, fmt);
+    char* const buffer = lin_vasprintf(allocator, &len, fmt, args);
+    va_end(args);
+    int res = write(STDERR_FILENO, buffer, len);
+    if (res < 0)
+    {
+        assert(0);
+    }
+    //  Free the buffer
+    lin_jfree(allocator, buffer);
 }

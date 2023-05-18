@@ -234,11 +234,11 @@ void* aligned_jalloc(aligned_jallocator* allocator, uint_fast64_t alignment, uin
         //  Not going to align more than a page man
         return NULL;
     }
-    assert(size % alignment == 0);
-    if (size & (alignment - 1))
-    {
-        return NULL;
-    }
+//    assert(size % alignment == 0);
+//    if (size & (alignment - 1))
+//    {
+//        return NULL;
+//    }
 
     //  Check if this should be allocated using a small pool
     if (size <= sizeof(mem_chunk_small) && alignment <= _Alignof(mem_chunk_small))
@@ -444,11 +444,11 @@ void* aligned_jrealloc(aligned_jallocator* allocator, void* ptr, uint_fast64_t a
     {
         return NULL;
     }
-    assert(new_size % alignment == 0);
-    if (new_size & (alignment - 1))
-    {
-        return NULL;
-    }
+//    assert(new_size % alignment == 0);
+//    if (new_size & (alignment - 1))
+//    {
+//        return NULL;
+//    }
     if (!ptr)
     {
         return aligned_jalloc(allocator, alignment, new_size);

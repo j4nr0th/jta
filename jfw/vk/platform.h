@@ -50,6 +50,7 @@ struct jfw_vulkan_context_struct
     VkPhysicalDevice* p_physical_devices;
     u32 max_device_extensions;
     u32 max_device_queue_families;
+    VkAllocationCallbacks alloc_callback;
 };
 
 struct jfw_context_struct
@@ -85,13 +86,13 @@ struct jfw_window_platform_struct
 #error Not implimented
 #endif
 
-jfw_res jfw_context_create(jfw_ctx** p_ctx);
+jfw_res jfw_context_create(jfw_ctx** p_ctx, VkAllocationCallbacks* alloc_callbacks);
 
 jfw_res jfw_context_destroy(jfw_ctx* ctx);
 
 jfw_res jfw_platform_create(
-        jfw_ctx* ctx, jfw_platform* platform, u32 w, u32 h, size_t title_len, const char* title,
-        u32 n_frames_in_filght);
+        jfw_ctx* ctx, jfw_platform* platform, u32 w, u32 h, size_t title_len, const char* title, u32 n_frames_in_filght,
+        i32 fixed);
 
 jfw_window_vk_resources* jfw_window_get_vk_resources(jfw_window* p_window);
 

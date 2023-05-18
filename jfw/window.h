@@ -51,7 +51,7 @@ struct jfw_window_struct
 //    jfw_color_scheme color_scheme;  //  color scheme used for rendering colors
 };
 
-jfw_res jfw_window_create(jfw_ctx* ctx, u32 w, u32 h, char* title, jfw_color color, jfw_window** p_wnd);
+jfw_res jfw_window_create(jfw_ctx* ctx, u32 w, u32 h, char* title, jfw_color color, jfw_window** p_wnd, i32 fixed);
 
 jfw_res jfw_window_show(jfw_ctx* ctx, jfw_window* wnd);
 
