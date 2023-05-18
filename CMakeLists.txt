@@ -21,6 +21,8 @@ list(APPEND UTILITY_HEADER_FILES profiling_timer.h)
 add_executable(jtb main.c ${JFW_SOURCE_FILES} ${JFW_HEADER_FILES} ${ALLOCATORS_SOURCE_FILES} ${ALLOCATORS_HEADER_FILES}   ${FORMATTED_IO_SOURCE_FILES} ${FORMATTED_IO_HEADER_FILES} ${UTILITY_SOURCE_FILES} ${UTILITY_HEADER_FILES} vk_state.c vk_state.h common.h mem/vk_mem_allocator.c mem/vk_mem_allocator.h drawing_3d.c drawing_3d.h)
 target_link_libraries(jtb PRIVATE vulkan X11 m)
 
+add_executable(jfw_test ${JFW_SOURCE_FILES} ${JFW_HEADER_FILES} jfw/main.c)
+target_link_libraries(jfw_test PRIVATE vulkan X11 m)
 enable_testing()
 add_subdirectory(mem)
 add_subdirectory(strings)

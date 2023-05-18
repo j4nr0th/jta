@@ -61,7 +61,7 @@ jfw_res draw_3d_scene(jfw_window* wnd, vk_state* state, jfw_window_vk_resources*
                 .renderArea.extent = vk_resources->extent,
                 .clearValueCount = 2,
                 .pClearValues = clear_array,
-                .framebuffer = state->framebuffers[i_frame],
+                .framebuffer = state->framebuffers[img_index],
                 };
 
         vkCmdBeginRenderPass(cmd_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
@@ -69,7 +69,7 @@ jfw_res draw_3d_scene(jfw_window* wnd, vk_state* state, jfw_window_vk_resources*
         vkCmdSetScissor(cmd_buffer, 0, 1, &state->scissor);
         vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, state->gfx_pipeline_3D);
         vkCmdBindVertexBuffers(cmd_buffer, 0, 1, &state->buffer_vtx.buffer, &state->buffer_vtx.offset);
-        vkCmdBindIndexBuffer(cmd_buffer, state->buffer_idx.buffer, state->buffer_vtx.offset, VK_INDEX_TYPE_UINT32);
+        vkCmdBindIndexBuffer(cmd_buffer, state->buffer_idx.buffer, state->buffer_idx.offset, VK_INDEX_TYPE_UINT32);
         vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, state->layout_3D, 0, 1, state->desc_set + i_frame, 0, NULL);
         vkCmdDrawIndexed(cmd_buffer, 12, 1, 0, 0, 0);
         vkCmdEndRenderPass(cmd_buffer);

@@ -562,7 +562,7 @@ static VkSampleCountFlagBits find_max_sample_flag(VkSampleCountFlagBits flags)
     return VK_SAMPLE_COUNT_1_BIT;
 }
 
-int mained()
+int main()
 {
     jfw_error_init_thread("master", jfw_error_level_none, 64, 64);
     JFW_ENTER_FUNCTION;
@@ -572,9 +572,9 @@ int mained()
     jfw_res result;
 
     VkResult vk_result = VK_SUCCESS;
-    result = jfw_context_create(&context);
+    result = jfw_context_create(&context, nullptr);
     assert(result == jfw_res_success);
-    result = jfw_window_create(context, 720, 480, "Gaming window", (jfw_color) { .r = 0xFF, .a = 0xFF }, &wnd);
+    result = jfw_window_create(context, 720, 480, "Gaming window", (jfw_color) { .r = 0xFF, .a = 0xFF }, &wnd, false);
     assert(result == jfw_res_success);
     jfw_widget* button, *wnd_background;
     result = jfw_widget_create_as_base(wnd, 720, 480, 0, 0, &wnd_background);

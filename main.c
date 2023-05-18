@@ -195,6 +195,7 @@ int main(int argc, char* argv[argc])
         JFW_ERROR("Could not create window");
         goto cleanup;
     }
+    jfw_window_show(jctx, jwnd);
     VkResult vk_result;
     jfw_window_vk_resources* const vk_res = jfw_window_get_vk_resources(jwnd);
     jfw_vulkan_context* const vk_ctx = &jctx->vk_ctx;
@@ -261,7 +262,6 @@ int main(int argc, char* argv[argc])
 
     printf("Hello, World!\n");
     i32 close = 0;
-    jfw_window_show(jctx, jwnd);
     while (jfw_success(jfw_context_wait_for_events(jctx)) && !close)
     {
         while (jfw_context_has_events(jctx) && !close)
