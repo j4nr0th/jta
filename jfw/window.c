@@ -45,7 +45,7 @@ jfw_res jfw_window_create(jfw_ctx* ctx, u32 w, u32 h, char* title, jfw_color col
         return result;
     }
     memcpy(this->title, title, title_len + 1);
-    if (!jfw_success(result = jfw_platform_create(ctx, &this->platform, w, h, title_len, title, 2, fixed)))
+    if (!jfw_success(result = jfw_platform_create(ctx, &this->platform, w, h, title_len, title, 2, fixed, color)))
     {
         jfw_free(&this->title);
         jfw_free(&this);

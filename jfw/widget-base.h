@@ -81,6 +81,8 @@ jfw_widget_functions* jfw_widget_get_function_table(jfw_widget* widget);
 
 u0 jfw_widget_bounds(jfw_widget* widget, i32* p_x0, i32* p_y0, i32* p_x1, i32* p_y1);
 
+jfw_res jfw_widget_add_child(jfw_widget* parent, jfw_widget* child);
+
 static inline jfw_res jfw_widget_to_string(const jfw_widget* this, u64 max_bytes, char* buffer)
 {
     if (this && this->convert_to_string)

@@ -216,7 +216,7 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
                         .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
                         .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
                         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                        .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                        .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
                 };
         VkAttachmentReference depth_attach_ref =
                 {
@@ -299,7 +299,8 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
         VkViewport viewport = {.x = 0.0f, .y = 0.0f, .width = (f32)vk_resources->extent.width, .height = (f32)vk_resources->extent.height,
                 .minDepth = 0.0f, .maxDepth = 1.0f};
         VkRect2D scissors = {.offset = {0, 0}, .extent = vk_resources->extent};
-
+        p_state->viewport = viewport;
+        p_state->scissor = scissors;
         VkVertexInputBindingDescription vtx_binding_desc_3d =
                 {
                 .binding = 0,
@@ -547,14 +548,14 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
     ret_v = vk_buffer_reserve(allocator, 0, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_BUFFER_USAGE_TRANSFER_SRC_BIT|VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE);
     if (ret_v != 0)
     {
-        //  Have to allocate them seperately
-        ret_v = vk_buffer_allocate(allocator, 1 << 8, 1 << 12, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE, &p_state->buffer_transfer);
-        if (ret_v != 0)
-        {
-            JFW_ERROR("Could not reserve device memory for transfer buffer(s)");
-            jfw_result = jfw_res_vk_fail;
-            goto after_3d_framebuffers;
-        }
+//        //  Have to allocate them seperately
+//        ret_v = vk_buffer_allocate(allocator, 1 << 8, 1 << 12, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE, &p_state->buffer_transfer);
+//        if (ret_v != 0)
+//        {
+//            JFW_ERROR("Could not reserve device memory for transfer buffer(s)");
+//            jfw_result = jfw_res_vk_fail;
+//            goto after_3d_framebuffers;
+//        }
         //  Reserve space for uniform buffer(s)
         ret_v = vk_buffer_reserve(allocator, 0, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE);
         if (ret_v != 0)
@@ -563,6 +564,14 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
             jfw_result = jfw_res_vk_fail;
             goto after_3d_framebuffers;
         }
+    }
+    //  Have to allocate them seperately
+    ret_v = vk_buffer_allocate(allocator, 1 << 8, 1 << 12, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE, &p_state->buffer_transfer);
+    if (ret_v != 0)
+    {
+        JFW_ERROR("Could not reserve device memory for transfer buffer(s)");
+        jfw_result = jfw_res_vk_fail;
+        goto after_3d_framebuffers;
     }
 
     //  Create transfer fence
@@ -730,6 +739,7 @@ jfw_res vk_transfer_memory_to_buffer(
 {
     assert(size <= p_state->buffer_transfer.size);
     vkWaitForFences(vk_resources->device, 1, &p_state->fence_transfer_free, VK_TRUE, UINT64_MAX);
+    vkResetFences(vk_resources->device, 1, &p_state->fence_transfer_free);
     void* mapped_memory = vk_map_allocation(&p_state->buffer_transfer);
     if (!mapped_memory)
     {
@@ -744,10 +754,16 @@ jfw_res vk_transfer_memory_to_buffer(
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
             .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
             };
-    VkResult vk_res = vkBeginCommandBuffer(cmd_buffer, &begin_info);
+    VkResult vk_res = vkResetCommandBuffer(cmd_buffer, 0);
     if (vk_res != VK_SUCCESS)
     {
-        JFW_ERROR("Could not begin recording of the command transfer buffer");
+        JFW_ERROR("Could not begin reset the command buffer, reason: %s", jfw_vk_error_msg(vk_res));
+        return jfw_res_vk_fail;
+    }
+    vk_res = vkBeginCommandBuffer(cmd_buffer, &begin_info);
+    if (vk_res != VK_SUCCESS)
+    {
+        JFW_ERROR("Could not begin recording of the command transfer buffer, reason: %s", jfw_vk_error_msg(vk_res));
         return jfw_res_vk_fail;
     }
     const VkBufferCopy buffer_copy_info =

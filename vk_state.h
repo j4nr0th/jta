@@ -24,7 +24,7 @@ struct vk_state_struct
     VkPipelineLayout layout_UI;
     VkPipeline gfx_pipeline_UI;
     vk_buffer_allocator* buffer_allocator;
-    vk_buffer_allocation buffer_device_local, buffer_transfer, buffer_uniform;
+    vk_buffer_allocation buffer_vtx, buffer_idx, buffer_transfer, buffer_uniform;
     VkFence fence_transfer_free;
     VkDescriptorSetLayout ubo_layout;
     ubo_3d** p_mapped_array;

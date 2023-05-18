@@ -93,7 +93,7 @@ jfw_res jfw_context_destroy(jfw_ctx* ctx);
 
 jfw_res jfw_platform_create(
         jfw_ctx* ctx, jfw_platform* platform, u32 w, u32 h, size_t title_len, const char* title, u32 n_frames_in_filght,
-        i32 fixed);
+        i32 fixed, jfw_color color);
 
 jfw_window_vk_resources* jfw_window_get_vk_resources(jfw_window* p_window);
 

@@ -230,8 +230,38 @@ jfw_res jfw_widget_create_as_base(jfw_window* parent, u32 w, u32 h, i32 x, i32 y
     this->x = x;
     this->y = y;
     this->window = parent;
+    jfw_widget* old_base = parent->base;
+    if (old_base)
+    {
+        if (!jfw_success(res = jfw_widget_add_child(this, old_base)))
+        {
+            JFW_ERROR("Could not add old base as a child to new");
+            jfw_free(&this);
+            return res;
+        }
+    }
+    parent->base = this;
     *pp_widget = this;
     jfw_widget_ask_for_redraw(this);
     JFW_LEAVE_FUNCTION;
     return jfw_res_success;
+}
+
+jfw_res jfw_widget_add_child(jfw_widget* parent, jfw_widget* child)
+{
+    if (parent->children_count == parent->children_capacity)
+    {
+        const u32 new_capacity = parent->children_capacity ? parent->children_capacity << 1 : 8;
+        jfw_res res = jfw_realloc(new_capacity * sizeof(*parent->children_array), &parent->children_array);
+        if (!jfw_success(res))
+        {
+            JFW_ERROR("Failed reallocating child array of a window");
+            return res;
+        }
+        parent->children_capacity = new_capacity;
+    }
+    assert(child->parent == NULL);
+    child->parent = parent;
+    parent->children_array[parent->children_count++] = child;
+    return jfw_res_ctx_no_ic;
 }

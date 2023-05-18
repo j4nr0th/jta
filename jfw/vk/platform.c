@@ -565,7 +565,7 @@ static jfw_res score_physical_device(
 
 jfw_res jfw_platform_create(
         jfw_ctx* ctx, jfw_platform* platform, u32 w, u32 h, size_t title_len, const char* title, u32 n_frames_in_filght,
-        i32 fixed)
+        i32 fixed, jfw_color color)
 {
     JFW_ENTER_FUNCTION;
     jfw_res result = jfw_res_success;
@@ -1102,7 +1102,8 @@ jfw_res jfw_platform_create(
         res->swap_fences = fences;
     }
 
-
+    unsigned long pixel = ((unsigned long)color.a << (24)) | ((unsigned long)color.r << (16)) | ((unsigned long)color.g << (8)) | ((unsigned long)color.b << (0));
+    XSetWindowBackground(ctx->dpy, wnd, pixel);
     JFW_LEAVE_FUNCTION;
     return result;
 

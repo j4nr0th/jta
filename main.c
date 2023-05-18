@@ -8,22 +8,31 @@
 #include "mem/lin_jalloc.h"
 
 #include "jfw/window.h"
+#include "jfw/widget-base.h"
 #include "jfw/error_system/error_codes.h"
 #include "jfw/error_system/error_stack.h"
 
 
 #include "vk_state.h"
+#include "drawing_3d.h"
 
 
 linear_jallocator* G_LIN_JALLOCATOR = NULL;
 aligned_jallocator* G_ALIGN_JALLOCATOR = NULL;
 
-static void window_dtor(jfw_window* wnd)
+static jfw_res widget_draw(jfw_widget* this)
 {
+    return draw_3d_scene(this->window, this->window->user_ptr, jfw_window_get_vk_resources(this->window));
+}
+
+static jfw_res widget_dtor(jfw_widget* this)
+{
+    jfw_window* wnd = this->window;
     void* state = jfw_window_get_usr_ptr(wnd);
     jfw_window_vk_resources* vk_res = jfw_window_get_vk_resources(wnd);
+    vkDeviceWaitIdle(vk_res->device);
     vk_state_destroy(state, vk_res);
-    jfw_window_destroy(wnd->ctx, wnd);
+    return jfw_res_success;
 }
 
 static void* VKAPI_PTR vk_aligned_allocation_fn(void* pUserData, size_t size, size_t alignment, VkSystemAllocationScope allocationScope)
@@ -179,10 +188,11 @@ int main(int argc, char* argv[argc])
         goto cleanup;
     }
     jfw_result = jfw_window_create(
-            jctx, 720, 480, "Jan's Truss Builder - 0.0.1", (jfw_color) { .a = 0xFF, .r = 0xD0, .g = 0xD0, .b = 0xD0 },
+            jctx, 1600, 900, "Jan's Truss Builder - 0.0.1", (jfw_color) { .a = 0xFF, .r = 0x80, .g = 0x80, .b = 0x80 },
             &jwnd, 0);
     if (!jfw_success(jfw_result))
     {
+        JFW_ERROR("Could not create window");
         goto cleanup;
     }
     VkResult vk_result;
@@ -196,9 +206,59 @@ int main(int argc, char* argv[argc])
         goto cleanup;
     }
 
+    jtb_vtx VERTEX_DATA[8] =
+            {
+                    {.pos = {0.0f, 0.0f, 0.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0x00, .a = 0x00}},
+                    {.pos = {1.0f, 0.0f, 0.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0x00, .a = 0x00}},
+                    {.pos = {1.0f, 1.0f, 0.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0x00, .a = 0x00}},
+                    {.pos = {0.0f, 1.0f, 0.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0x00, .a = 0x00}},
+
+                    {.pos = {0.0f, 0.0f, 0.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0xFF, .a = 0x00}},
+                    {.pos = {1.0f, 1.0f, 0.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0xFF, .a = 0x00}},
+                    {.pos = {0.0f, 1.0f, 0.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0xFF, .a = 0x00}},
+                    {.pos = {1.0f, 0.0f, 0.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0xFF, .a = 0x00}},
+            };
+    u32 INDEX_DATA[12] =
+            {
+                0, 1, 2,
+                1, 3, 2,
+
+                4, 5, 6,
+                5, 7, 6,
+            };
+    vk_buffer_allocation vtx_buffer_allocation, idx_buffer_allocation;
+    i32 res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(VERTEX_DATA), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &vtx_buffer_allocation);
+    if (res_v < 0)
+    {
+        JFW_ERROR("Could not allocate vertex buffer memory");
+        goto cleanup;
+    }
+    res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(INDEX_DATA), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &idx_buffer_allocation);
+    if (res_v < 0)
+    {
+        JFW_ERROR("Could not allocate index buffer memory");
+        goto cleanup;
+    }
+
+    vk_transfer_memory_to_buffer(vk_res, &vulkan_state, &vtx_buffer_allocation, sizeof(VERTEX_DATA), VERTEX_DATA);
+    vk_transfer_memory_to_buffer(vk_res, &vulkan_state, &idx_buffer_allocation, sizeof(INDEX_DATA), INDEX_DATA);
+
+    vkWaitForFences(vk_res->device, 1, &vulkan_state.fence_transfer_free, VK_TRUE, UINT64_MAX);
+
+    vulkan_state.buffer_vtx = vtx_buffer_allocation;
+    vulkan_state.buffer_idx = idx_buffer_allocation;
 
     jfw_window_set_usr_ptr(jwnd, &vulkan_state);
-    jwnd->hooks.on_close = window_dtor;
+    jfw_widget* jwidget;
+    jfw_result = jfw_widget_create_as_base(jwnd, 1600, 900, 0, 0, &jwidget);
+    if (!jfw_success(jfw_result))
+    {
+        JFW_ERROR("Could not create window's base widget");
+        goto cleanup;
+    }
+    jwidget->dtor_fn = widget_dtor;
+    jwidget->draw_fn = widget_draw;
+
     printf("Hello, World!\n");
     i32 close = 0;
     jfw_window_show(jctx, jwnd);
@@ -210,6 +270,7 @@ int main(int argc, char* argv[argc])
         }
         if (!close)
         {
+            jfw_window_force_redraw(jctx, jwnd);
             printf("Hello mom!\n");
         }
     }
