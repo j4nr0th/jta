@@ -98,10 +98,10 @@ jfw_res jfw_window_destroy(jfw_ctx* ctx, jfw_window* wnd)
 //    {
 //        jfw_widget_destroy(wnd->base->children_array[wnd->base->children_count - 1]);
 //    }
-    if (wnd->hooks.on_close)
-    {
-        wnd->hooks.on_close(wnd);
-    }
+//    if (wnd->hooks.on_close)
+//    {
+//        wnd->hooks.on_close(wnd);
+//    }
     jfw_free(&wnd->title);
     jfw_platform_destroy(&wnd->platform);
     memset(wnd, 0, sizeof(*wnd));
@@ -345,4 +345,14 @@ jfw_window_hooks* jfw_window_hook_ptr(jfw_window* wnd)
     jfw_window_hooks* hooks = &wnd->hooks;
     JFW_LEAVE_FUNCTION;
     return hooks;
+}
+
+void* jfw_window_get_usr_ptr(jfw_window* wnd)
+{
+    return wnd->user_ptr;
+}
+
+void jfw_window_set_usr_ptr(jfw_window* wnd, void* new_ptr)
+{
+    wnd->user_ptr = new_ptr;
 }

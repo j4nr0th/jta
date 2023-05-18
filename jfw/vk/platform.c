@@ -287,7 +287,11 @@ static jfw_res jfw_vulkan_context_create(jfw_vulkan_context* this, const char* a
             goto failed;
         }
         this->instance = instance;
-        this->alloc_callback = *alloc_callbacks;
+        this->has_alloc = alloc_callbacks != NULL;
+        if (alloc_callbacks)
+        {
+            this->alloc_callback = *alloc_callbacks;
+        }
     }
 
 #ifndef NDEBUG
@@ -415,7 +419,7 @@ static jfw_res jfw_vulkan_context_destroy(jfw_vulkan_context* this)
 #ifndef NDEBUG
     this->vkDestroyDebugUtilsMessengerEXT(this->instance, this->dbg_messenger, NULL);
 #endif
-    vkDestroyInstance(this->instance, &this->alloc_callback);
+    vkDestroyInstance(this->instance, this->has_alloc ? &this->alloc_callback : NULL);
     memset(this, 0, sizeof(*this));
     JFW_LEAVE_FUNCTION;
     return jfw_res_success;
@@ -1016,7 +1020,7 @@ jfw_res jfw_platform_create(
         VkCommandBufferAllocateInfo alloc_info =
                 {
                 .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-                .commandBufferCount = n_frames_in_filght,
+                .commandBufferCount = n_frames_in_filght + 1,
                 .commandPool = res->cmd_pool,
                 .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
                 };
@@ -1024,7 +1028,7 @@ jfw_res jfw_platform_create(
         if (vk_res != VK_SUCCESS)
         {
             result = jfw_res_vk_fail;
-            JFW_ERROR("Could not allocate command buffers for %u frames in flight", n_frames_in_filght);
+            JFW_ERROR("Could not allocate command buffers for %u frames in flight + transfer", n_frames_in_filght);
             jfw_free(&cmd_buffers);
             jfw_free(&sem_img);
             jfw_free(&sem_prs);

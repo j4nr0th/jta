@@ -51,6 +51,7 @@ struct jfw_vulkan_context_struct
     u32 max_device_extensions;
     u32 max_device_queue_families;
     VkAllocationCallbacks alloc_callback;
+    bool has_alloc;
 };
 
 struct jfw_context_struct

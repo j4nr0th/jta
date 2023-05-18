@@ -25,8 +25,9 @@ struct vk_state_struct
     VkPipeline gfx_pipeline_UI;
     vk_buffer_allocator* buffer_allocator;
     vk_buffer_allocation buffer_device_local, buffer_transfer, buffer_uniform;
+    VkFence fence_transfer_free;
     VkDescriptorSetLayout ubo_layout;
-    void** p_mapped_array;
+    ubo_3d** p_mapped_array;
     VkDescriptorSet* desc_set;
     VkDescriptorPool desc_pool;
     VkImageView depth_view;
@@ -37,6 +38,8 @@ struct vk_state_struct
 
 jfw_res vk_state_create(vk_state* p_state, const jfw_window_vk_resources* vk_resources);
 
-void vk_state_destroy(vk_state* p_state, jfw_window_vk_resources* vk_resource);
+void vk_state_destroy(vk_state* p_state, jfw_window_vk_resources* vk_resources);
+
+jfw_res vk_transfer_memory_to_buffer(jfw_window_vk_resources* vk_resources, vk_state* p_state, vk_buffer_allocation* buffer, size_t size, void* data);
 
 #endif //JTB_VK_STATE_H

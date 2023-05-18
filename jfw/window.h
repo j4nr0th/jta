@@ -49,6 +49,7 @@ struct jfw_window_struct
     jfw_widget* keyboard_focus;     //  receives keyboard events over others
     jfw_window_hooks hooks;         //  functions called when something happens to the window
 //    jfw_color_scheme color_scheme;  //  color scheme used for rendering colors
+    void* user_ptr;
 };
 
 jfw_res jfw_window_create(jfw_ctx* ctx, u32 w, u32 h, char* title, jfw_color color, jfw_window** p_wnd, i32 fixed);
@@ -74,5 +75,9 @@ jfw_res jfw_window_set_base(jfw_window* wnd, jfw_widget* base);
 //jfw_res jfw_window_set_color_scheme(jfw_window* wnd, jfw_color_scheme color_scheme);
 
 jfw_window_hooks* jfw_window_hook_ptr(jfw_window* wnd);
+
+void* jfw_window_get_usr_ptr(jfw_window* wnd);
+
+void jfw_window_set_usr_ptr(jfw_window* wnd, void* new_ptr);
 
 #endif //JFW_WINDOW_H

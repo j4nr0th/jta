@@ -16,6 +16,7 @@ struct vk_buffer_allocation_struct
     VkDeviceMemory memory;
     VkDeviceSize offset;
     VkDeviceSize size;
+    VkDeviceSize offset_alignment;
 };
 
 vk_buffer_allocator*
@@ -23,16 +24,22 @@ vk_buffer_allocator_create(VkDevice device, VkPhysicalDevice physical_device, Vk
 
 i32
 vk_buffer_allocate(
-        vk_buffer_allocator* allocator, VkDeviceSize size, VkFlags type_bits,
+        vk_buffer_allocator* allocator, VkDeviceSize element_count, VkDeviceSize element_size,
         VkMemoryPropertyFlags props, VkBufferUsageFlags usage, VkSharingMode sharing_mode,
-        u32 n_queue_family_indices, const u32* p_queue_family_indices, vk_buffer_allocation* p_out);
+        vk_buffer_allocation* p_out);
 
 void vk_buffer_deallocate(vk_buffer_allocator* allocator, vk_buffer_allocation* allocation);
 
 void vk_buffer_allocator_destroy(vk_buffer_allocator* allocator);
 
-i32 vk_buffer_reserve(vk_buffer_allocator* allocator, VkDeviceSize size, VkFlags type_bits,
-                      VkMemoryPropertyFlags props, VkBufferUsageFlags usage, VkSharingMode sharing_mode,
-                      u32 n_queue_family_indices, const u32* p_queue_family_indices);
+i32 vk_buffer_reserve(
+        vk_buffer_allocator* allocator, VkDeviceSize size, VkMemoryPropertyFlags props, VkBufferUsageFlags usage,
+        VkSharingMode sharing_mode);
+
+const VkPhysicalDeviceMemoryProperties* vk_allocator_mem_props(vk_buffer_allocator* allocator);
+
+void* vk_map_allocation(const vk_buffer_allocation* allocation);
+
+void vk_unmap_allocation(void* ptr_mapped, const vk_buffer_allocation* allocation);
 
 #endif //JTB_VK_MEM_ALLOCATOR_H

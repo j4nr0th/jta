@@ -12,13 +12,18 @@
 #include "jfw/error_system/error_stack.h"
 
 
+#include "vk_state.h"
+
+
 linear_jallocator* G_LIN_JALLOCATOR = NULL;
 aligned_jallocator* G_ALIGN_JALLOCATOR = NULL;
 
-
-static void resize_window_hook(jfw_window* wnd, u32 old_w, u32 old_h, u32 new_w, u32 new_h)
+static void window_dtor(jfw_window* wnd)
 {
-
+    void* state = jfw_window_get_usr_ptr(wnd);
+    jfw_window_vk_resources* vk_res = jfw_window_get_vk_resources(wnd);
+    vk_state_destroy(state, vk_res);
+    jfw_window_destroy(wnd->ctx, wnd);
 }
 
 static void* VKAPI_PTR vk_aligned_allocation_fn(void* pUserData, size_t size, size_t alignment, VkSystemAllocationScope allocationScope)
@@ -147,7 +152,7 @@ int main(int argc, char* argv[argc])
         exit(EXIT_FAILURE);
     }
 
-
+#ifdef NDEBUG
     VkAllocationCallbacks VK_ALLOCATION_CALLBACKS =
             {
             .pUserData = G_ALIGN_JALLOCATOR,
@@ -157,12 +162,18 @@ int main(int argc, char* argv[argc])
             .pfnInternalAllocation = vk_internal_alloc_notif,
             .pfnInternalFree = vk_internal_free_notif,
             };
-
+#endif
 
 
     jfw_ctx* jctx = NULL;
     jfw_window* jwnd = NULL;
-    jfw_res jfw_result = jfw_context_create(&jctx, &VK_ALLOCATION_CALLBACKS);
+    jfw_res jfw_result = jfw_context_create(&jctx,
+#ifndef NDEBUG
+                                            nullptr
+#else
+                                            &VK_ALLOCATION_CALLBACKS
+#endif
+                                            );
     if (!jfw_success(jfw_result))
     {
         goto cleanup;
@@ -177,12 +188,17 @@ int main(int argc, char* argv[argc])
     VkResult vk_result;
     jfw_window_vk_resources* const vk_res = jfw_window_get_vk_resources(jwnd);
     jfw_vulkan_context* const vk_ctx = &jctx->vk_ctx;
+    vk_state vulkan_state;
+    jfw_result = vk_state_create(&vulkan_state, vk_res);
+    if (!jfw_success(jfw_result))
+    {
+        JFW_ERROR("Could not create vulkan state");
+        goto cleanup;
+    }
 
 
-
-
-
-    jwnd->hooks.on_resize = resize_window_hook;
+    jfw_window_set_usr_ptr(jwnd, &vulkan_state);
+    jwnd->hooks.on_close = window_dtor;
     printf("Hello, World!\n");
     i32 close = 0;
     jfw_window_show(jctx, jwnd);
@@ -197,7 +213,7 @@ int main(int argc, char* argv[argc])
             printf("Hello mom!\n");
         }
     }
-
+//    vk_state_destroy(&vulkan_state, vk_res);
     jwnd = NULL;
 
 cleanup:

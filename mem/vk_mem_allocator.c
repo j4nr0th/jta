@@ -25,8 +25,6 @@ struct buffer_pool_struct
     u32 heap_index;
     u32 chunk_count;
     allocation_chunk chunk_list[POOL_CHUNK_MAX];
-    u32 n_qfi;
-    u32* v_qfi;
 };
 
 struct vk_buffer_allocator_struct
@@ -86,17 +84,22 @@ void vk_buffer_allocator_destroy(vk_buffer_allocator* allocator)
 }
 
 i32 vk_buffer_allocate(
-        vk_buffer_allocator* const allocator, VkDeviceSize size, const VkFlags type_bits,
-        const VkMemoryPropertyFlags props, VkBufferUsageFlags usage, VkSharingMode sharing_mode,
-        u32 n_queue_family_indices, const u32* p_queue_family_indices, vk_buffer_allocation* const p_out)
+        vk_buffer_allocator* allocator, VkDeviceSize element_count, VkDeviceSize element_size,
+        VkMemoryPropertyFlags props, VkBufferUsageFlags usage, VkSharingMode sharing_mode,
+        vk_buffer_allocation* p_out)
 {
     buffer_pool* pool;
     const VkPhysicalDeviceMemoryProperties* const mem_props = &allocator->mem_props;
     u32 mem_index, j;
     //  Search through all memory heap types available
+    if (element_size < 256)
+    {
+        element_size = 256;
+    }
+    const VkDeviceSize size = element_size * element_count;
     for (mem_index = 0; mem_index < mem_props->memoryTypeCount; ++mem_index)
     {
-        if (type_bits & (1 << mem_index) && (mem_props->memoryTypes[mem_index].propertyFlags & props))
+        if ((mem_props->memoryTypes[mem_index].propertyFlags & props))
         {
             break;
         }
@@ -127,24 +130,24 @@ i32 vk_buffer_allocate(
             continue;
         }
 
-        u32 queue_index_matches = 0;
-        //  Check the queue family indices
-        for (u32 k = 0; k < n_queue_family_indices && queue_index_matches < n_queue_family_indices; ++k)
-        {
-            for (u32 l = 0; l < pool->n_qfi; ++l)
-            {
-                if (p_queue_family_indices[k] == pool->v_qfi[l])
-                {
-                    queue_index_matches += 1;
-                    break;
-                }
-            }
-        }
-        //  Check that the number of indices match
-        if (queue_index_matches != n_queue_family_indices)
-        {
-            continue;
-        }
+//        u32 queue_index_matches = 0;
+//        //  Check the queue family indices
+//        for (u32 k = 0; k < n_queue_family_indices && queue_index_matches < n_queue_family_indices; ++k)
+//        {
+//            for (u32 l = 0; l < pool->n_qfi; ++l)
+//            {
+//                if (p_queue_family_indices[k] == pool->v_qfi[l])
+//                {
+//                    queue_index_matches += 1;
+//                    break;
+//                }
+//            }
+//        }
+//        //  Check that the number of indices match
+//        if (queue_index_matches != n_queue_family_indices)
+//        {
+//            continue;
+//        }
 
         allocation_chunk* chunk;
         //  Try and find a chunk with proper size to fit the allocation into
@@ -163,15 +166,15 @@ i32 vk_buffer_allocate(
                 //  Todo: test this works (namely the memset part)
                 memmove(
                         pool->chunk_list + k + 1, pool->chunk_list + k + 2,
-                        sizeof(*pool->chunk_list) * (pool->chunk_count - k - 2));
+                        sizeof(*pool->chunk_list) * (pool->chunk_count - k - 1));
                 pool->chunk_list[k + 1] = (allocation_chunk) { .size = remainder, .used = 0, .offset = chunk->offset +
                                                                                                        size };
                 pool->chunk_count += 1;
                 chunk->size = size;
-                assert(pool->chunk_list[k + 1].offset + pool->chunk_list[k + 1].size == pool->chunk_list[k + 2].offset);
+                assert((k + 2 == pool->chunk_count) || (pool->chunk_list[k + 1].offset + pool->chunk_list[k + 1].size == pool->chunk_list[k + 2].offset));
             }
             chunk->used = 1;
-            *p_out = (vk_buffer_allocation) { .offset = chunk->offset, .size = chunk->size, .device = allocator->device, .buffer = pool->buffer, .memory = pool->memory, .pool_index = j };
+            *p_out = (vk_buffer_allocation) { .offset = chunk->offset, .size = chunk->size, .device = allocator->device, .buffer = pool->buffer, .memory = pool->memory, .pool_index = j, .offset_alignment = 256 };
             return 0;
         }
     }
@@ -195,15 +198,15 @@ i32 vk_buffer_allocate(
         return -1;
     }
 
-    u32* v_qfi;
-    jfw_result =  jfw_calloc(n_queue_family_indices, sizeof(*v_qfi), &v_qfi);
-    if (!jfw_success(jfw_result))
-    {
-        JFW_ERROR("Failed allocating memory for the pool's queue list");
-        jfw_free(&pool);
-        return -1;
-    }
-    memcpy(v_qfi, p_queue_family_indices, sizeof(*v_qfi) * n_queue_family_indices);
+//    u32* v_qfi;
+//    jfw_result =  jfw_calloc(n_queue_family_indices, sizeof(*v_qfi), &v_qfi);
+//    if (!jfw_success(jfw_result))
+//    {
+//        JFW_ERROR("Failed allocating memory for the pool's queue list");
+//        jfw_free(&pool);
+//        return -1;
+//    }
+//    memcpy(v_qfi, p_queue_family_indices, sizeof(*v_qfi) * n_queue_family_indices);
 
     //  No pool was good, make a new one
     const VkDeviceSize new_pool_size = size > allocator->pool_init_size ? size : allocator->pool_init_size;
@@ -214,18 +217,17 @@ i32 vk_buffer_allocate(
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
             .size = new_pool_size,
             .usage = usage,
-            .flags = 0,
             .sharingMode = sharing_mode,
-            .queueFamilyIndexCount = n_queue_family_indices,
-            .pQueueFamilyIndices = p_queue_family_indices,
-            .pNext = NULL,
+//            .queueFamilyIndexCount = n_queue_family_indices,
+//            .pQueueFamilyIndices = p_queue_family_indices,
+//            .pNext = NULL,
             };
     VkBuffer new_buffer;
     VkResult vk_res = vkCreateBuffer(allocator->device, &create_info, NULL, &new_buffer);
     if (vk_res != VK_SUCCESS)
     {
         JFW_ERROR("Failed creating vk_buffer, reason: %s", jfw_vk_error_msg(vk_res));
-        jfw_free(&v_qfi);
+//        jfw_free(&v_qfi);
         jfw_free(&pool);
         return -1;
     }
@@ -246,7 +248,7 @@ i32 vk_buffer_allocate(
     {
         JFW_ERROR("Failed creating vk_buffer, reason: %s", jfw_vk_error_msg(vk_res));
         vkDestroyBuffer(allocator->device, new_buffer, NULL);
-        jfw_free(&v_qfi);
+//        jfw_free(&v_qfi);
         jfw_free(&pool);
         return -1;
     }
@@ -259,8 +261,8 @@ i32 vk_buffer_allocate(
     pool->requirements = mem_requirements;
     pool->chunk_count = 1;
     pool->buffer = new_buffer;
-    pool->v_qfi = v_qfi;
-    pool->n_qfi = n_queue_family_indices;
+//    pool->v_qfi = v_qfi;
+//    pool->n_qfi = n_queue_family_indices;
     pool->sharing_mode = sharing_mode;
     pool->usage = usage;
     pool->memory = mem;
@@ -272,14 +274,14 @@ i32 vk_buffer_allocate(
     {
         pool->chunk_count = 1;
         pool->chunk_list[0] = (allocation_chunk){.size = size, .offset = 0, .used = 1};
-        *p_out = (vk_buffer_allocation){.offset = 0, .size = size, .device = allocator->device, .memory = pool->memory, .buffer = pool->buffer, .pool_index = pool->chunk_count - 1};
+        *p_out = (vk_buffer_allocation){.offset = 0, .size = size, .device = allocator->device, .memory = pool->memory, .buffer = pool->buffer, .pool_index = pool->chunk_count - 1, .offset_alignment = 256};
     }
     else
     {
         pool->chunk_count = 2;
         pool->chunk_list[0] = (allocation_chunk){.size = size, .offset = 0, .used = 1};
         pool->chunk_list[1] = (allocation_chunk){.size = new_pool_size - size, .offset = size, .used = 0};
-        *p_out = (vk_buffer_allocation){.offset = 0, .size = size, .device = allocator->device, .memory = pool->memory, .buffer = pool->buffer, .pool_index = pool->chunk_count - 1};
+        *p_out = (vk_buffer_allocation){.offset = 0, .size = size, .device = allocator->device, .memory = pool->memory, .buffer = pool->buffer, .pool_index = pool->chunk_count - 1, .offset_alignment = 256};
     }
 
     return 0;
@@ -340,82 +342,10 @@ void vk_buffer_deallocate(vk_buffer_allocator* allocator, vk_buffer_allocation* 
 }
 
 i32 vk_buffer_reserve(
-        vk_buffer_allocator* allocator, VkDeviceSize size, VkFlags type_bits, VkMemoryPropertyFlags props,
-        VkBufferUsageFlags usage, VkSharingMode sharing_mode, u32 n_queue_family_indices,
-        const u32* p_queue_family_indices)
+        vk_buffer_allocator* allocator, VkDeviceSize size, VkMemoryPropertyFlags props, VkBufferUsageFlags usage,
+        VkSharingMode sharing_mode)
 {
     //  Make sure that the allocation can be made for the specified size
-    buffer_pool* pool;
-    const VkPhysicalDeviceMemoryProperties* const mem_props = &allocator->mem_props;
-    u32 mem_index, j;
-    //  Search through all memory heap types available
-    for (mem_index = 0; mem_index < mem_props->memoryTypeCount; ++mem_index)
-    {
-        if (type_bits & (1 << mem_index) && (mem_props->memoryTypes[mem_index].propertyFlags & props))
-        {
-            break;
-        }
-    }
-    //  None were found, return error
-    if (mem_index == mem_props->memoryTypeCount)
-    {
-        assert(0);
-        return -1;
-    }
-    //  Check if we have a buffer with desired properties
-    for (j = 0; j < allocator->pool_count; ++j)
-    {
-        pool = allocator->pools[j];
-        //  Check if the pool does have the desired heap index
-        if (pool->heap_index != mem_index)
-        {
-            continue;
-        }
-        //  Check if the pool has the desired usage flags
-        if ((pool->usage & usage) != usage)
-        {
-            continue;
-        }
-        //  Check if the sharing mode is correct
-        if (pool->sharing_mode != sharing_mode)
-        {
-            continue;
-        }
-
-        u32 queue_index_matches = 0;
-        //  Check the queue family indices
-        for (u32 k = 0; k < n_queue_family_indices && queue_index_matches < n_queue_family_indices; ++k)
-        {
-            for (u32 l = 0; l < pool->n_qfi; ++l)
-            {
-                if (p_queue_family_indices[k] == pool->v_qfi[l])
-                {
-                    queue_index_matches += 1;
-                    break;
-                }
-            }
-        }
-        //  Check that the number of indices match
-        if (queue_index_matches != n_queue_family_indices)
-        {
-            continue;
-        }
-
-        allocation_chunk* chunk;
-        //  Try and find a chunk with proper size to fit the allocation into
-        for (u32 k = 0; k < pool->chunk_count; ++k)
-        {
-            chunk = pool->chunk_list + k;
-            if (chunk->used != 0 || chunk->size < size)
-            {
-                //  Can't use the chunk, either because it is used, or because it is too small
-                continue;
-            }
-
-            return 0;
-        }
-    }
-
     jfw_res jfw_result;
     if (allocator->pool_count == allocator->pool_capacity)
     {
@@ -428,6 +358,7 @@ i32 vk_buffer_reserve(
         }
         allocator->pool_capacity = new_capacity;
     }
+    buffer_pool* pool;
     jfw_result = jfw_malloc(sizeof *pool, &pool);
     if (!jfw_success(jfw_result))
     {
@@ -435,15 +366,15 @@ i32 vk_buffer_reserve(
         return -1;
     }
 
-    u32* v_qfi;
-    jfw_result =  jfw_calloc(n_queue_family_indices, sizeof(*v_qfi), &v_qfi);
-    if (!jfw_success(jfw_result))
-    {
-        JFW_ERROR("Failed allocating memory for the pool's queue list");
-        jfw_free(&pool);
-        return -1;
-    }
-    memcpy(v_qfi, p_queue_family_indices, sizeof(*v_qfi) * n_queue_family_indices);
+//    u32* v_qfi;
+//    jfw_result =  jfw_calloc(n_queue_family_indices, sizeof(*v_qfi), &v_qfi);
+//    if (!jfw_success(jfw_result))
+//    {
+//        JFW_ERROR("Failed allocating memory for the pool's queue list");
+//        jfw_free(&pool);
+//        return -1;
+//    }
+//    memcpy(v_qfi, p_queue_family_indices, sizeof(*v_qfi) * n_queue_family_indices);
 
     //  No pool was good, make a new one
     const VkDeviceSize new_pool_size = size > allocator->pool_init_size ? size : allocator->pool_init_size;
@@ -456,16 +387,16 @@ i32 vk_buffer_reserve(
                     .usage = usage,
                     .flags = 0,
                     .sharingMode = sharing_mode,
-                    .queueFamilyIndexCount = n_queue_family_indices,
-                    .pQueueFamilyIndices = p_queue_family_indices,
-                    .pNext = NULL,
+//                    .queueFamilyIndexCount = n_queue_family_indices,
+//                    .pQueueFamilyIndices = p_queue_family_indices,
+//                    .pNext = NULL,
             };
     VkBuffer new_buffer;
     VkResult vk_res = vkCreateBuffer(allocator->device, &create_info, NULL, &new_buffer);
     if (vk_res != VK_SUCCESS)
     {
         JFW_ERROR("Failed creating vk_buffer, reason: %s", jfw_vk_error_msg(vk_res));
-        jfw_free(&v_qfi);
+//        jfw_free(&v_qfi);
         jfw_free(&pool);
         return -1;
     }
@@ -473,6 +404,19 @@ i32 vk_buffer_reserve(
     VkMemoryRequirements mem_requirements;
     vkGetBufferMemoryRequirements(allocator->device, new_buffer, &mem_requirements);
 
+    //  Find the memory type index
+    u32 mem_index;
+    for (mem_index = 0; mem_index < allocator->mem_props.memoryTypeCount; ++mem_index)
+    {
+        if ((mem_requirements.memoryTypeBits & (1 << mem_index)) && ((allocator->mem_props.memoryTypes[mem_index].propertyFlags & props) == props))
+        {
+            break;
+        }
+    }
+    if (mem_index == allocator->mem_props.memoryTypeCount)
+    {
+        return -1;
+    }
     //  Allocate device memory
     VkDeviceMemory mem;
     VkMemoryAllocateInfo alloc_info =
@@ -486,7 +430,7 @@ i32 vk_buffer_reserve(
     {
         JFW_ERROR("Failed creating vk_buffer, reason: %s", jfw_vk_error_msg(vk_res));
         vkDestroyBuffer(allocator->device, new_buffer, NULL);
-        jfw_free(&v_qfi);
+//        jfw_free(&v_qfi);
         jfw_free(&pool);
         return -1;
     }
@@ -499,8 +443,8 @@ i32 vk_buffer_reserve(
     pool->requirements = mem_requirements;
     pool->chunk_count = 1;
     pool->buffer = new_buffer;
-    pool->v_qfi = v_qfi;
-    pool->n_qfi = n_queue_family_indices;
+//    pool->v_qfi = v_qfi;
+//    pool->n_qfi = n_queue_family_indices;
     pool->sharing_mode = sharing_mode;
     pool->usage = usage;
     pool->memory = mem;
@@ -512,4 +456,26 @@ i32 vk_buffer_reserve(
 
 
     return 0;
+}
+
+const VkPhysicalDeviceMemoryProperties* vk_allocator_mem_props(vk_buffer_allocator* allocator)
+{
+    return &allocator->mem_props;
+}
+
+void* vk_map_allocation(const vk_buffer_allocation* allocation)
+{
+    void* ptr;
+    const VkResult vk_res = vkMapMemory(allocation->device, allocation->memory, allocation->offset, allocation->size, 0, &ptr);
+    if (vk_res != VK_SUCCESS)
+    {
+        JFW_ERROR("Could not map buffer allocation, reason: %s", jfw_vk_error_msg(vk_res));
+        return NULL;
+    }
+    return ptr;
+}
+
+void vk_unmap_allocation(void* ptr_mapped, const vk_buffer_allocation* allocation)
+{
+    vkUnmapMemory(allocation->device, allocation->memory);
 }
