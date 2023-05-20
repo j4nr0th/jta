@@ -6,7 +6,7 @@
 #include "jfw/error_system/error_stack.h"
 
 #include "shaders/vtx_shader3d.spv"
-#include "shaders/pix_shader3d.spv"
+#include "shaders/frg_shader3d.spv"
 
 //VkRenderPass render_pass_3D;
 //VkRenderPass render_pass_UI;
@@ -327,11 +327,11 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
                 .codeSize = sizeof(vtx_shader3d),
                 .pCode = vtx_shader3d,
                 };
-        VkShaderModuleCreateInfo shader_frag_create_info =
+        VkShaderModuleCreateInfo shader_frg_create_info =
                 {
                 .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-                .codeSize = sizeof(pix_shader3d),
-                .pCode = pix_shader3d,
+                .codeSize = sizeof(frg_shader3d),
+                .pCode = frg_shader3d,
                 };
         vk_res = vkCreateShaderModule(vk_resources->device, &shader_vtx_create_info, NULL, &module_vtx_3d);
         if (vk_res != VK_SUCCESS)
@@ -340,7 +340,7 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
             jfw_result = jfw_res_vk_fail;
             goto after_ubo_layout;
         }
-        vk_res = vkCreateShaderModule(vk_resources->device, &shader_frag_create_info, NULL, &module_frg_3d);
+        vk_res = vkCreateShaderModule(vk_resources->device, &shader_frg_create_info, NULL, &module_frg_3d);
         if (vk_res != VK_SUCCESS)
         {
             JFW_ERROR("Could not create fragment shader module (3d), reason: %s", jfw_vk_error_msg(vk_res));
@@ -357,7 +357,7 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
                 .pName = "main",
                 };
 
-        VkPipelineShaderStageCreateInfo pipeline_shader_stage_frag_info =
+        VkPipelineShaderStageCreateInfo pipeline_shader_stage_frg_info =
                 {
                 .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
                 .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -366,7 +366,7 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
                 };
         VkPipelineShaderStageCreateInfo shader_stage_info_array[] =
                 {
-                pipeline_shader_stage_vtx_info, pipeline_shader_stage_frag_info
+                        pipeline_shader_stage_vtx_info, pipeline_shader_stage_frg_info
                 };
         VkDynamicState dynamic_states[] =
                 {

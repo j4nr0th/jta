@@ -45,7 +45,90 @@ typedef union
 
 
 
-static inline mtx4 euler_rotation_z(f32 alpha)
+static inline vec4 vec4_add(vec4 a, vec4 b)
+{
+    assert(a.w == 1.0f);
+    assert(b.w == 1.0f);
+    b.w = 0;
+    vec4 c;
+    __m128 va, vb, vc;
+    va = _mm_load_ps(a.data);
+    vb = _mm_load_ps(b.data);
+
+    vc = _mm_add_ps(va, vb);
+    _mm_store_ps(c.data, vc);
+    return c;
+}
+
+static inline vec4 vec4_sub(vec4 a, vec4 b)
+{
+    assert(a.w == 1.0f);
+    assert(b.w == 1.0f);
+    b.w = 0;
+    vec4 c;
+    __m128 va, vb, vc;
+    va = _mm_load_ps(a.data);
+    vb = _mm_load_ps(b.data);
+
+    vc = _mm_sub_ps(va, vb);
+    _mm_store_ps(c.data, vc);
+    return c;
+}
+
+static inline vec4 vec4_mul(vec4 a, vec4 b)
+{
+    assert(a.w == 1.0f);
+    assert(b.w == 1.0f);
+    vec4 c;
+    __m128 va, vb, vc;
+    va = _mm_load_ps(a.data);
+    vb = _mm_load_ps(b.data);
+
+    vc = _mm_mul_ps(va, vb);
+    _mm_store_ps(c.data, vc);
+    return c;
+}
+
+static inline vec4 vec4_div(vec4 a, vec4 b)
+{
+    assert(a.w == 1.0f);
+    assert(b.w == 1.0f);
+    vec4 c;
+    __m128 va, vb, vc;
+    va = _mm_load_ps(a.data);
+    vb = _mm_load_ps(b.data);
+
+    vc = _mm_mul_ps(va, vb);
+    _mm_store_ps(c.data, vc);
+    return c;
+}
+
+static inline f32 vec4_dot(vec4 a, vec4 b)
+{
+    assert(a.w == 1.0f);
+    assert(b.w == 1.0f);
+    f32 dot;
+
+    dot = a.x * b.x + a.y * b.y + a.z * b.z;
+
+    return dot;
+}
+
+static inline vec4 vec4_cross(vec4 a, vec4 b)
+{
+    assert(a.w == 1.0f);
+    assert(b.w == 1.0f);
+    vec4 crs;
+
+    crs.x = a.y * b.z - a.z * b.y;
+    crs.y = a.z * b.x - a.x * b.z;
+    crs.z = a.x * b.y - a.y * b.x;
+    crs.w = 1.0f;
+
+    return crs;
+}
+
+static inline mtx4 mtx4_rotation_z(f32 alpha)
 {
     mtx4 m;
     const f32 c = cosf(alpha);
@@ -64,7 +147,7 @@ static inline mtx4 euler_rotation_z(f32 alpha)
     return m;
 }
 
-static inline mtx4 euler_rotation_y(f32 beta)
+static inline mtx4 mtx4_rotation_y(f32 beta)
 {
     mtx4 m;
     const f32 c = cosf(beta);
@@ -83,7 +166,7 @@ static inline mtx4 euler_rotation_y(f32 beta)
     return m;
 }
 
-static inline mtx4 euler_rotation_x(f32 gamma)
+static inline mtx4 mtx4_rotation_x(f32 gamma)
 {
     mtx4 m;
     const f32 c = cosf(gamma);
@@ -121,6 +204,7 @@ static inline mtx4 mtx4_multiply_manual(mtx4 a, mtx4 b)
 
 static inline vec4 mtx4_vector_mul(mtx4 m, vec4 x)
 {
+    assert(x.w == 1.0f);
     vec4 y;
     __m128 x_element = _mm_set1_ps(x.s0);
     __m128 col = _mm_load_ps(m.col0.data);
@@ -178,9 +262,9 @@ static inline mtx4 mtx4_view_matrix(vec4 offset, vec4 view_direction, f32 roll)
     f32 alpha, beta;
     alpha = atan2f(-view_direction.y, view_direction.z);
     beta = atan2f(view_direction.x, sqrtf(view_direction.y * view_direction.y + view_direction.z * view_direction.z));
-    m = mtx4_multiply(euler_rotation_x(alpha), m);
-    m = mtx4_multiply(euler_rotation_y(beta), m);
-    m = mtx4_multiply(euler_rotation_z(roll), m);
+    m = mtx4_multiply(mtx4_rotation_x(alpha), m);
+    m = mtx4_multiply(mtx4_rotation_y(beta), m);
+    m = mtx4_multiply(mtx4_rotation_z(roll), m);
 
     return m;
 }
@@ -226,4 +310,5 @@ static inline mtx4 mtx4_enlarge(f32 x_factor, f32 y_factor, f32 z_factor)
             };
 }
 
+#define VEC4(x, y, z) (vec4){.x = (x), .y = (y), .z = (z), .w = 1.0f}
 #endif //JFW_GFX_MATH_H
