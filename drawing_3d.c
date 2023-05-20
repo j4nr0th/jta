@@ -5,16 +5,28 @@
 #include <time.h>
 #include "drawing_3d.h"
 
-jfw_res draw_3d_scene(jfw_window* wnd, vk_state* state, jfw_window_vk_resources* vk_resources)
+jfw_res draw_3d_scene(
+        jfw_window* wnd, vk_state* state, jfw_window_vk_resources* vk_resources, vk_buffer_allocation* p_buffer_geo,
+        vk_buffer_allocation* p_buffer_mod, const jtb_truss_mesh* mesh)
 {
-
+    assert(p_buffer_geo);
+    assert(p_buffer_mod);
+    assert(mesh);
     const jfw_window_vk_resources* ctx = jfw_window_get_vk_resources(wnd);
     u32 i_frame = state->frame_index;
     VkResult vk_res =  vkWaitForFences(ctx->device, 1, ctx->swap_fences + i_frame, VK_TRUE, UINT64_MAX);
-    assert(vk_res == VK_SUCCESS);
+    if (vk_res != VK_SUCCESS)
+    {
+        JFW_ERROR("Failed waiting for the fence for swapchain: %s", jfw_vk_error_msg(vk_res));
+        return jfw_res_vk_fail;
+    }
     u32 img_index;
     vk_res = vkAcquireNextImageKHR(ctx->device, ctx->swapchain, UINT64_MAX, ctx->sem_img_available[i_frame], VK_NULL_HANDLE, &img_index);
-    assert(vk_res == VK_SUCCESS);
+    if (vk_res != VK_SUCCESS)
+    {
+        JFW_ERROR("Failed acquiring next image in the swapchain: %s", jfw_vk_error_msg(vk_res));
+        return jfw_res_vk_fail;
+    }
     switch (vk_res)
     {
     case VK_NOT_READY: return jfw_res_success;
@@ -27,9 +39,17 @@ jfw_res draw_3d_scene(jfw_window* wnd, vk_state* state, jfw_window_vk_resources*
 
 
     vk_res = vkResetFences(ctx->device, 1, ctx->swap_fences + i_frame);
-    assert(vk_res == VK_SUCCESS);
+    if (vk_res != VK_SUCCESS)
+    {
+        JFW_ERROR("Failed resetting fence for swapchain: %s", jfw_vk_error_msg(vk_res));
+        return jfw_res_vk_fail;
+    }
     vk_res = vkResetCommandBuffer(ctx->cmd_buffers[i_frame], 0);
-    assert(vk_res == VK_SUCCESS);
+    if (vk_res != VK_SUCCESS)
+    {
+        JFW_ERROR("Failed resetting command buffer for swapchain: %s", jfw_vk_error_msg(vk_res));
+        return jfw_res_vk_fail;
+    }
 
     //  issue drawing commands
     const VkCommandBuffer cmd_buffer = vk_resources->cmd_buffers[i_frame];
@@ -68,10 +88,13 @@ jfw_res draw_3d_scene(jfw_window* wnd, vk_state* state, jfw_window_vk_resources*
         vkCmdSetViewport(cmd_buffer, 0, 1, &state->viewport);
         vkCmdSetScissor(cmd_buffer, 0, 1, &state->scissor);
         vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, state->gfx_pipeline_3D);
-        vkCmdBindVertexBuffers(cmd_buffer, 0, 1, &state->buffer_vtx.buffer, &state->buffer_vtx.offset);
-        vkCmdBindIndexBuffer(cmd_buffer, state->buffer_idx.buffer, state->buffer_idx.offset, VK_INDEX_TYPE_UINT32);
+        VkBuffer buffers[2] = {p_buffer_geo->buffer, p_buffer_mod->buffer};
+        VkDeviceSize offsets[2] = { p_buffer_geo->offset, p_buffer_mod->offset};
+        vkCmdBindVertexBuffers(cmd_buffer, 0, 2, buffers, offsets);
+        vkCmdBindIndexBuffer(cmd_buffer, state->buffer_idx.buffer, state->buffer_idx.offset, VK_INDEX_TYPE_UINT16);
+
         vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, state->layout_3D, 0, 1, state->desc_set + i_frame, 0, NULL);
-        vkCmdDrawIndexed(cmd_buffer, 12, 1, 0, 0, 0);
+        vkCmdDrawIndexed(cmd_buffer, mesh->model.idx_count, mesh->count, 0, 0, 0);
         vkCmdEndRenderPass(cmd_buffer);
 
         vk_res = vkEndCommandBuffer(cmd_buffer);
@@ -95,17 +118,17 @@ jfw_res draw_3d_scene(jfw_window* wnd, vk_state* state, jfw_window_vk_resources*
         {
             clock_t new_t = clock();
             dt = (1000.0f * (f32)(new_t - t)) / (f32)CLOCKS_PER_SEC;
-            printf("DT: %g\n", dt);
+//            printf("DT: %g\n", dt);
         }
-        f32 a = M_PI / 10.0f * dt;
-        f32 mag = 20.f;
+        f32 a = M_PI / 50.0f * dt;
+        f32 mag = 2.f;
         mtx4 m = mtx4_identity;
         ubo_3d ubo =
                 {
-                        .model = mtx4_rotation_x(dt * 0.01),
-                        .proj = mtx4_projection(M_PI_2, ((f32)vk_resources->extent.width)/((f32)vk_resources->extent.height), 0.5f * 1980.0f/(f32)vk_resources->extent.width),
+//                        .model = mtx4_rotation_x(dt * 0.01),
+                        .proj = mtx4_projection(M_PI_2, ((f32)vk_resources->extent.width)/((f32)vk_resources->extent.height), 0.1f * 1600.0f/(f32)vk_resources->extent.width, 0.1f, 10.0f),
                         .view = mtx4_view_look_at(
-                                (vec4){.y = -3, .x = 0, .z = -10.0f},
+                                (vec4){.x = mag * cosf(a), .y = mag * sinf(a), .z = 0.0f},
                                 (vec4){.x = 0.0f, .y = 0.0f, .z = 0.0f},
                                 M_PI
                                                  ),
@@ -126,7 +149,12 @@ jfw_res draw_3d_scene(jfw_window* wnd, vk_state* state, jfw_window_vk_resources*
                     .pWaitDstStageMask = stage_flags,
             };
     vk_res = vkQueueSubmit(ctx->queue_gfx, 1, &submit_info, ctx->swap_fences[i_frame]);
-    assert(vk_res == VK_SUCCESS);
+//    assert(vk_res == VK_SUCCESS);
+    if (vk_res != VK_SUCCESS)
+    {
+        JFW_ERROR("Could not submit render queue, reason: %s", jfw_vk_error_msg(vk_res));
+        return jfw_res_vk_fail;
+    }
     VkPresentInfoKHR present_info =
             {
                     .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
@@ -141,7 +169,7 @@ jfw_res draw_3d_scene(jfw_window* wnd, vk_state* state, jfw_window_vk_resources*
     switch (vk_res)
     {
     case VK_SUCCESS:
-    case VK_SUBOPTIMAL_KHR: printf("Draw fn worked!\n"); return jfw_res_success;
+    case VK_SUBOPTIMAL_KHR: /*printf("Draw fn worked!\n");*/ return jfw_res_success;
     case VK_ERROR_OUT_OF_DATE_KHR:
     {
         JFW_ERROR("Swapchain became outdated");
@@ -172,7 +200,7 @@ jfw_res generate_truss_model(jtb_truss_model* const p_out, const u16 pts_per_sid
     }
 
 
-    const f32 d_omega = M_PI_2 / pts_per_side;
+    const f32 d_omega = M_PI / pts_per_side;
     //  Generate bottom side
 
     for (u32 i = 0; i < pts_per_side; ++i)
@@ -189,7 +217,7 @@ jfw_res generate_truss_model(jtb_truss_model* const p_out, const u16 pts_per_sid
         indices[3 * i + 1] = i + 1;
         indices[3 * i + 2] = i + pts_per_side;
         indices[3 * (i + pts_per_side) + 0] = i + pts_per_side;
-        indices[3 * (i + pts_per_side) + 1] = i;
+        indices[3 * (i + pts_per_side) + 1] = i + 1;
         indices[3 * (i + pts_per_side) + 2] = i + pts_per_side + 1;
     }
 
@@ -198,7 +226,7 @@ jfw_res generate_truss_model(jtb_truss_model* const p_out, const u16 pts_per_sid
     indices[3 * (pts_per_side - 1) + 1] = 0;
     indices[3 * (pts_per_side - 1) + 2] = (pts_per_side - 1) + pts_per_side;
     indices[3 * ((pts_per_side - 1) + pts_per_side) + 0] = (pts_per_side - 1) + pts_per_side;
-    indices[3 * ((pts_per_side - 1) + pts_per_side) + 1] = (pts_per_side - 1);
+    indices[3 * ((pts_per_side - 1) + pts_per_side) + 1] = 0;//(pts_per_side - 1);
     indices[3 * ((pts_per_side - 1) + pts_per_side) + 2] = pts_per_side;
 
     p_out->pts_per_side = pts_per_side;
@@ -298,10 +326,10 @@ jfw_res truss_mesh_add_between_pts(jtb_truss_mesh* mesh, jfw_color color, f32 ra
     model = mtx4_multiply(mtx4_rotation_z(roll), model);
     //  rotate about y-axis
     model = mtx4_multiply(mtx4_rotation_y(rotation_y), model);
-
     //  rotate about z-axis again
     model = mtx4_multiply(mtx4_rotation_z(rotation_z), model);
-
+    //  move the model to the point pt1
+    model = mtx4_translate(model, pt1);
 
     return truss_mesh_add_new(mesh, model, color);
 }

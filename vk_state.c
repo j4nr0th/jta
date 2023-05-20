@@ -8,6 +8,9 @@
 #include "shaders/vtx_shader3d.spv"
 #include "shaders/frg_shader3d.spv"
 
+#include "drawing_3d.h"
+
+
 //VkRenderPass render_pass_3D;
 //VkRenderPass render_pass_UI;
 //u32 framebuffer_count;
@@ -44,7 +47,6 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
     }
     p_state->buffer_allocator = allocator;
 
-
     u32 max_samples;
     VkResult vk_res;
     //  Find the appropriate sample flag
@@ -69,7 +71,7 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
         VkFormat depth_format;
         i32 has_stencil;
 
-        const VkFormat possible_depth_formats[3] = {VK_FORMAT_D24_UNORM_S8_UINT , VK_FORMAT_D32_SFLOAT_S8_UINT , VK_FORMAT_D32_SFLOAT};
+        const VkFormat possible_depth_formats[3] = {VK_FORMAT_D32_SFLOAT_S8_UINT , VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT};
         const u32 n_possible_depth_formats = sizeof(possible_depth_formats) / sizeof(*possible_depth_formats);
         VkFormatProperties props;
         u32 i;
@@ -301,25 +303,59 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
         VkRect2D scissors = {.offset = {0, 0}, .extent = vk_resources->extent};
         p_state->viewport = viewport;
         p_state->scissor = scissors;
-        VkVertexInputBindingDescription vtx_binding_desc_3d =
+        VkVertexInputBindingDescription vtx_binding_desc_geometry =
                 {
                 .binding = 0,
                 .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
-                .stride = sizeof(jtb_vtx),
+                .stride = sizeof(jtb_truss_vertex),
+                };
+        VkVertexInputBindingDescription vtx_binding_desc_model =
+                {
+                .binding = 1,
+                .inputRate = VK_VERTEX_INPUT_RATE_INSTANCE,
+                .stride = sizeof(jtb_truss_model_data),
                 };
         VkVertexInputAttributeDescription position_attribute_description =
                 {
                 .binding = 0,
                 .location = 0,
                 .format = VK_FORMAT_R32G32B32_SFLOAT,
-                .offset = offsetof(jtb_vtx, pos),
+                .offset = 0,//offsetof(jtb_vtx, pos),
                 };
         VkVertexInputAttributeDescription color_attribute_description =
                 {
-                .binding = 0,
+                .binding = 1,
                 .location = 1,
                 .format = VK_FORMAT_R8G8B8A8_UNORM,
-                .offset = offsetof(jtb_vtx, color),
+                .offset = offsetof(jtb_truss_model_data, color),
+                };
+        VkVertexInputAttributeDescription model_transform_attribute_description_col1 =
+                {
+                        .binding = 1,
+                        .location = 2,
+                        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+                        .offset = offsetof(jtb_truss_model_data, model_data[0]),
+                };
+        VkVertexInputAttributeDescription model_transform_attribute_description_col2 =
+                {
+                        .binding = 1,
+                        .location = 3,
+                        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+                        .offset = offsetof(jtb_truss_model_data, model_data[4]),
+                };
+        VkVertexInputAttributeDescription model_transform_attribute_description_col3 =
+                {
+                        .binding = 1,
+                        .location = 4,
+                        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+                        .offset = offsetof(jtb_truss_model_data, model_data[8]),
+                };
+        VkVertexInputAttributeDescription model_transform_attribute_description_col4 =
+                {
+                        .binding = 1,
+                        .location = 5,
+                        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+                        .offset = offsetof(jtb_truss_model_data, model_data[12]),
                 };
         VkShaderModuleCreateInfo shader_vtx_create_info =
                 {
@@ -381,15 +417,19 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
                 };
         VkVertexInputAttributeDescription attrib_description_array[] =
                 {
-                position_attribute_description, color_attribute_description
+                position_attribute_description, color_attribute_description, model_transform_attribute_description_col1, model_transform_attribute_description_col2, model_transform_attribute_description_col3, model_transform_attribute_description_col4
+                };
+        VkVertexInputBindingDescription binding_description_array[] =
+                {
+                vtx_binding_desc_geometry, vtx_binding_desc_model
                 };
         VkPipelineVertexInputStateCreateInfo vtx_state_create_info =
                 {
                 .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-                .vertexAttributeDescriptionCount = 2,
+                .vertexAttributeDescriptionCount = sizeof(attrib_description_array) / sizeof(*attrib_description_array),
                 .pVertexAttributeDescriptions = attrib_description_array,
-                .vertexBindingDescriptionCount = 1,
-                .pVertexBindingDescriptions = &vtx_binding_desc_3d,
+                .vertexBindingDescriptionCount = sizeof(binding_description_array) / sizeof(*binding_description_array),
+                .pVertexBindingDescriptions = binding_description_array,
                 };
         VkPipelineInputAssemblyStateCreateInfo input_assembly_create_info =
                 {
@@ -412,7 +452,7 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
                 .rasterizerDiscardEnable = VK_FALSE,
                 .polygonMode = VK_POLYGON_MODE_FILL,
                 .lineWidth = 1.0f,
-                .cullMode = VK_CULL_MODE_BACK_BIT,
+                .cullMode = VK_CULL_MODE_NONE, //VK_CULL_MODE_BACK_BIT,
                 .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
                 .depthBiasEnable = VK_FALSE,
                 };

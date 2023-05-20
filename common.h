@@ -39,7 +39,6 @@ struct jtb_vertex_struct
 typedef struct ubo_3d_struct ubo_3d;
 struct ubo_3d_struct
 {
-    mtx4 model;
     mtx4 view;
     mtx4 proj;
 };

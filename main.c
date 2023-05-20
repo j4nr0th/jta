@@ -22,7 +22,10 @@ aligned_jallocator* G_ALIGN_JALLOCATOR = NULL;
 
 static jfw_res widget_draw(jfw_widget* this)
 {
-    return draw_3d_scene(this->window, this->window->user_ptr, jfw_window_get_vk_resources(this->window));
+    vk_state* const state = this->window->user_ptr;
+    return draw_3d_scene(
+            this->window, state, jfw_window_get_vk_resources(this->window), &state->buffer_vtx_geo,
+            &state->buffer_vtx_mod, state->mesh);
 }
 
 static jfw_res widget_dtor(jfw_widget* this)
@@ -176,21 +179,21 @@ int main(int argc, char* argv[argc])
 
     jfw_ctx* jctx = NULL;
     jfw_window* jwnd = NULL;
-    jfw_res jfw_result = jfw_context_create(&jctx,
+    jfw_res res = jfw_context_create(&jctx,
 #ifndef NDEBUG
-                                            nullptr
+                                     nullptr
 #else
                                             &VK_ALLOCATION_CALLBACKS
 #endif
-                                            );
-    if (!jfw_success(jfw_result))
+                                    );
+    if (!jfw_success(res))
     {
         goto cleanup;
     }
-    jfw_result = jfw_window_create(
+    res = jfw_window_create(
             jctx, 1600, 900, "Jan's Truss Builder - 0.0.1", (jfw_color) { .a = 0xFF, .r = 0x80, .g = 0x80, .b = 0x80 },
             &jwnd, 0);
-    if (!jfw_success(jfw_result))
+    if (!jfw_success(res))
     {
         JFW_ERROR("Could not create window");
         goto cleanup;
@@ -200,59 +203,73 @@ int main(int argc, char* argv[argc])
     jfw_window_vk_resources* const vk_res = jfw_window_get_vk_resources(jwnd);
     jfw_vulkan_context* const vk_ctx = &jctx->vk_ctx;
     vk_state vulkan_state;
-    jfw_result = vk_state_create(&vulkan_state, vk_res);
-    if (!jfw_success(jfw_result))
+    res = vk_state_create(&vulkan_state, vk_res);
+    if (!jfw_success(res))
     {
         JFW_ERROR("Could not create vulkan state");
         goto cleanup;
     }
 
-    jtb_vtx VERTEX_DATA[8] =
-            {
-                    {.pos = {0.0f, 0.0f, 0.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0x00, .a = 0xFF}},
-                    {.pos = {1.0f, 1.0f, 0.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0x00, .a = 0xFF}},
-                    {.pos = {1.0f, 0.0f, 0.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0x00, .a = 0xFF}},
-                    {.pos = {0.0f, 1.0f, 0.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0x00, .a = 0xFF}},
+    jtb_truss_mesh mesh;
+    vulkan_state.mesh = &mesh;
 
-                    {.pos = {0.0f, 0.0f, -3.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0xFF, .a = 0xFF}},
-                    {.pos = {2.0f, 2.0f, -3.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0xFF, .a = 0xFF}},
-                    {.pos = {2.0f, 0.0f, -3.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0xFF, .a = 0xFF}},
-                    {.pos = {0.0f, 2.0f, -3.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0xFF, .a = 0xFF}},
-            };
-    u32 INDEX_DATA[12] =
-            {
-                0, 1, 2,
-                0, 3, 1,
-
-                4, 5, 6,
-                4, 7, 5,
-            };
-    vk_buffer_allocation vtx_buffer_allocation, idx_buffer_allocation;
-    i32 res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(VERTEX_DATA), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &vtx_buffer_allocation);
-    if (res_v < 0)
+    if (!jfw_success(res = truss_mesh_init(&mesh, 16)))
     {
-        JFW_ERROR("Could not allocate vertex buffer memory");
+        JFW_ERROR("Could not create truss mesh");
         goto cleanup;
     }
-    res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(INDEX_DATA), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &idx_buffer_allocation);
+    if (!jfw_success(res = truss_mesh_add_between_pts(&mesh, (jfw_color){.b = 0xFF, .a = 0xFF}, 0.5f, VEC4(-1, 0, 0), VEC4(+1, 0, 0), 0.0f)))
+    {
+        JFW_ERROR("Could not add a new truss to the mesh: %s", jfw_error_message(res));
+        goto cleanup;
+    }
+    if (!jfw_success(res = truss_mesh_add_between_pts(&mesh, (jfw_color){.r = 0xFF, .a = 0xFF}, 0.25f, VEC4(-1, 1, 0), VEC4(+1, 1, 0), 0.0f)))
+    {
+        JFW_ERROR("Could not add a new truss to the mesh: %s", jfw_error_message(res));
+        goto cleanup;
+    }
+    
+    vk_buffer_allocation vtx_buffer_allocation_geometry, vtx_buffer_allocation_model, idx_buffer_allocation;
+    i32 res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(jtb_truss_vertex) * mesh.model.vtx_count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &vtx_buffer_allocation_geometry);
+    if (res_v < 0)
+    {
+        JFW_ERROR("Could not allocate geometry vertex buffer memory");
+        goto cleanup;
+    }
+    vk_transfer_memory_to_buffer(vk_res, &vulkan_state, &vtx_buffer_allocation_geometry, sizeof(jtb_truss_vertex) * mesh.model.vtx_count, mesh.model.vtx_array);
+
+    res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(*mesh.model.idx_array) * mesh.model.idx_count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &idx_buffer_allocation);
     if (res_v < 0)
     {
         JFW_ERROR("Could not allocate index buffer memory");
         goto cleanup;
     }
+    vk_transfer_memory_to_buffer(vk_res, &vulkan_state, &idx_buffer_allocation, sizeof(*mesh.model.idx_array) * mesh.model.idx_count, mesh.model.idx_array);
 
-    vk_transfer_memory_to_buffer(vk_res, &vulkan_state, &vtx_buffer_allocation, sizeof(VERTEX_DATA), VERTEX_DATA);
-    vk_transfer_memory_to_buffer(vk_res, &vulkan_state, &idx_buffer_allocation, sizeof(INDEX_DATA), INDEX_DATA);
+    res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(jtb_truss_model_data) * mesh.count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &vtx_buffer_allocation_model);
+    if (res_v < 0)
+    {
+        JFW_ERROR("Could not allocate index buffer memory");
+        goto cleanup;
+    }
+    jtb_truss_model_data* model_data = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*model_data) * mesh.count);
+    for (u32 i = 0; i < mesh.count; ++i)
+    {
+        model_data[i] = jtb_truss_convert_model_data(mesh.model_matrices[i], mesh.colors[i]);
+    }
+    vk_transfer_memory_to_buffer(vk_res, &vulkan_state, &vtx_buffer_allocation_model, sizeof(jtb_truss_model_data) * mesh.count, model_data);
+    lin_jfree(G_LIN_JALLOCATOR, model_data);
 
     vkWaitForFences(vk_res->device, 1, &vulkan_state.fence_transfer_free, VK_TRUE, UINT64_MAX);
 
-    vulkan_state.buffer_vtx = vtx_buffer_allocation;
+    vulkan_state.buffer_vtx_geo = vtx_buffer_allocation_geometry;
+    vulkan_state.buffer_vtx_mod = vtx_buffer_allocation_model;
     vulkan_state.buffer_idx = idx_buffer_allocation;
 
     jfw_window_set_usr_ptr(jwnd, &vulkan_state);
     jfw_widget* jwidget;
-    jfw_result = jfw_widget_create_as_base(jwnd, 1600, 900, 0, 0, &jwidget);
-    if (!jfw_success(jfw_result))
+    res = jfw_widget_create_as_base(jwnd, 1600, 900, 0, 0, &jwidget);
+    if (!jfw_success(res))
     {
         JFW_ERROR("Could not create window's base widget");
         goto cleanup;

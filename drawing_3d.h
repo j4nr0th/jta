@@ -21,6 +21,21 @@ struct jtb_truss_vertex_struct
     f32 x, y, z;
 };
 
+typedef struct jtb_truss_model_data_struct jtb_truss_model_data;
+struct jtb_truss_model_data_struct
+{
+    f32 model_data[16];
+    jfw_color color;
+};
+
+static inline jtb_truss_model_data jtb_truss_convert_model_data(mtx4 transform, jfw_color c)
+{
+    jtb_truss_model_data data;
+    memcpy(data.model_data, transform.data, sizeof(mtx4));
+    data.color = c;
+    return data;
+}
+
 typedef struct jtb_truss_model_struct jtb_truss_model;
 struct jtb_truss_model_struct
 {
@@ -51,7 +66,9 @@ jfw_res truss_mesh_add_between_pts(jtb_truss_mesh* mesh, jfw_color color, f32 ra
 
 jfw_res truss_mesh_uninit(jtb_truss_mesh* mesh);
 
-jfw_res draw_3d_scene(jfw_window* wnd, vk_state* state, jfw_window_vk_resources* vk_resources);
+jfw_res draw_3d_scene(
+        jfw_window* wnd, vk_state* state, jfw_window_vk_resources* vk_resources, vk_buffer_allocation* p_buffer_geo,
+        vk_buffer_allocation* p_buffer_mod, const jtb_truss_mesh* mesh);
 
 
 #endif //JTB_DRAWING_3D_H
