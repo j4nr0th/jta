@@ -212,4 +212,18 @@ static inline mtx4 mtx4_projection(f32 fov, f32 ar, f32 zoom)
     };
 }
 
+static inline mtx4 mtx4_enlarge(f32 x_factor, f32 y_factor, f32 z_factor)
+{
+    return (mtx4)
+            {
+        .data =
+                {
+                x_factor, 0, 0, 0,
+                0, y_factor, 0, 0,
+                0, 0, z_factor, 0,
+                0, 0, 0,        1,
+                }
+            };
+}
+
 #endif //JFW_GFX_MATH_H

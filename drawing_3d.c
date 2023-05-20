@@ -102,7 +102,7 @@ jfw_res draw_3d_scene(jfw_window* wnd, vk_state* state, jfw_window_vk_resources*
         mtx4 m = mtx4_identity;
         ubo_3d ubo =
                 {
-                        .model = mtx4_identity,//euler_rotation_z(a),
+                        .model = euler_rotation_x(dt * 0.01),
                         .proj = mtx4_projection(M_PI_2, ((f32)vk_resources->extent.width)/((f32)vk_resources->extent.height), 0.5f * 1980.0f/(f32)vk_resources->extent.width),
                         .view = mtx4_view_look_at(
                                 (vec4){.y = -3, .x = 0, .z = -10.0f},

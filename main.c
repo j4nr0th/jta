@@ -209,23 +209,23 @@ int main(int argc, char* argv[argc])
 
     jtb_vtx VERTEX_DATA[8] =
             {
-                    {.pos = {0.0f, 0.0f, 0.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0x00, .a = 0x00}},
-                    {.pos = {1.0f, 0.0f, 0.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0x00, .a = 0x00}},
-                    {.pos = {1.0f, 1.0f, 0.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0x00, .a = 0x00}},
-                    {.pos = {0.0f, 1.0f, 0.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0x00, .a = 0x00}},
+                    {.pos = {0.0f, 0.0f, 0.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0x00, .a = 0xFF}},
+                    {.pos = {1.0f, 1.0f, 0.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0x00, .a = 0xFF}},
+                    {.pos = {1.0f, 0.0f, 0.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0x00, .a = 0xFF}},
+                    {.pos = {0.0f, 1.0f, 0.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0x00, .a = 0xFF}},
 
-                    {.pos = {0.0f, 0.0f, 0.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0xFF, .a = 0x00}},
-                    {.pos = {1.0f, 1.0f, 0.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0xFF, .a = 0x00}},
-                    {.pos = {0.0f, 1.0f, 0.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0xFF, .a = 0x00}},
-                    {.pos = {1.0f, 0.0f, 0.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0xFF, .a = 0x00}},
+                    {.pos = {0.0f, 0.0f, -3.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0xFF, .a = 0xFF}},
+                    {.pos = {2.0f, 2.0f, -3.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0xFF, .a = 0xFF}},
+                    {.pos = {2.0f, 0.0f, -3.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0xFF, .a = 0xFF}},
+                    {.pos = {0.0f, 2.0f, -3.0f}, .color = {.r = 0xFF, .g = 0x00, .b = 0xFF, .a = 0xFF}},
             };
     u32 INDEX_DATA[12] =
             {
                 0, 1, 2,
-                1, 3, 2,
+                0, 3, 1,
 
                 4, 5, 6,
-                5, 7, 6,
+                4, 7, 5,
             };
     vk_buffer_allocation vtx_buffer_allocation, idx_buffer_allocation;
     i32 res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(VERTEX_DATA), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &vtx_buffer_allocation);

@@ -5,8 +5,8 @@
 #include "vk_state.h"
 #include "jfw/error_system/error_stack.h"
 
-#include "shaders/frag.spv"
-#include "shaders/vert.spv"
+#include "shaders/vtx_shader3d.spv"
+#include "shaders/pix_shader3d.spv"
 
 //VkRenderPass render_pass_3D;
 //VkRenderPass render_pass_UI;

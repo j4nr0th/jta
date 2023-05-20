@@ -5,7 +5,7 @@ layout(location = 1) in vec4 color_in;
 
 layout(location = 0) out vec4 vtx_color;
 
-layout(binding = 0) uniform UBO_structu
+layout(binding = 0) uniform UBO_struct
 {
     mat4 model;
     mat4 view;
@@ -27,3 +27,4 @@ void main()
     gl_Position.w = 1.0f;
     vtx_color = color_in;
 }
+
