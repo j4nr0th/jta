@@ -4,17 +4,34 @@
 
 #include "camera.h"
 
-void jtb_camera_set(jtb_camera_3d* camera, vec4 target, vec4 camera_pos, f32 roll)
+void jtb_camera_set(jtb_camera_3d* camera, vec4 target, vec4 camera_pos, vec4 down)
 {
     camera->target = target;
-    camera->roll = roll;
     camera->position = camera_pos;
+    vec4 d = vec4_sub(target, camera_pos);
+    assert(vec4_magnitude(d) > 0.0f);
+    assert(vec4_magnitude(down) > 0.0f);
+    vec4 right_vector = vec4_cross(vec4_negative(down), d);
+    assert(vec4_magnitude(right_vector) > 0.0f);
+    vec4 unit_y = vec4_cross(d, right_vector);
+    //  normalize
+    unit_y = vec4_unit(unit_y);
+    vec4 unit_x = vec4_unit(right_vector);
+    vec4 unit_z = vec4_unit(d);
+    camera->ux = unit_x;
+    camera->uy = unit_y;
+    camera->uz = unit_z;
 }
 
 mtx4 jtb_camera_to_view_matrix(const jtb_camera_3d* camera)
 {
-    mtx4 result = mtx4_view_look_at(camera->position, camera->target, camera->roll);
-    return result;
+    return (mtx4)
+            {
+        .col0 = {.x = camera->ux.x, .y = camera->uy.x, .z = camera->uz.x},
+        .col1 = {.x = camera->ux.y, .y = camera->uy.y, .z = camera->uz.y},
+        .col2 = {.x = camera->ux.z, .y = camera->uy.z, .z = camera->uz.z},
+        .col3 = {.x = -camera->position.x, .y = -camera->position.y, .z = -camera->position.z, .w = 1.0f},
+            };
 }
 
 void jtb_camera_zoom(jtb_camera_3d* camera, f32 fraction_change)
@@ -30,6 +47,9 @@ void jtb_camera_rotate(jtb_camera_3d* camera, vec4 axis_of_rotation, f32 angle)
     mtx4 transformation = mtx4_rotate_around_axis(axis_of_rotation, angle);
     relative = mtx4_vector_mul(transformation, relative);
     camera->position = vec4_add(relative, camera->target);
+    camera->ux = mtx4_vector_mul(transformation, camera->ux);
+    camera->uy = mtx4_vector_mul(transformation, camera->uy);
+    camera->uz = mtx4_vector_mul(transformation, camera->uz);
 }
 
 

@@ -181,17 +181,25 @@ jfw_res draw_3d_scene(
     return jfw_res_success;
 }
 
-jfw_res generate_truss_model(jtb_truss_model* const p_out, const u16 pts_per_side)
+static jfw_res clean_truss_model(jtb_model* model)
+{
+    jfw_free(&model->vtx_array);
+    jfw_free(&model->idx_array);
+    memset(model, 0, sizeof*model);
+    return jfw_res_success;
+}
+
+static jfw_res generate_truss_model(jtb_model* const p_out, const u16 pts_per_side)
 {
     jfw_res res;
-    jtb_truss_vertex* vertices;
+    jtb_vertex* vertices;
     if (!jfw_success(res = (jfw_calloc(2 * pts_per_side, sizeof*vertices, &vertices))))
     {
         JFW_ERROR("Could not allocate memory for truss model");
         return res;
     }
-    jtb_truss_vertex* const btm = vertices;
-    jtb_truss_vertex* const top = vertices + pts_per_side;
+    jtb_vertex* const btm = vertices;
+    jtb_vertex* const top = vertices + pts_per_side;
     u16* indices;
     if (!jfw_success(res = (jfw_calloc(3 * 2 * pts_per_side, sizeof*indices, &indices))))
     {
@@ -229,7 +237,6 @@ jfw_res generate_truss_model(jtb_truss_model* const p_out, const u16 pts_per_sid
     indices[3 * ((pts_per_side - 1) + pts_per_side) + 1] = 0;//(pts_per_side - 1);
     indices[3 * ((pts_per_side - 1) + pts_per_side) + 2] = pts_per_side;
 
-    p_out->pts_per_side = pts_per_side;
     p_out->vtx_count = 2 * pts_per_side;
     p_out->idx_count = 2 * 3 * pts_per_side;
     p_out->vtx_array = vertices;
@@ -263,14 +270,6 @@ jfw_res truss_mesh_init(jtb_truss_mesh* mesh, u16 pts_per_side)
         return res;
     }
 
-    return jfw_res_success;
-}
-
-jfw_res clean_truss_model(jtb_truss_model* model)
-{
-    jfw_free(&model->vtx_array);
-    jfw_free(&model->idx_array);
-    memset(model, 0, sizeof*model);
     return jfw_res_success;
 }
 
@@ -325,11 +324,87 @@ jfw_res truss_mesh_add_between_pts(jtb_truss_mesh* mesh, jfw_color color, f32 ra
     // roll the model
     model = mtx4_multiply(mtx4_rotation_z(roll), model);
     //  rotate about y-axis
-    model = mtx4_multiply(mtx4_rotation_y(rotation_y), model);
+    model = mtx4_multiply(mtx4_rotation_y(-rotation_y), model);
     //  rotate about z-axis again
-    model = mtx4_multiply(mtx4_rotation_z(rotation_z), model);
+    model = mtx4_multiply(mtx4_rotation_z(-rotation_z), model);
     //  move the model to the point pt1
     model = mtx4_translate(model, pt1);
 
     return truss_mesh_add_new(mesh, model, color);
+}
+
+
+static jfw_res clean_sphere_model(jtb_model* model)
+{
+    jfw_free(&model->vtx_array);
+    jfw_free(&model->idx_array);
+    memset(model, 0, sizeof*model);
+    return jfw_res_success;
+}
+
+static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 nw, const u16 nh)
+{
+    assert(nw >= 3);
+    assert(nh >= 1);
+    jfw_res res;
+    jtb_vertex* vertices;
+    u32 vertex_count = 2u * nw * (nh - 2u) + 2u;
+    if (!jfw_success(res = (jfw_calloc(vertex_count, sizeof*vertices, &vertices))))
+    {
+        JFW_ERROR("Could not allocate memory for truss model");
+        return res;
+    }
+
+    u16* indices;
+    if (!jfw_success(res = (jfw_calloc(3 * (nw * nw), sizeof*indices, &indices))))
+    {
+        JFW_ERROR("Could not allocate memory for truss model");
+        return res;
+    }
+
+
+    const f32 d_omega = M_2_PI / nw;
+    const f32 d_phi = M_PI / nh;
+    //  Top covering of the sphere
+    u32 i = 1, j = 0;
+    vertices[0] = (jtb_vertex){.x = 0, .y = 0, .z = 1};
+
+    for (u32 height = 1; height < nh - 1; ++height)
+    {
+        for (u32 width = 0; width < nw; ++width)
+        {
+            vertices[(height - 1) * nw + width] =
+            (jtb_vertex){
+                .x = cosf(d_omega * (f32)width) * sinf(d_phi * (f32)(height - 1)),
+                .y = sinf(d_omega * (f32)width) * sinf(d_phi * (f32)(height - 1)),
+                .z = cosf(d_phi * (f32)(height - 1)),
+            };
+            i += 1;
+        }
+    }
+    assert(i == vertex_count - 1);
+    vertices[vertex_count - 1] = (jtb_vertex){.x = 0, .y = 0, .z = -1};
+
+    //  Top side
+    for (i = 0, j = 0; i < nw; ++i, j += 3)
+    {
+        indices[3 * j + 0] = 0;
+        indices[3 * j + 1] = i;
+        indices[3 * j + 2] = i + 1;
+    }
+    indices[j - 1] = 1;
+
+    
+
+    p_out->vtx_count = vertex_count;
+    p_out->idx_count = 3 * (nw * nw);
+    p_out->vtx_array = vertices;
+    p_out->idx_array = indices;
+
+    return jfw_res_success;
+}
+
+jfw_res sphere_mesh_init(jtb_sphere_mesh* mesh, u16 nw, u16 nh)
+{
+    return jfw_res_success;
 }

@@ -11,10 +11,10 @@ struct jtb_camera_3d_state_struct
 {
     vec4 target;
     vec4 position;
-    f32 roll;
+    vec4 ux, uy, uz;
 };
 
-void jtb_camera_set(jtb_camera_3d* camera, vec4 target, vec4 camera_pos, f32 roll);
+void jtb_camera_set(jtb_camera_3d* camera, vec4 target, vec4 camera_pos, vec4 down);
 
 mtx4 jtb_camera_to_view_matrix(const jtb_camera_3d* camera);
 

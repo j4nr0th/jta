@@ -307,13 +307,13 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
                 {
                 .binding = 0,
                 .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
-                .stride = sizeof(jtb_truss_vertex),
+                .stride = sizeof(jtb_vertex),
                 };
         VkVertexInputBindingDescription vtx_binding_desc_model =
                 {
                 .binding = 1,
                 .inputRate = VK_VERTEX_INPUT_RATE_INSTANCE,
-                .stride = sizeof(jtb_truss_model_data),
+                .stride = sizeof(jtb_model_data),
                 };
         VkVertexInputAttributeDescription position_attribute_description =
                 {
@@ -327,35 +327,35 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
                 .binding = 1,
                 .location = 1,
                 .format = VK_FORMAT_R8G8B8A8_UNORM,
-                .offset = offsetof(jtb_truss_model_data, color),
+                .offset = offsetof(jtb_model_data, color),
                 };
         VkVertexInputAttributeDescription model_transform_attribute_description_col1 =
                 {
                         .binding = 1,
                         .location = 2,
                         .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-                        .offset = offsetof(jtb_truss_model_data, model_data[0]),
+                        .offset = offsetof(jtb_model_data, model_data[0]),
                 };
         VkVertexInputAttributeDescription model_transform_attribute_description_col2 =
                 {
                         .binding = 1,
                         .location = 3,
                         .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-                        .offset = offsetof(jtb_truss_model_data, model_data[4]),
+                        .offset = offsetof(jtb_model_data, model_data[4]),
                 };
         VkVertexInputAttributeDescription model_transform_attribute_description_col3 =
                 {
                         .binding = 1,
                         .location = 4,
                         .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-                        .offset = offsetof(jtb_truss_model_data, model_data[8]),
+                        .offset = offsetof(jtb_model_data, model_data[8]),
                 };
         VkVertexInputAttributeDescription model_transform_attribute_description_col4 =
                 {
                         .binding = 1,
                         .location = 5,
                         .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-                        .offset = offsetof(jtb_truss_model_data, model_data[12]),
+                        .offset = offsetof(jtb_model_data, model_data[12]),
                 };
         VkShaderModuleCreateInfo shader_vtx_create_info =
                 {

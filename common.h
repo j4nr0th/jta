@@ -18,24 +18,6 @@ extern aligned_jallocator* G_ALIGN_JALLOCATOR;
 #include <vulkan/vulkan.h>
 #include <assert.h>
 
-typedef struct jtb_vertex_struct jtb_vtx;
-struct jtb_vertex_struct
-{
-    union
-    {
-        f32 pos[3];
-        struct
-        {
-            f32 x, y, z;
-        };
-        struct
-        {
-            f32 x0, x1, x2;
-        };
-    };
-    jfw_color color;
-};
-
 #include "jfw/gfx_math.h"
 
 typedef struct ubo_3d_struct ubo_3d;

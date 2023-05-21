@@ -350,37 +350,54 @@ static inline mtx4 mtx4_negative(mtx4 m)
             };
 }
 
+static vec4 vec4_negative(vec4 v)
+{
+    return (vec4){.x = v.x, .y = v.y, .z = v.z, .w = 1.0f};
+}
+
 static inline mtx4 mtx4_view_matrix(vec4 offset, vec4 view_direction, f32 roll)
 {
     mtx4 m = mtx4_translate(mtx4_identity, offset);
 
     f32 theta, phi;
-    theta = atan2f(view_direction.y, -view_direction.x);
+    theta = atan2f(view_direction.y, view_direction.x);
     phi = acosf(view_direction.z / vec4_magnitude(view_direction));
 //    phi = acosf(view_direction.z / sqrtf(view_direction.x * view_direction.x + view_direction.y * view_direction.y));
-    m = mtx4_multiply(mtx4_rotation_z(theta), m);
-    m = mtx4_multiply(mtx4_rotation_y(phi), m);
+    m = mtx4_multiply(mtx4_rotation_z(-theta), m);
+    m = mtx4_multiply(mtx4_rotation_y(-phi), m);
     m = mtx4_multiply(mtx4_rotation_z(roll), m);
 
     return m;
 }
 
-static inline mtx4 mtx4_view_look_at(vec4 offset, vec4 target, f32 roll)
+static inline mtx4 mtx4_view_look_at(vec4 pos, vec4 target, vec4 up_vector)
 {
-    vec4 d =
+//    vec4 d =
+//            {
+//                .x = target.x - offset.x,
+//                .y = target.y - offset.y,
+//                .z = target.z - offset.z,
+//                .w = 1,
+//            };
+//    offset.w = 1;
+//    return mtx4_view_matrix((offset), (d), roll);
+    vec4 d = vec4_sub(target, pos);
+    assert(vec4_magnitude(d) > 0.0f);
+    assert(vec4_magnitude(up_vector) > 0.0f);
+    vec4 right_vector = vec4_cross(vec4_negative(up_vector), d);
+    assert(vec4_magnitude(right_vector) > 0.0f);
+    vec4 unit_y = vec4_cross(d, right_vector);
+    //  normalize
+    vec4 unit_x = vec4_unit(right_vector);
+    unit_y = vec4_unit(unit_y);
+    vec4 unit_z = vec4_unit(d);
+    return (mtx4)
             {
-                .x = target.x - offset.x,
-                .y = target.y - offset.y,
-                .z = target.z - offset.z,
-                .w = 1,
+        .col0 = {unit_x.x, unit_y.x, unit_z.x, 0},
+        .col1 = {unit_x.y, unit_y.y, unit_z.y, 0},
+        .col2 = {unit_x.z, unit_y.z, unit_z.z, 0},
+        .col3 = {-pos.x, -pos.y, -pos.z, 1},
             };
-    offset.w = 1;
-    return mtx4_view_matrix(offset, d, roll);
-}
-
-static vec4 vec4_negative(vec4 v)
-{
-    return (vec4){.x = v.x, .y = v.y, .z = v.z, .w = 1.0f};
 }
 
 static inline mtx4 mtx4_view_matrix_inverse(vec4 d, f32 roll)

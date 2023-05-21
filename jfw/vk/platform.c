@@ -1687,7 +1687,7 @@ jfw_res jfw_context_process_events(jfw_ctx* ctx)
     if (XPending(ctx->dpy))
     {
         XNextEvent(ctx->dpy, &e);
-        printf("Got event of type %s\n", XEVENT_NAMES[e.type]);
+//        printf("Got event of type %s\n", XEVENT_NAMES[e.type]);
         jfw_res (* const handler)(jfw_ctx* ctx, XEvent* e, jfw_window* wnd) = XEVENT_HANDLERS[e.type];
         if (handler)
         {

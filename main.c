@@ -179,7 +179,25 @@ int main(int argc, char* argv[argc])
             };
 #endif
 
-
+//    mtx4 matrix = mtx4_view_look_at(VEC4(0, 0, 0), VEC4(1, 0, 0), 0.0f);
+//    matrix = mtx4_view_matrix(VEC4(0, -1, 0), VEC4(0, 1, 0), 0.0f);
+//    printf("% 4.4f % 4.4f % 4.4f % 4.4f\n% 4.4f % 4.4f % 4.4f % 4.4f\n% 4.4f % 4.4f % 4.4f % 4.4f\n% 4.4f % 4.4f % 4.4f % 4.4f\n", matrix.col0.s0, matrix.col1.s0, matrix.col2.s0, matrix.col3.s0, matrix.col0.s1, matrix.col1.s1, matrix.col2.s1, matrix.col3.s1, matrix.col0.s2, matrix.col1.s2, matrix.col2.s2, matrix.col3.s2, matrix.col0.s3, matrix.col1.s3, matrix.col2.s3, matrix.col3.s3);
+//    exit(0);
+//    vec4 res_vec = mtx4_vector_mul(matrix, VEC4(1, 0, 0));
+//    printf("Res: [%g, %g, %g]\n", res_vec.x, res_vec.y, res_vec.z);
+//    res_vec = mtx4_vector_mul(matrix, VEC4(0, 1, 0));
+//    printf("Res: [%g, %g, %g]\n", res_vec.x, res_vec.y, res_vec.z);
+//    res_vec = mtx4_vector_mul(matrix, VEC4(0, 0, 1));
+//    printf("Res: [%g, %g, %g]\n", res_vec.x, res_vec.y, res_vec.z);
+//
+//    matrix = mtx4_view_look_at(VEC4(0, 1, 0), VEC4(0, 2, 0), M_PI_2);
+//    res_vec = mtx4_vector_mul(matrix, VEC4(1, 0, 0));
+//    printf("Res: [%g, %g, %g]\n", res_vec.x, res_vec.y, res_vec.z);
+//    res_vec = mtx4_vector_mul(matrix, VEC4(0, 1, 0));
+//    printf("Res: [%g, %g, %g]\n", res_vec.x, res_vec.y, res_vec.z);
+//    res_vec = mtx4_vector_mul(matrix, VEC4(0, 0, 1));
+//    printf("Res: [%g, %g, %g]\n", res_vec.x, res_vec.y, res_vec.z);
+//    exit(0);
     jfw_ctx* jctx = NULL;
     jfw_window* jwnd = NULL;
     jfw_res res = jfw_context_create(&jctx,
@@ -221,7 +239,7 @@ int main(int argc, char* argv[argc])
         JFW_ERROR("Could not create truss mesh: %s", jfw_error_message(res));
         goto cleanup;
     }
-    if (!jfw_success(res = truss_mesh_add_between_pts(&mesh, (jfw_color){.r = 0xFF, .a = 0xFF}, 0.001f, VEC4(0, 0, 0), VEC4(+0.1, 0, 0), 0.0f)))
+    if (!jfw_success(res = truss_mesh_add_between_pts(&mesh, (jfw_color){.r = 0xFF, .a = 0xFF}, 0.001f, VEC4(0, 0, 0), VEC4(0.1f, 0, 0), 0.0f)))
     {
         JFW_ERROR("Could not add a new truss to the mesh: %s", jfw_error_message(res));
         goto cleanup;
@@ -231,25 +249,25 @@ int main(int argc, char* argv[argc])
         JFW_ERROR("Could not add a new truss to the mesh: %s", jfw_error_message(res));
         goto cleanup;
     }
-    if (!jfw_success(res = truss_mesh_add_between_pts(&mesh, (jfw_color){.b = 0xFF, .a = 0xFF}, 0.001f, VEC4(0, 0, 0), VEC4(0, 0, +0.1), 0.0f)))
+    if (!jfw_success(res = truss_mesh_add_between_pts(&mesh, (jfw_color){.b = 0xFF, .a = 0xFF}, 0.001f, VEC4(0, 0, 0), VEC4(0, 0, 0.1f), 0.0f)))
     {
         JFW_ERROR("Could not add a new truss to the mesh: %s", jfw_error_message(res));
         goto cleanup;
     }
-    if (!jfw_success(res = truss_mesh_add_between_pts(&mesh, (jfw_color){.r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF}, 0.001f, VEC4(0, 0, 0), VEC4(1, 1, 1), 0.0f)))
-    {
-        JFW_ERROR("Could not add a new truss to the mesh: %s", jfw_error_message(res));
-        goto cleanup;
-    }
+//    if (!jfw_success(res = truss_mesh_add_between_pts(&mesh, (jfw_color){.r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF}, 0.001f, VEC4(0, 0, 0), VEC4(1, 1, 1), 0.0f)))
+//    {
+//        JFW_ERROR("Could not add a new truss to the mesh: %s", jfw_error_message(res));
+//        goto cleanup;
+//    }
 
     vk_buffer_allocation vtx_buffer_allocation_geometry, vtx_buffer_allocation_model, idx_buffer_allocation;
-    i32 res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(jtb_truss_vertex) * mesh.model.vtx_count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &vtx_buffer_allocation_geometry);
+    i32 res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(jtb_vertex) * mesh.model.vtx_count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &vtx_buffer_allocation_geometry);
     if (res_v < 0)
     {
         JFW_ERROR("Could not allocate geometry vertex buffer memory");
         goto cleanup;
     }
-    vk_transfer_memory_to_buffer(vk_res, &vulkan_state, &vtx_buffer_allocation_geometry, sizeof(jtb_truss_vertex) * mesh.model.vtx_count, mesh.model.vtx_array);
+    vk_transfer_memory_to_buffer(vk_res, &vulkan_state, &vtx_buffer_allocation_geometry, sizeof(jtb_vertex) * mesh.model.vtx_count, mesh.model.vtx_array);
 
     res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(*mesh.model.idx_array) * mesh.model.idx_count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &idx_buffer_allocation);
     if (res_v < 0)
@@ -259,18 +277,18 @@ int main(int argc, char* argv[argc])
     }
     vk_transfer_memory_to_buffer(vk_res, &vulkan_state, &idx_buffer_allocation, sizeof(*mesh.model.idx_array) * mesh.model.idx_count, mesh.model.idx_array);
 
-    res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(jtb_truss_model_data) * mesh.count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &vtx_buffer_allocation_model);
+    res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(jtb_model_data) * mesh.count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &vtx_buffer_allocation_model);
     if (res_v < 0)
     {
         JFW_ERROR("Could not allocate index buffer memory");
         goto cleanup;
     }
-    jtb_truss_model_data* model_data = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*model_data) * mesh.count);
+    jtb_model_data* model_data = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*model_data) * mesh.count);
     for (u32 i = 0; i < mesh.count; ++i)
     {
         model_data[i] = jtb_truss_convert_model_data(mesh.model_matrices[i], mesh.colors[i]);
     }
-    vk_transfer_memory_to_buffer(vk_res, &vulkan_state, &vtx_buffer_allocation_model, sizeof(jtb_truss_model_data) * mesh.count, model_data);
+    vk_transfer_memory_to_buffer(vk_res, &vulkan_state, &vtx_buffer_allocation_model, sizeof(jtb_model_data) * mesh.count, model_data);
     lin_jfree(G_LIN_JALLOCATOR, model_data);
 
     vkWaitForFences(vk_res->device, 1, &vulkan_state.fence_transfer_free, VK_TRUE, UINT64_MAX);
@@ -293,7 +311,7 @@ int main(int argc, char* argv[argc])
     jwidget->functions.mouse_button_release = truss_mouse_button_release;
     jwidget->functions.mouse_motion = truss_mouse_motion;
     jtb_camera_3d camera;
-    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(1, 1, 1), M_PI_2);
+    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(0, 0, -1), VEC4(0, 1, 0));
     jtb_draw_state draw_state =
             {
             .vulkan_state = &vulkan_state,
@@ -302,7 +320,6 @@ int main(int argc, char* argv[argc])
             };
     jfw_widget_set_user_pointer(jwidget, &draw_state);
     vulkan_state.view = jtb_camera_to_view_matrix(&camera);
-
 
 
     i32 close = 0;
@@ -314,7 +331,7 @@ int main(int argc, char* argv[argc])
         }
         if (!close)
         {
-            jfw_window_redraw(jctx, jwnd);
+            jfw_window_force_redraw(jctx, jwnd);
         }
     }
 //    vk_state_destroy(&vulkan_state, vk_res);
