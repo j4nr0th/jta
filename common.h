@@ -6,6 +6,8 @@
 #define JTB_COMMON_H
 
 #include "jfw/jfw_common.h"
+#include "jfw/window.h"
+#include "jfw/widget-base.h"
 #include "mem/lin_jalloc.h"
 #include "mem/aligned_jalloc.h"
 

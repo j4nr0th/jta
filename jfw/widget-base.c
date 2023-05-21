@@ -89,7 +89,7 @@ jfw_res jfw_widget_ask_for_redraw(jfw_widget* widget)
     return jfw_res_success;
 }
 
-u0* jfw_widget_get_user_pointer(jfw_widget* widget)
+void* jfw_widget_get_user_pointer(const jfw_widget* widget)
 {
     JFW_ENTER_FUNCTION;
     void* pointer = widget->user_pointer;

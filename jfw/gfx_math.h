@@ -103,6 +103,62 @@ static inline vec4 vec4_div(vec4 a, vec4 b)
     return c;
 }
 
+static inline vec4 vec4_add_one(vec4 a, f32 k)
+{
+    assert(a.w == 1.0f);
+    vec4 c;
+    __m128 va, vb, vc;
+    va = _mm_load_ps(a.data);
+    vb = _mm_set1_ps(k);
+
+    vc = _mm_add_ps(va, vb);
+    _mm_store_ps(c.data, vc);
+    c.w = 1;
+    return c;
+}
+
+static inline vec4 vec4_sub_one(vec4 a, f32 k)
+{
+    assert(a.w == 1.0f);
+    vec4 c;
+    __m128 va, vb, vc;
+    va = _mm_load_ps(a.data);
+    vb = _mm_set_ps1(k);
+
+    vc = _mm_sub_ps(va, vb);
+    _mm_store_ps(c.data, vc);
+    c.w = 1;
+    return c;
+}
+
+static inline vec4 vec4_mul_one(vec4 a, f32 k)
+{
+    assert(a.w == 1.0f);
+    vec4 c;
+    __m128 va, vb, vc;
+    va = _mm_load_ps(a.data);
+    vb = _mm_set_ps1(k);
+
+    vc = _mm_mul_ps(va, vb);
+    _mm_store_ps(c.data, vc);
+    c.w = 1;
+    return c;
+}
+
+static inline vec4 vec4_div_one(vec4 a, f32 k)
+{
+    assert(a.w == 1.0f);
+    vec4 c;
+    __m128 va, vb, vc;
+    va = _mm_load_ps(a.data);
+    vb = _mm_set_ps1(k);
+
+    vc = _mm_mul_ps(va, vb);
+    _mm_store_ps(c.data, vc);
+    c.w = 1;
+    return c;
+}
+
 static inline f32 vec4_dot(vec4 a, vec4 b)
 {
     assert(a.w == 1.0f);
@@ -126,6 +182,21 @@ static inline vec4 vec4_cross(vec4 a, vec4 b)
     crs.w = 1.0f;
 
     return crs;
+}
+
+static inline vec4 vec4_unit(vec4 v)
+{
+    assert(v.w == 1.0f);
+    f32 mag;
+
+    mag = sqrtf(v.x * v.x + v.y * v.y + v.z * v.z);
+
+    return (vec4){.x = v.x / mag, .y = v.y / mag, .z = v.z / mag, .w = 1.0f};
+}
+
+static inline f32 vec4_magnitude(vec4 v)
+{
+    return sqrtf(v.x * v.x + v.y * v.y + v.z * v.z);
 }
 
 static inline mtx4 mtx4_rotation_z(f32 alpha)
@@ -282,16 +353,11 @@ static inline mtx4 mtx4_negative(mtx4 m)
 static inline mtx4 mtx4_view_matrix(vec4 offset, vec4 view_direction, f32 roll)
 {
     mtx4 m = mtx4_translate(mtx4_identity, offset);
-//    f32 alpha, beta;
-//    alpha = atan2f(-view_direction.y, view_direction.z);
-//    beta = atan2f(view_direction.x, sqrtf(view_direction.y * view_direction.y + view_direction.z * view_direction.z));
-//    m = mtx4_multiply(mtx4_rotation_x(alpha), m);
-//    m = mtx4_multiply(mtx4_rotation_y(beta), m);
-//    m = mtx4_multiply(mtx4_rotation_z(roll), m);
 
     f32 theta, phi;
-    theta = atan2f(view_direction.y, view_direction.x);
-    phi = acosf(view_direction.z / sqrtf(view_direction.x * view_direction.x + view_direction.y * view_direction.y));
+    theta = atan2f(view_direction.y, -view_direction.x);
+    phi = acosf(view_direction.z / vec4_magnitude(view_direction));
+//    phi = acosf(view_direction.z / sqrtf(view_direction.x * view_direction.x + view_direction.y * view_direction.y));
     m = mtx4_multiply(mtx4_rotation_z(theta), m);
     m = mtx4_multiply(mtx4_rotation_y(phi), m);
     m = mtx4_multiply(mtx4_rotation_z(roll), m);
@@ -312,9 +378,27 @@ static inline mtx4 mtx4_view_look_at(vec4 offset, vec4 target, f32 roll)
     return mtx4_view_matrix(offset, d, roll);
 }
 
+static vec4 vec4_negative(vec4 v)
+{
+    return (vec4){.x = v.x, .y = v.y, .z = v.z, .w = 1.0f};
+}
+
+static inline mtx4 mtx4_view_matrix_inverse(vec4 d, f32 roll)
+{
+    f32 theta, phi;
+    theta = atan2f(d.y, d.x);
+    phi = acosf(d.z / vec4_magnitude(d));
+    mtx4 m = mtx4_identity;
+    m = mtx4_multiply(mtx4_rotation_z(-roll), m);
+    m = mtx4_multiply(mtx4_rotation_y(-phi), m);
+    m = mtx4_multiply(mtx4_rotation_z(-theta), m);
+
+    return m;
+}
+
 static inline mtx4 mtx4_projection(f32 fov, f32 ar, f32 zoom, f32 near, f32 far)
 {
-    const f32 k = 2 * zoom / cosf(fov / 2);
+    const f32 k = 2 * zoom / tanf(fov / 2);
     assert(far > near);
     const f32 z_dif = far - near;
     return (mtx4)
@@ -340,6 +424,33 @@ static inline mtx4 mtx4_enlarge(f32 x_factor, f32 y_factor, f32 z_factor)
                 0, 0, 0,        1,
                 }
             };
+}
+
+static mtx4 mtx4_transpose(mtx4 m)
+{
+    for (u32 i = 0; i < 4; ++i)
+    {
+        for (u32 j = 0; j < i; ++j)
+        {
+            const f32 tmp = m.m[i][j];
+            m.m[i][j] = m.m[j][i];
+            m.m[j][i] = tmp;
+        }
+    }
+
+    return m;
+}
+
+static inline mtx4 mtx4_rotate_around_axis(vec4 axis_of_rotation, f32 rotation_angle)
+{
+    //  Align the rotation vector with the z axis
+    f32 theta, phi;
+    theta = atan2f(axis_of_rotation.y, axis_of_rotation.x);
+    phi = acosf(axis_of_rotation.z / vec4_magnitude(axis_of_rotation));
+    mtx4 mf = mtx4_multiply(mtx4_rotation_y(phi), mtx4_rotation_z(theta));
+    mtx4 m = mtx4_multiply(mtx4_rotation_z(rotation_angle), mf);
+    m = mtx4_multiply(mtx4_transpose(mf), m);
+    return m;
 }
 
 #define VEC4(vx, vy, vz) (vec4){.x = (vx), .y = (vy), .z = (vz), .w = 1.0f}

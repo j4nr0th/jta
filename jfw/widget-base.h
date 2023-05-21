@@ -27,7 +27,6 @@ typedef struct jfw_widget_functions_struct
     jfw_res (*mouse_button_press)(jfw_widget* this, i32 x, i32 y, u32 button, u32 mods);
     jfw_res (*mouse_button_release)(jfw_widget* this, i32 x, i32 y, u32 button, u32 mods);
     jfw_res (*mouse_motion)(jfw_widget* this, i32 x, i32 y, u32 mods);
-    jfw_res (*mouse_drag)(jfw_widget* this, i32 x, i32 y, u32 button_mask, u32 mods);
     jfw_res (*mouse_focus_get)(jfw_widget* this, jfw_widget* new_focus);
     jfw_res (*mouse_focus_lose)(jfw_widget* this, jfw_widget* old_focus);
     //  Related to keyboard input
@@ -73,7 +72,7 @@ jfw_res jfw_widget_reposition(jfw_widget* widget, i32 x, i32 y);
 
 jfw_res jfw_widget_ask_for_redraw(jfw_widget* widget);
 
-u0* jfw_widget_get_user_pointer(jfw_widget* widget);
+void* jfw_widget_get_user_pointer(const jfw_widget* widget);
 
 u0 jfw_widget_set_user_pointer(jfw_widget* widget, u0* user_pointer);
 

@@ -1428,6 +1428,37 @@ static jfw_res handle_mouse_button_release(jfw_ctx* ctx, XEvent* ptr, jfw_window
     return jfw_res_success;
 }
 
+static jfw_res handle_motion_notify(jfw_ctx* ctx, XEvent* ptr, jfw_window* this)
+{
+    JFW_ENTER_FUNCTION;
+    XMotionEvent* const e = &ptr->xmotion;
+    i32 x = e->x;
+    i32 y = e->y;
+    jfw_widget* widget = this->base;
+
+    check_children:
+    x -= widget->x;
+    y -= widget->y;
+    for (u32 i = 0; i < widget->children_count; ++i)
+    {
+        jfw_widget * child = widget->children_array[i];
+        if (x >= child->x && y >= child->y && x < child->x + child->width && y < child->y + child->height)
+        {
+            widget = child;
+            goto check_children;
+        }
+    }
+    if (widget->functions.mouse_motion)
+    {
+        jfw_res res = widget->functions.mouse_motion(widget, x, y, e->state);
+        JFW_LEAVE_FUNCTION;
+        return res;
+    }
+
+    JFW_LEAVE_FUNCTION;
+    return jfw_res_success;
+}
+
 static jfw_res handle_client_message(jfw_ctx* ctx, XEvent* ptr, jfw_window* wnd)
 {
     JFW_ENTER_FUNCTION;
@@ -1560,20 +1591,89 @@ static jfw_res handle_config_notify(jfw_ctx* ctx, XEvent* ptr, jfw_window* wnd)
     return res;
 }
 
+static jfw_res handle_map_notify(jfw_ctx* ctx, XEvent* ptr, jfw_window* wnd)
+{
+    JFW_ENTER_FUNCTION;
+    XMapEvent* const e = &ptr->xmap;
+    jfw_res res = jfw_res_success;
+    if (wnd->base)
+    {
+        wnd->base->redraw += 1;
+    }
+    wnd->redraw += 1;
+
+    JFW_LEAVE_FUNCTION;
+    return res;
+}
+
+static jfw_res handle_visibility_notify(jfw_ctx* ctx, XEvent* ptr, jfw_window* wnd)
+{
+    JFW_ENTER_FUNCTION;
+    XVisibilityEvent* const e = &ptr->xvisibility;
+    jfw_res res = jfw_res_success;
+    if (wnd->base)
+    {
+        wnd->base->redraw += 1;
+    }
+    wnd->redraw += 1;
+
+    JFW_LEAVE_FUNCTION;
+    return res;
+}
+
 static jfw_res(*XEVENT_HANDLERS[LASTEvent])(jfw_ctx* ctx, XEvent* e, jfw_window* wnd) =
         {
         [ButtonPress] = handle_mouse_button_press,
         [ButtonRelease] = handle_mouse_button_release,
         [ClientMessage] = handle_client_message,
+        [MotionNotify] = handle_motion_notify,
 //        [FocusIn] = handle_focus_in,
 //        [FocusOut] = handle_focus_out,
 //        [KeyPress] = handle_keyboard_button_down,
 //        [KeyRelease] = handle_keyboard_button_up,
         [MappingNotify] = handle_kbd_mapping_change,
         [ConfigureNotify] = handle_config_notify,
+        [MapNotify] = handle_map_notify,
+        [VisibilityNotify] = handle_visibility_notify,
         };
 
-
+static const char* const XEVENT_NAMES[LASTEvent] =
+        {
+        [KeyPress] = "KeyPress",
+        [KeyRelease] = "KeyRelease",
+        [ButtonPress] = "ButtonPress",
+        [ButtonRelease] = "ButtonRelease",
+        [MotionNotify] = "MotionNotify",
+        [EnterNotify] = "EnterNotify",
+        [LeaveNotify] = "LeaveNotify",
+        [FocusIn] = "FocusIn",
+        [FocusOut] = "FocusOut",
+        [KeymapNotify] = "KeymapNotify",
+        [Expose] = "Expose",
+        [GraphicsExpose] = "GraphicsExpose",
+        [NoExpose] = "NoExpose",
+        [VisibilityNotify] = "VisibilityNotify",
+        [CreateNotify] = "CreateNotify",
+        [DestroyNotify] = "DestroyNotify",
+        [UnmapNotify] = "UnmapNotify",
+        [MapNotify] = "MapNotify",
+        [MapRequest] = "MapRequest",
+        [ReparentNotify] = "ReparentNotify",
+        [ConfigureNotify] = "ConfigureNotify",
+        [ConfigureRequest] = "ConfigureRequest",
+        [GravityNotify] = "GravityNotify",
+        [ResizeRequest] = "ResizeRequest",
+        [CirculateNotify] = "CirculateNotify",
+        [CirculateRequest] = "CirculateRequest",
+        [PropertyNotify] = "PropertyNotify",
+        [SelectionClear] = "SelectionClear",
+        [SelectionRequest] = "SelectionRequest",
+        [SelectionNotify] = "SelectionNotify",
+        [ColormapNotify] = "ColormapNotify",
+        [ClientMessage] = "ClientMessage",
+        [MappingNotify] = "MappingNotify",
+        [GenericEvent] = "GenericEvent",
+        };
 
 jfw_res jfw_context_process_events(jfw_ctx* ctx)
 {
@@ -1587,6 +1687,7 @@ jfw_res jfw_context_process_events(jfw_ctx* ctx)
     if (XPending(ctx->dpy))
     {
         XNextEvent(ctx->dpy, &e);
+        printf("Got event of type %s\n", XEVENT_NAMES[e.type]);
         jfw_res (* const handler)(jfw_ctx* ctx, XEvent* e, jfw_window* wnd) = XEVENT_HANDLERS[e.type];
         if (handler)
         {

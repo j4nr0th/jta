@@ -35,6 +35,7 @@ struct vk_state_struct
     VkDeviceMemory depth_mem;
     VkFormat depth_format;
     void* mesh;
+    mtx4 view;
 };
 
 jfw_res vk_state_create(vk_state* p_state, const jfw_window_vk_resources* vk_resources);

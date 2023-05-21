@@ -126,12 +126,12 @@ jfw_res draw_3d_scene(
         ubo_3d ubo =
                 {
 //                        .model = mtx4_rotation_x(dt * 0.01),
-                        .proj = mtx4_projection(M_PI_2, ((f32)vk_resources->extent.width)/((f32)vk_resources->extent.height), 0.1f * 1600.0f/(f32)vk_resources->extent.width, 0.1f, 10.0f),
-                        .view = mtx4_view_look_at(
-                                (vec4){.x = mag * cosf(a), .y = mag * sinf(a), .z = 0.0f},
-                                (vec4){.x = 0.0f, .y = 0.0f, .z = 0.0f},
-                                M_PI
-                                                 ),
+                        .proj = mtx4_projection(M_PI_2, ((f32)vk_resources->extent.width)/((f32)vk_resources->extent.height), 1.0f, 0.1f, 10.0f),
+                        .view = state->view,// mtx4_view_look_at(
+//                                (vec4){.x = mag * cosf(a), .y = mag * sinf(a), .z = 0.0f},
+//                                (vec4){.x = 0.0f, .y = 0.0f, .z = 0.0f},
+//                                M_PI
+//                                                 ),
                 };
         memcpy(state->p_mapped_array[i_frame], &ubo, sizeof(ubo));
     }

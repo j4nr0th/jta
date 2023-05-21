@@ -15,6 +15,8 @@
 
 #include "vk_state.h"
 #include "drawing_3d.h"
+#include "camera.h"
+#include "ui.h"
 
 
 linear_jallocator* G_LIN_JALLOCATOR = NULL;
@@ -22,7 +24,8 @@ aligned_jallocator* G_ALIGN_JALLOCATOR = NULL;
 
 static jfw_res widget_draw(jfw_widget* this)
 {
-    vk_state* const state = this->window->user_ptr;
+    jtb_draw_state* const draw_state = jfw_widget_get_user_pointer(this);
+    vk_state* const state = draw_state->vulkan_state;
     return draw_3d_scene(
             this->window, state, jfw_window_get_vk_resources(this->window), &state->buffer_vtx_geo,
             &state->buffer_vtx_mod, state->mesh);
@@ -215,20 +218,30 @@ int main(int argc, char* argv[argc])
 
     if (!jfw_success(res = truss_mesh_init(&mesh, 16)))
     {
-        JFW_ERROR("Could not create truss mesh");
+        JFW_ERROR("Could not create truss mesh: %s", jfw_error_message(res));
         goto cleanup;
     }
-    if (!jfw_success(res = truss_mesh_add_between_pts(&mesh, (jfw_color){.b = 0xFF, .a = 0xFF}, 0.5f, VEC4(-1, 0, 0), VEC4(+1, 0, 0), 0.0f)))
+    if (!jfw_success(res = truss_mesh_add_between_pts(&mesh, (jfw_color){.r = 0xFF, .a = 0xFF}, 0.001f, VEC4(0, 0, 0), VEC4(+0.1, 0, 0), 0.0f)))
     {
         JFW_ERROR("Could not add a new truss to the mesh: %s", jfw_error_message(res));
         goto cleanup;
     }
-    if (!jfw_success(res = truss_mesh_add_between_pts(&mesh, (jfw_color){.r = 0xFF, .a = 0xFF}, 0.25f, VEC4(-1, 1, 0), VEC4(+1, 1, 0), 0.0f)))
+    if (!jfw_success(res = truss_mesh_add_between_pts(&mesh, (jfw_color){.g = 0xFF, .a = 0xFF}, 0.001f, VEC4(0, 0, 0), VEC4(0, +0.1, 0), 0.0f)))
     {
         JFW_ERROR("Could not add a new truss to the mesh: %s", jfw_error_message(res));
         goto cleanup;
     }
-    
+    if (!jfw_success(res = truss_mesh_add_between_pts(&mesh, (jfw_color){.b = 0xFF, .a = 0xFF}, 0.001f, VEC4(0, 0, 0), VEC4(0, 0, +0.1), 0.0f)))
+    {
+        JFW_ERROR("Could not add a new truss to the mesh: %s", jfw_error_message(res));
+        goto cleanup;
+    }
+    if (!jfw_success(res = truss_mesh_add_between_pts(&mesh, (jfw_color){.r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF}, 0.001f, VEC4(0, 0, 0), VEC4(1, 1, 1), 0.0f)))
+    {
+        JFW_ERROR("Could not add a new truss to the mesh: %s", jfw_error_message(res));
+        goto cleanup;
+    }
+
     vk_buffer_allocation vtx_buffer_allocation_geometry, vtx_buffer_allocation_model, idx_buffer_allocation;
     i32 res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(jtb_truss_vertex) * mesh.model.vtx_count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &vtx_buffer_allocation_geometry);
     if (res_v < 0)
@@ -276,8 +289,22 @@ int main(int argc, char* argv[argc])
     }
     jwidget->dtor_fn = widget_dtor;
     jwidget->draw_fn = widget_draw;
+    jwidget->functions.mouse_button_press = truss_mouse_button_press;
+    jwidget->functions.mouse_button_release = truss_mouse_button_release;
+    jwidget->functions.mouse_motion = truss_mouse_motion;
+    jtb_camera_3d camera;
+    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(1, 1, 1), M_PI_2);
+    jtb_draw_state draw_state =
+            {
+            .vulkan_state = &vulkan_state,
+            .camera = camera,
+            .vulkan_resources = vk_res,
+            };
+    jfw_widget_set_user_pointer(jwidget, &draw_state);
+    vulkan_state.view = jtb_camera_to_view_matrix(&camera);
 
-    printf("Hello, World!\n");
+
+
     i32 close = 0;
     while (jfw_success(jfw_context_wait_for_events(jctx)) && !close)
     {
@@ -287,8 +314,7 @@ int main(int argc, char* argv[argc])
         }
         if (!close)
         {
-            jfw_window_force_redraw(jctx, jwnd);
-            printf("Hello mom!\n");
+            jfw_window_redraw(jctx, jwnd);
         }
     }
 //    vk_state_destroy(&vulkan_state, vk_res);
