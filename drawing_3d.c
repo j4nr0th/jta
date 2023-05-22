@@ -208,6 +208,7 @@ static jfw_res generate_truss_model(jtb_model* const p_out, const u16 pts_per_si
     }
 
 
+
     const f32 d_omega = M_PI / pts_per_side;
     //  Generate bottom side
 
@@ -245,6 +246,8 @@ static jfw_res generate_truss_model(jtb_model* const p_out, const u16 pts_per_si
     return jfw_res_success;
 }
 
+const u64 DEFAULT_MESH_CAPACITY = 64;
+
 jfw_res truss_mesh_init(jtb_truss_mesh* mesh, u16 pts_per_side)
 {
     jfw_res res;
@@ -254,7 +257,7 @@ jfw_res truss_mesh_init(jtb_truss_mesh* mesh, u16 pts_per_side)
         return res;
     }
     mesh->count = 0;
-    mesh->capacity = 64;
+    mesh->capacity = DEFAULT_MESH_CAPACITY;
     if (!jfw_success(res = jfw_calloc(mesh->capacity, sizeof(*mesh->colors), &mesh->colors)))
     {
         JFW_ERROR("Could not allocate memory for mesh color array");
@@ -348,7 +351,7 @@ static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 nw, const
     assert(nh >= 1);
     jfw_res res;
     jtb_vertex* vertices;
-    u32 vertex_count = 2u * nw * (nh - 2u) + 2u;
+    const u32 vertex_count = 2 + nw * nh;
     if (!jfw_success(res = (jfw_calloc(vertex_count, sizeof*vertices, &vertices))))
     {
         JFW_ERROR("Could not allocate memory for truss model");
@@ -356,48 +359,98 @@ static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 nw, const
     }
 
     u16* indices;
-    if (!jfw_success(res = (jfw_calloc(3 * (nw * nw), sizeof*indices, &indices))))
+    const u32 index_count = 3 * 2 * nw * (nh + 1);
+    if (!jfw_success(res = (jfw_calloc(index_count, sizeof*indices, &indices))))
     {
         JFW_ERROR("Could not allocate memory for truss model");
         return res;
     }
 
 
-    const f32 d_omega = M_2_PI / nw;
-    const f32 d_phi = M_PI / nh;
-    //  Top covering of the sphere
-    u32 i = 1, j = 0;
-    vertices[0] = (jtb_vertex){.x = 0, .y = 0, .z = 1};
-
-    for (u32 height = 1; height < nh - 1; ++height)
+    const f32 d_theta = M_2_PI / nw;
+    const f32 d_phi = M_PI / (nh - 2);
+    u32 i_vtx = 0, i_idx = 0;
+    //  Generate the vertices
+    for (u32 i_ring = 0; i_ring < nh; ++i_ring)
     {
-        for (u32 width = 0; width < nw; ++width)
+        const f32 phi = d_phi * ((f32) i_ring + 1.0f);
+        const f32 z = cosf(phi);
+        const f32 sp = sinf(phi);
+        for (u32 i_column = 0; i_column < nw; ++i_column)
         {
-            vertices[(height - 1) * nw + width] =
-            (jtb_vertex){
-                .x = cosf(d_omega * (f32)width) * sinf(d_phi * (f32)(height - 1)),
-                .y = sinf(d_omega * (f32)width) * sinf(d_phi * (f32)(height - 1)),
-                .z = cosf(d_phi * (f32)(height - 1)),
-            };
-            i += 1;
+            const f32 theta = (f32)i_column * d_theta;
+            vertices[i_vtx++] = (jtb_vertex)
+                    {
+                .x = cosf(theta) * sp,
+                .y = sinf(theta) * sp,
+                .z = z,
+                    };
         }
     }
-    assert(i == vertex_count - 1);
-    vertices[vertex_count - 1] = (jtb_vertex){.x = 0, .y = 0, .z = -1};
+    assert(i_vtx == nw * nh);
+    //  Add top and bottom indices
+    const u32 i_top = i_vtx++;
+    const u32 i_btm = i_vtx++;
+    vertices[i_top] = (jtb_vertex){.x=0.0f, .y=0.0f, .z=+1.0f};
+    vertices[i_btm] = (jtb_vertex){.x=0.0f, .y=0.0f, .z=-1.0f};
+    assert(i_vtx == vertex_count);
 
-    //  Top side
-    for (i = 0, j = 0; i < nw; ++i, j += 3)
+    //  Now generate the triangles for the bottom part of the ring connections
+    for (u32 i_ring = 0; i_ring < nh - 1; ++i_ring)
     {
-        indices[3 * j + 0] = 0;
-        indices[3 * j + 1] = i;
-        indices[3 * j + 2] = i + 1;
+        for (u32 i_column = 0; i_column < nw; ++i_column)
+        {
+            const u32 i_pt = i_column + i_ring * nw;
+            indices[i_idx++] = i_pt;
+            assert(i_idx < index_count);
+            indices[i_idx++] = i_pt + nw;
+            assert(i_idx < index_count);
+            indices[i_idx++] = (i_pt + 1) % nw;
+            assert(i_idx < index_count);
+        }
     }
-    indices[j - 1] = 1;
 
+    //  Generate the triangles for the top part of the ring connections
+    for (u32 i_ring = 1; i_ring < nh; ++i_ring)
+    {
+        for (u32 i_column = 0; i_column < nw; ++i_column)
+        {
+            const u32 i_pt = i_column + i_ring * nw;
+            indices[i_idx++] = i_pt;
+            assert(i_idx < index_count);
+            indices[i_idx++] = (i_pt + 1) % nw;
+            assert(i_idx < index_count);
+            indices[i_idx++] = i_pt - nw;
+            assert(i_idx < index_count);
+        }
+    }
+
+    //  Generate the triangles for the very top of the sphere
+    for (u32 i_column = 0; i_column < nw; ++i_column)
+    {
+        indices[i_idx++] = i_top;
+        assert(i_idx < index_count);
+        indices[i_idx++] = i_column;
+        assert(i_idx < index_count);
+        indices[i_idx++] = (i_column + 1) % nw;
+        assert(i_idx < index_count);
+    }
+    //  Generate the triangles for the very bottom of the sphere
+    for (u32 i_column = 0; i_column < nw; ++i_column)
+    {
+        const u32 i_pt = i_column + nw * (nh - 1);
+        indices[i_idx++] = i_btm;
+        assert(i_idx < index_count);
+        indices[i_idx++] = (i_pt + 1) % nw;
+        assert(i_idx < index_count);
+        indices[i_idx++] = i_pt;
+    }
+
+    assert(i_idx == index_count);
     
 
     p_out->vtx_count = vertex_count;
-    p_out->idx_count = 3 * (nw * nw);
+    p_out->idx_count = index_count;
     p_out->vtx_array = vertices;
     p_out->idx_array = indices;
 
@@ -406,5 +459,69 @@ static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 nw, const
 
 jfw_res sphere_mesh_init(jtb_sphere_mesh* mesh, u16 nw, u16 nh)
 {
+    jfw_res res;
+    if (!jfw_success(res = generate_sphere_model(&mesh->model, nw, nh)))
+    {
+        JFW_ERROR("Could not generate a sphere model for a mesh");
+        return res;
+    }
+    mesh->count = 0;
+    mesh->capacity = DEFAULT_MESH_CAPACITY;
+    if (!jfw_success(res = jfw_calloc(mesh->capacity, sizeof(*mesh->colors), &mesh->colors)))
+    {
+        JFW_ERROR("Could not allocate memory for mesh color array");
+        clean_sphere_model(&mesh->model);
+        return res;
+    }
+
+    if (!jfw_success(res = jfw_calloc(mesh->capacity, sizeof(*mesh->model_matrices), &mesh->model_matrices)))
+    {
+        JFW_ERROR("Could not allocate memory for mesh model matrix array");
+        jfw_free(&mesh->colors);
+        clean_sphere_model(&mesh->model);
+        return res;
+    }
+
     return jfw_res_success;
+}
+
+jfw_res sphere_mesh_add_new(jtb_sphere_mesh* mesh, mtx4 model_transform, jfw_color color)
+{
+    jfw_res res;
+    if (mesh->count == mesh->capacity)
+    {
+        const u32 new_capacity = mesh->capacity + 64;
+        if (!jfw_success(res = jfw_realloc(new_capacity * sizeof(*mesh->colors), &mesh->colors)))
+        {
+            JFW_ERROR("Could not reallocate memory for mesh color array");
+            return res;
+        }
+        if (!jfw_success(res = jfw_realloc(new_capacity * sizeof(*mesh->model_matrices), &mesh->model_matrices)))
+        {
+            JFW_ERROR("Could not reallocate memory for mesh model matrix array");
+            return res;
+        }
+        mesh->capacity = new_capacity;
+    }
+
+    mesh->colors[mesh->count] = color;
+    mesh->model_matrices[mesh->count] = model_transform;
+    mesh->count += 1;
+
+    return jfw_res_success;
+}
+
+jfw_res sphere_mesh_uninit(jtb_sphere_mesh* mesh)
+{
+    jfw_free(&mesh->model_matrices);
+    jfw_free(&mesh->colors);
+    clean_truss_model(&mesh->model);
+    return jfw_res_success;
+}
+
+jfw_res sphere_mesh_add_at_location(jtb_sphere_mesh* mesh, jfw_color color, f32 radius, vec4 pt)
+{
+    mtx4 m = mtx4_enlarge(radius, radius, radius);
+    m = mtx4_translate(m, pt);
+    return sphere_mesh_add_new(mesh, m, color);
 }

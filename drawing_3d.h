@@ -42,6 +42,7 @@ struct jtb_model_struct
     u16 vtx_count, idx_count;
     jtb_vertex* vtx_array;
     u16* idx_array;
+    jtb_vertex* normals;
 };
 
 typedef struct jtb_truss_mesh_struct jtb_truss_mesh;
@@ -64,7 +65,7 @@ struct jtb_sphere_mesh_struct
     jfw_color* colors;
 };
 
-
+extern const u64 DEFAULT_MESH_CAPACITY;
 
 jfw_res truss_mesh_init(jtb_truss_mesh* mesh, u16 pts_per_side);
 
@@ -80,7 +81,7 @@ jfw_res sphere_mesh_init(jtb_sphere_mesh* mesh, u16 nw, u16 nh);
 
 jfw_res sphere_mesh_add_new(jtb_sphere_mesh* mesh, mtx4 model_transform, jfw_color color);
 
-jfw_res sphere_mesh_add_at_location(jtb_sphere_mesh* mesh, jfw_color color, f32 radius, vec4 pt, f32 roll);
+jfw_res sphere_mesh_add_at_location(jtb_sphere_mesh* mesh, jfw_color color, f32 radius, vec4 pt);
 
 jfw_res sphere_mesh_uninit(jtb_sphere_mesh* mesh);
 

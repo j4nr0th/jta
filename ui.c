@@ -97,7 +97,11 @@ jfw_res truss_mouse_motion(jfw_widget* const this, const i32 x, const i32 y, con
 
         vec4 cross = vec4_cross(r_new, r_old);
         const f32 angle = vec4_magnitude(cross);
-        jtb_camera_rotate(camera, cross, angle);
+        vec4 real_axis = {};
+        real_axis = vec4_add(real_axis, vec4_mul_one(camera->ux, cross.x));
+        real_axis = vec4_add(real_axis, vec4_mul_one(camera->uy, cross.y));
+        real_axis = vec4_add(real_axis, vec4_mul_one(camera->uz, cross.z));
+        jtb_camera_rotate(camera, real_axis, angle);
 //        printf("Rotating camera around axis (%g, %g, %g) by %g degrees\n", cross.x, cross.y, cross.z, 180.0f * angle * M_1_PI);
         state->vulkan_state->view = jtb_camera_to_view_matrix(camera);
         jfw_widget_ask_for_redraw(this);
