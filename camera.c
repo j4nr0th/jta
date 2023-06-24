@@ -4,16 +4,16 @@
 
 #include "camera.h"
 
-void jtb_camera_set(jtb_camera_3d* camera, vec4 target, vec4 camera_pos, vec4 down)
+void jtb_camera_set(jtb_camera_3d* camera, vec4 target, vec4 camera_pos, vec4 down, f32 turn_sensitivity)
 {
     camera->target = target;
     camera->position = camera_pos;
-    vec4 d = vec4_sub(target, camera_pos);
+    vec4 d = vec4_sub(target, camera_pos);          //  Vector from camera's origin to camera's target
     assert(vec4_magnitude(d) > 0.0f);
-    assert(vec4_magnitude(down) > 0.0f);
-    vec4 right_vector = vec4_cross((down), d);
-    assert(vec4_magnitude(right_vector) > 0.0f);
-    vec4 unit_y = down;//vec4_cross(d, right_vector);
+    assert(vec4_magnitude(down) > 0.0f);            //  Down vector can not be zero
+    vec4 right_vector = vec4_cross((down), d);      //  Right unit vector, which will be ux, from k1 * uy and k2 * uz
+    assert(vec4_magnitude(right_vector) > 0.0f);    //  Down unit vector can not be the same as target direction
+    vec4 unit_y = vec4_cross(d, right_vector);      //  Obtain uy by  cross product of k1 * uz and k2 * ux
     //  normalize
     unit_y = vec4_unit(unit_y);
     vec4 unit_x = vec4_unit(right_vector);
@@ -21,19 +21,26 @@ void jtb_camera_set(jtb_camera_3d* camera, vec4 target, vec4 camera_pos, vec4 do
     camera->ux = unit_x;
     camera->uy = unit_y;
     camera->uz = unit_z;
-    camera->far = 1000.0f * vec4_magnitude(d);
-    camera->near = 0.001f * vec4_magnitude(d);
+    camera->turn_sensitivity = turn_sensitivity;
+    camera->far = 1000.0f * vec4_magnitude(d);      //  Far is taken as 1000 times further away from the target
+    camera->near = 0.001f * vec4_magnitude(d);      //  Near is taken as 1000 times closer than target
 }
 
 mtx4 jtb_camera_to_view_matrix(const jtb_camera_3d* camera)
 {
-    return (mtx4)
+    //  Position of camera must be transferred into camera's coordinate system
+    mtx4 m = (mtx4)
             {
-        .col0 = {.x = camera->ux.x, .y = camera->uy.x, .z = camera->uz.x},
-        .col1 = {.x = camera->ux.y, .y = camera->uy.y, .z = camera->uz.y},
-        .col2 = {.x = camera->ux.z, .y = camera->uy.z, .z = camera->uz.z},
-        .col3 = {.x = camera->position.x, .y = camera->position.y, .z = camera->position.z, .w = 1.0f},
+                    .col0 = { .x = camera->ux.x, .y = camera->uy.x, .z = camera->uz.x, .w = 0.0f },
+                    .col1 = { .x = camera->ux.y, .y = camera->uy.y, .z = camera->uz.y, .w = 0.0f },
+                    .col2 = { .x = camera->ux.z, .y = camera->uy.z, .z = camera->uz.z, .w = 0.0f },
+                    .col3 = { .x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f },
             };
+
+    vec4 real_pos = mtx4_vector_mul(m, camera->position);
+    m.col3 = vec4_negative(real_pos);
+    assert(vec4_equal(VEC4(0, 0, 0), mtx4_vector_mul(m, camera->position)));
+    return m;
 }
 
 void jtb_camera_zoom(jtb_camera_3d* camera, f32 fraction_change)

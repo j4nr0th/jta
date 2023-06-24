@@ -11,7 +11,7 @@ static int test_camera_rotation(void)
 {
     jtb_camera_3d camera;
     //  Check if setting the camera will face the correct direction
-    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(-1, 0, 0), VEC4(0, 0, -1));
+    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(-1, 0, 0), VEC4(0, 0, -1), 1.0f);
     if (!vec4_equal(camera.uz, VEC4(1, 0, 0)))
     {
         return 0;
@@ -44,7 +44,7 @@ static int test_camera_rotation(void)
         return 0;
     }
 
-    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(-1, 0, 0), VEC4(0, 0, -1));
+    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(-1, 0, 0), VEC4(0, 0, -1), 1.0f);
 
     //  Check if the camera rotation around y-axis works as intended
     jtb_camera_rotate(&camera, VEC4(0, 1, 0), M_PI_2);
@@ -63,7 +63,7 @@ static int test_camera_rotation(void)
         return 0;
     }
 
-    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(-1, 0, 0), VEC4(0, 0, -1));
+    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(-1, 0, 0), VEC4(0, 0, -1), 1.0f);
 
     //  Check if the camera rotation around x-axis works as intended
     jtb_camera_rotate(&camera, VEC4(1, 0, 0), M_PI_2);
@@ -84,7 +84,7 @@ static int test_camera_rotation(void)
 
 
     //  Combined rotation check
-    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(1, 1, 1), VEC4(1/sqrtf(6), 1/sqrtf(6), -2/sqrtf(6)));
+    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(1, 1, 1), VEC4(1 / sqrtf(6), 1 / sqrtf(6), -2 / sqrtf(6)), 1.0f);
     if (!vec4_close(camera.uz, VEC4(-1/sqrtf(3), -1/sqrtf(3), -1/sqrtf(3))))
     {
         return 0;
