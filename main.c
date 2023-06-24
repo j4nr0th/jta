@@ -293,8 +293,8 @@ int main(int argc, char* argv[argc])
     jwidget->functions.mouse_button_release = truss_mouse_button_release;
     jwidget->functions.mouse_motion = truss_mouse_motion;
     jtb_camera_3d camera;
-//    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(0, 0, -1), VEC4(0, 1, 0));
-    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(0, 0, +1), VEC4(0, 1, 0));
+    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(0, 0, -1), VEC4(0, 1, 0));
+//    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(0, 0, +1), VEC4(0, 1, 0));
     jtb_draw_state draw_state =
             {
             .vulkan_state = &vulkan_state,

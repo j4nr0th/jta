@@ -21,8 +21,199 @@ static inline void print_vec(vec4 v)
 
 int main()
 {
+    {
+        vec4 v1;
+        vec4 v2;
+        vec4 v3;
+        mtx4 m;
+
+        //  Rotation about Z axis
+        v1 = VEC4(0, 0, 1);
+
+        //      Rotating X axis
+        v2 = VEC4(1, 0, 0);
+        m = mtx4_rotate_around_axis(v1, M_PI_2);    //  90 degrees
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(0, 1, 0)));
+        m = mtx4_rotate_around_axis(v1, M_PI_4);    //  45 degrees
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(1 / sqrtf(2), 1 / sqrtf(2), 0)));
+        m = mtx4_rotate_around_axis(v1, -M_PI_2);    //  -90 degrees
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(0, -1, 0)));
+        m = mtx4_rotate_around_axis(v1, -M_PI_4);    //  -45 degrees
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(1 / sqrtf(2), -1 / sqrtf(2), 0)));
+        //      Rotating Y axis
+        v2 = VEC4(0, 1, 0);
+        m = mtx4_rotate_around_axis(v1, M_PI_2);    //  90 degrees
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(-1, 0, 0)));
+        m = mtx4_rotate_around_axis(v1, M_PI_4);    //  45 degrees
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(-1 / sqrtf(2), 1 / sqrtf(2), 0)));
+        m = mtx4_rotate_around_axis(v1, -M_PI_2);    //  -90 degrees
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(1, 0, 0)));
+        m = mtx4_rotate_around_axis(v1, -M_PI_4);    //  -45 degrees
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(1 / sqrtf(2), 1 / sqrtf(2), 0)));
+
+        //  Rotation about Y axis
+        v1 = VEC4(0, 1, 0);
+
+        //      Rotating Z axis
+        v2 = VEC4(0, 0, 1);
+        m = mtx4_rotate_around_axis(v1, M_PI_2);    //  90 degrees
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(1, 0, 0)));
+        m = mtx4_rotate_around_axis(v1, M_PI_4);    //  45 degrees
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(1 / sqrtf(2), 0, 1 / sqrtf(2))));
+        m = mtx4_rotate_around_axis(v1, -M_PI_2);    //  -90 degrees
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(-1, 0, 0)));
+        m = mtx4_rotate_around_axis(v1, -M_PI_4);    //  -45 degrees
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(-1 / sqrtf(2), 0, 1 / sqrtf(2))));
+        //      Rotating X axis
+        v2 = VEC4(1, 0, 0);
+        m = mtx4_rotate_around_axis(v1, M_PI_2);    //  90 degrees
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(0, 0, -1)));
+        m = mtx4_rotate_around_axis(v1, M_PI_4);    //  45 degrees
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(1 / sqrtf(2), 0, -1 / sqrtf(2))));
+        m = mtx4_rotate_around_axis(v1, -M_PI_2);    //  -90 degrees
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(0, 0, 1)));
+        m = mtx4_rotate_around_axis(v1, -M_PI_4);    //  -45 degrees
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(1 / sqrtf(2), 0, 1 / sqrtf(2))));
+
+        //  Rotation about X axis
+        v1 = VEC4(1, 0, 0);
+
+        //      Rotating Y axis
+        v2 = VEC4(0, 1, 0);
+        m = mtx4_rotate_around_axis(v1, M_PI_2);    //  90 degrees
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(0, 0, 1)));
+        m = mtx4_rotate_around_axis(v1, M_PI_4);    //  45 degrees
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(0, 1 / sqrtf(2), 1 / sqrtf(2))));
+        m = mtx4_rotate_around_axis(v1, -M_PI_2);    //  -90 degrees
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(0, 0, -1)));
+        m = mtx4_rotate_around_axis(v1, -M_PI_4);    //  -45 degrees
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(0, 1 / sqrtf(2), -1 / sqrtf(2))));
+        //      Rotating Z axis
+        v2 = VEC4(0, 0, 1);
+        m = mtx4_rotate_around_axis(v1, M_PI_2);    //  90 degrees
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(0, -1, 0)));
+        m = mtx4_rotate_around_axis(v1, M_PI_4);    //  45 degrees
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(0, -1 / sqrtf(2), 1 / sqrtf(2))));
+        m = mtx4_rotate_around_axis(v1, -M_PI_2);    //  -90 degrees
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(0, 1, 0)));
+        m = mtx4_rotate_around_axis(v1, -M_PI_4);    //  -45 degrees
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(0, 1 / sqrtf(2), 1 / sqrtf(2))));
+
+
+        //  Rotating around axis (1, 1, 1)
+        v1 = VEC4(1, 1, 1);
+
+        //      Rotating X axis
+        v2 = VEC4(1, 0, 0);
+        m = mtx4_rotate_around_axis(v1, (f32)(2.0 * M_PI / 3.0));
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(0, 1, 0)));
+        m = mtx4_rotate_around_axis(v1, (f32)(2.0 * 2.0 * M_PI / 3.0));
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(0, 0, 1)));
+
+        //      Rotating Y axis
+        v2 = VEC4(0, 1, 0);
+        m = mtx4_rotate_around_axis(v1, (f32)(2.0 * M_PI / 3.0));
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(0, 0, 1)));
+        m = mtx4_rotate_around_axis(v1, (f32)(2.0 * 2.0 * M_PI / 3.0));
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(1, 0, 0)));
+        //      Rotating Z axis
+        v2 = VEC4(0, 0, 1);
+        m = mtx4_rotate_around_axis(v1, (f32)(2.0 * M_PI / 3.0));
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(1, 0, 0)));
+        m = mtx4_rotate_around_axis(v1, (f32)(2.0 * 2.0 * M_PI / 3.0));
+        v3 = mtx4_vector_mul(m, v2);
+        ASSERT(vec4_close(v3, VEC4(0, 1, 0)));
+    }
+
     ASSERT(test_camera_rotation());
     jtb_camera_3d camera;
+
+    //  Check that vectors are properly projected
+    {
+        mtx4 m = {};
+        vec4 v = {}, v_res = {};
+        jtb_camera_set(&camera, VEC4(1, 1, 1), VEC4(1, 1, 0), VEC4(0, -1, 0));
+        m = jtb_camera_to_view_matrix(&camera);
+        v = mtx4_vector_mul(m, VEC4(1.1, 0.9, 0.7));
+        ASSERT(vec4_close(v, VEC4(-0.1, +0.1, 0.7)));
+        v = mtx4_vector_mul(m, VEC4(0, 0, 0));
+        ASSERT(vec4_close(v, VEC4(+1, +1, 0)));
+
+
+        jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(1, 0, 0), VEC4(0, 0, 1));
+        m = jtb_camera_to_view_matrix(&camera);
+        v = mtx4_vector_mul(m, VEC4(0, 1, 0));
+        ASSERT(vec4_close(v, VEC4(-1, 0, 1)));
+        v = mtx4_vector_mul(m, VEC4(0, 0, 1));
+        ASSERT(vec4_close(v, VEC4(0, 1, 1)));
+        v = mtx4_vector_mul(m, VEC4(0, 0, 0));
+        ASSERT(vec4_close(v, VEC4(0, 0, 1)));
+
+
+        jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(0, 0, +1), VEC4(0, 1, 0));
+        m = jtb_camera_to_view_matrix(&camera);
+        v = mtx4_vector_mul(m, VEC4(0, 3, 0));
+        ASSERT(vec4_close(v, VEC4(0, 3, 1)));
+        v = mtx4_vector_mul(m, VEC4(2, 0, 0));
+        ASSERT(vec4_close(v, VEC4(-2, 0, 1)));
+        v = mtx4_vector_mul(m, VEC4(0, 0, 0));
+        ASSERT(vec4_close(v, VEC4(0, 0, 1)));
+
+
+        //  Test camera rotation around correct axis
+        jtb_camera_rotate(&camera, VEC4(0, 1, 0), M_PI_2);
+        m = jtb_camera_to_view_matrix(&camera);
+        v = mtx4_vector_mul(m, VEC4(0, 1, 0));
+        ASSERT(vec4_close(v, VEC4(0, 1, 1)));
+        v = mtx4_vector_mul(m, VEC4(0, 0, 1));
+        ASSERT(vec4_close(v, VEC4(1, 0, 1)));
+        v = mtx4_vector_mul(m, VEC4(0, 0, 0));
+        ASSERT(vec4_close(v, VEC4(0, 0, 1)));
+
+        {
+            vec4 ux = camera.ux, uy = camera.uy, uz = camera.uz;
+            jtb_camera_set(&camera, VEC4(-10, -3, 2.3f), VEC4(3, -3, 2.3f), VEC4(0, 1, 0));
+            ASSERT(vec4_close(ux, camera.ux));
+            ASSERT(vec4_close(uy, camera.uy));
+            ASSERT(vec4_close(uz, camera.uz));
+        }
+        jtb_camera_rotate(&camera, VEC4(1, 1, 1), -(f32)(M_PI * 2.0 / 3.0));
+        ASSERT(vec4_close(camera.ux, VEC4(0, 1, 0)));
+        ASSERT(vec4_close(camera.uy, VEC4(1, 0, 0)));
+        ASSERT(vec4_close(camera.uz, VEC4(0, 0, -1)));
+
+
+        exit(EXIT_SUCCESS);
+    }
 
     jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(0, 0, 1), VEC4(0, 1, 0));
     mtx4 m = jtb_camera_to_view_matrix(&camera);
