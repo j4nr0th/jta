@@ -12,6 +12,7 @@ struct jtb_camera_3d_state_struct
     vec4 target;
     vec4 position;
     vec4 ux, uy, uz;
+    f32 near, far;
 };
 
 void jtb_camera_set(jtb_camera_3d* camera, vec4 target, vec4 camera_pos, vec4 down);

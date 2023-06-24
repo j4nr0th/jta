@@ -320,42 +320,49 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
                 .binding = 0,
                 .location = 0,
                 .format = VK_FORMAT_R32G32B32_SFLOAT,
-                .offset = 0,//offsetof(jtb_vtx, pos),
+                .offset = offsetof(jtb_vertex, x),
+                };
+        VkVertexInputAttributeDescription normal_attribute_description =
+                {
+                .binding = 0,
+                .location = 1,
+                .format = VK_FORMAT_R32G32B32_SFLOAT,
+                .offset = offsetof(jtb_vertex, nx),
                 };
         VkVertexInputAttributeDescription color_attribute_description =
                 {
                 .binding = 1,
-                .location = 1,
+                .location = 2,
                 .format = VK_FORMAT_R8G8B8A8_UNORM,
                 .offset = offsetof(jtb_model_data, color),
                 };
         VkVertexInputAttributeDescription model_transform_attribute_description_col1 =
                 {
-                        .binding = 1,
-                        .location = 2,
-                        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-                        .offset = offsetof(jtb_model_data, model_data[0]),
+                .binding = 1,
+                .location = 3,
+                .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+                .offset = offsetof(jtb_model_data, model_data[0]),
                 };
         VkVertexInputAttributeDescription model_transform_attribute_description_col2 =
                 {
-                        .binding = 1,
-                        .location = 3,
-                        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-                        .offset = offsetof(jtb_model_data, model_data[4]),
+                .binding = 1,
+                .location = 4,
+                .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+                .offset = offsetof(jtb_model_data, model_data[4]),
                 };
         VkVertexInputAttributeDescription model_transform_attribute_description_col3 =
                 {
-                        .binding = 1,
-                        .location = 4,
-                        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-                        .offset = offsetof(jtb_model_data, model_data[8]),
+                .binding = 1,
+                .location = 5,
+                .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+                .offset = offsetof(jtb_model_data, model_data[8]),
                 };
         VkVertexInputAttributeDescription model_transform_attribute_description_col4 =
                 {
-                        .binding = 1,
-                        .location = 5,
-                        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-                        .offset = offsetof(jtb_model_data, model_data[12]),
+                .binding = 1,
+                .location = 6,
+                .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+                .offset = offsetof(jtb_model_data, model_data[12]),
                 };
         VkShaderModuleCreateInfo shader_vtx_create_info =
                 {
@@ -417,7 +424,7 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
                 };
         VkVertexInputAttributeDescription attrib_description_array[] =
                 {
-                position_attribute_description, color_attribute_description, model_transform_attribute_description_col1, model_transform_attribute_description_col2, model_transform_attribute_description_col3, model_transform_attribute_description_col4
+                position_attribute_description, normal_attribute_description, color_attribute_description, model_transform_attribute_description_col1, model_transform_attribute_description_col2, model_transform_attribute_description_col3, model_transform_attribute_description_col4
                 };
         VkVertexInputBindingDescription binding_description_array[] =
                 {

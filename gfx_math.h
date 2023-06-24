@@ -2,12 +2,13 @@
 // Created by jan on 18.4.2023.
 //
 
-#ifndef JFW_GFX_MATH_H
-#define JFW_GFX_MATH_H
-#include "jfw_common.h"
+#ifndef JTB_GFX_MATH_H
+#define JTB_GFX_MATH_H
+#include "jfw/jfw_common.h"
 #include <immintrin.h>
 #include <ammintrin.h>
-#include <tgmath.h>
+#include <math.h>
+#include <float.h>
 
 typedef union
 {
@@ -352,7 +353,7 @@ static inline mtx4 mtx4_negative(mtx4 m)
 
 static vec4 vec4_negative(vec4 v)
 {
-    return (vec4){.x = v.x, .y = v.y, .z = v.z, .w = 1.0f};
+    return (vec4){.x = -v.x, .y = -v.y, .z = -v.z, .w = 1.0f};
 }
 
 static inline mtx4 mtx4_view_matrix(vec4 offset, vec4 view_direction, f32 roll)
@@ -370,21 +371,12 @@ static inline mtx4 mtx4_view_matrix(vec4 offset, vec4 view_direction, f32 roll)
     return m;
 }
 
-static inline mtx4 mtx4_view_look_at(vec4 pos, vec4 target, vec4 up_vector)
+static inline mtx4 mtx4_view_look_at(vec4 pos, vec4 target, vec4 down)
 {
-//    vec4 d =
-//            {
-//                .x = target.x - offset.x,
-//                .y = target.y - offset.y,
-//                .z = target.z - offset.z,
-//                .w = 1,
-//            };
-//    offset.w = 1;
-//    return mtx4_view_matrix((offset), (d), roll);
     vec4 d = vec4_sub(target, pos);
     assert(vec4_magnitude(d) > 0.0f);
-    assert(vec4_magnitude(up_vector) > 0.0f);
-    vec4 right_vector = vec4_cross(vec4_negative(up_vector), d);
+    assert(vec4_magnitude(down) > 0.0f);
+    vec4 right_vector = vec4_cross((down), d);
     assert(vec4_magnitude(right_vector) > 0.0f);
     vec4 unit_y = vec4_cross(d, right_vector);
     //  normalize
@@ -465,10 +457,34 @@ static inline mtx4 mtx4_rotate_around_axis(vec4 axis_of_rotation, f32 rotation_a
     theta = atan2f(axis_of_rotation.y, axis_of_rotation.x);
     phi = acosf(axis_of_rotation.z / vec4_magnitude(axis_of_rotation));
     mtx4 mf = mtx4_multiply(mtx4_rotation_y(phi), mtx4_rotation_z(theta));
-    mtx4 m = mtx4_multiply(mtx4_rotation_z(rotation_angle), mf);
+    mtx4 m = mtx4_multiply(mtx4_rotation_z(-rotation_angle), mf);
     m = mtx4_multiply(mtx4_transpose(mf), m);
     return m;
 }
 
+static int vec4_equal(vec4 v1, vec4 v2)
+{
+    assert(v1.w == 1.0f);
+    assert(v2.w == 1.0f);
+
+    return v1.x == v2.x && v1.y == v2.y && v1.z == v2.z;
+}
+
+static int vec4_close(vec4 v1, vec4 v2)
+{
+    assert(v1.w == 1.0f);
+    assert(v2.w == 1.0f);
+    if (vec4_equal(v1, v2))
+    {
+        return 1;
+    }
+
+    f32 dx = fabsf((v1.x - v2.x));
+    f32 dy = fabsf((v1.y - v2.y));
+    f32 dz = fabsf((v1.z - v2.z));
+
+    return dx < 1024 * FLT_EPSILON && dy < 1024 * FLT_EPSILON && dz < 1024 * FLT_EPSILON;
+}
+
 #define VEC4(vx, vy, vz) (vec4){.x = (vx), .y = (vy), .z = (vz), .w = 1.0f}
-#endif //JFW_GFX_MATH_H
+#endif //JTB_GFX_MATH_H

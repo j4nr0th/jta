@@ -58,50 +58,77 @@ jfw_res truss_mouse_motion(jfw_widget* const this, const i32 x, const i32 y, con
         //  Update camera
         jtb_camera_3d* const camera = &state->camera;
         const i32 old_x = state->mv_x, old_y = state->mv_y;
-        //  Determine the position on the sphere's surface
-        f32 xs_new = 2 * (f32)x / w - 1, ys_new = -2 * (f32)y / w + h / w;
-        f32 xs_old = 2 * (f32)old_x / w - 1, ys_old = -2 * (f32)old_y / w + h / w;
-        //  Find the missing coordinates
-        f32 vz2_new = 1 - xs_new * xs_new - ys_new * ys_new;
-        f32 zs_new;
-        if (vz2_new > 1)
-        {
-            zs_new = -1.0f;
-            xs_new = ys_new = 0.0f;
-        }
-        else if (vz2_new < 0.0f)
-        {
-            zs_new = -0.0f;
-        }
-        else
-        {
-            zs_new = -sqrtf(vz2_new);
-        }
-        f32 vz2_old = 1 - xs_old * xs_old - ys_old * ys_old;
-        f32 zs_old;
-        if (vz2_old > 1)
-        {
-            zs_old = -1.0f;
-            xs_old = ys_old = 0.0f;
-        }
-        else if (vz2_old < 0.0f)
-        {
-            zs_old = -0.0f;
-        }
-        else
-        {
-            zs_old = -sqrtf(vz2_old);
-        }
-        vec4 r_new = VEC4(xs_new, ys_new, zs_new);
-        vec4 r_old = VEC4(xs_old, ys_old, zs_old);
 
-        vec4 cross = vec4_cross(r_new, r_old);
-        const f32 angle = vec4_magnitude(cross);
-        vec4 real_axis = {};
-        real_axis = vec4_add(real_axis, vec4_mul_one(camera->ux, cross.x));
-        real_axis = vec4_add(real_axis, vec4_mul_one(camera->uy, cross.y));
-        real_axis = vec4_add(real_axis, vec4_mul_one(camera->uz, cross.z));
-        jtb_camera_rotate(camera, real_axis, angle);
+        //  Compute proper coordinates
+        f32 r1x = 2.0f * (f32)old_x / w - 1;
+        f32 r1y = 2.0f * (f32)old_y / w - h / w;
+        f32 r1z = sqrtf(1 - hypotf(r1x, r1y));
+
+        f32 r2x = 2.0f * (f32)x / w - 1;
+        f32 r2y = 2.0f * (f32)y / w - h / w;
+        f32 r2z = sqrtf(1 - hypotf(r2x, r2y));
+
+        vec4 r1 = VEC4(r1x, r1y, r1z);
+        vec4 r2 = VEC4(r2x, r2y, r2z);
+
+        vec4 rotation_axis = vec4_cross(r1, r2);
+        f32 rotation_angle = asinf(vec4_magnitude(rotation_axis));
+
+        vec4 real_axis = VEC4(0, 0, 0);
+        real_axis = vec4_add(real_axis, vec4_mul_one(camera->ux, rotation_axis.x));
+        real_axis = vec4_add(real_axis, vec4_mul_one(camera->uy, rotation_axis.y));
+        real_axis = vec4_add(real_axis, vec4_mul_one(camera->uz, rotation_axis.z));
+        jtb_camera_rotate(camera, real_axis, rotation_angle);
+        const vec4 u = vec4_unit(real_axis);
+        printf("Axis of rotation (%g, %g, %g) by %6.2f degrees\n", u.x, u.y, u.z, 180.0 * rotation_angle);
+
+        state->mv_x = x;
+        state->mv_y = y;
+
+//        //  Determine the position on the sphere's surface
+//        f32 xs_new = 2 * (f32)x / w - 1, ys_new = -2 * (f32)y / w + h / w;
+//        f32 xs_old = 2 * (f32)old_x / w - 1, ys_old = -2 * (f32)old_y / w + h / w;
+//        //  Find the missing coordinates
+//        f32 vz2_new = 1 - xs_new * xs_new - ys_new * ys_new;
+//        f32 zs_new;
+//        if (vz2_new > 1)
+//        {
+//            zs_new = -1.0f;
+//            xs_new = ys_new = 0.0f;
+//        }
+//        else if (vz2_new < 0.0f)
+//        {
+//            zs_new = -0.0f;
+//        }
+//        else
+//        {
+//            zs_new = -sqrtf(vz2_new);
+//        }
+//        f32 vz2_old = 1 - xs_old * xs_old - ys_old * ys_old;
+//        f32 zs_old;
+//        if (vz2_old > 1)
+//        {
+//            zs_old = -1.0f;
+//            xs_old = ys_old = 0.0f;
+//        }
+//        else if (vz2_old < 0.0f)
+//        {
+//            zs_old = -0.0f;
+//        }
+//        else
+//        {
+//            zs_old = -sqrtf(vz2_old);
+//        }
+//        vec4 r_new = VEC4(xs_new, ys_new, zs_new);
+//        vec4 r_old = VEC4(xs_old, ys_old, zs_old);
+//
+//        vec4 cross = vec4_cross(r_new, r_old);
+//        const f32 angle = vec4_magnitude(cross);
+//        vec4 real_axis = VEC4(0, 0, 0);
+//        real_axis = vec4_add(real_axis, vec4_mul_one(camera->ux, cross.x));
+//        real_axis = vec4_add(real_axis, vec4_mul_one(camera->uy, cross.y));
+//        real_axis = vec4_add(real_axis, vec4_mul_one(camera->uz, cross.z));
+//        jtb_camera_rotate(camera, real_axis, angle);
 //        printf("Rotating camera around axis (%g, %g, %g) by %g degrees\n", cross.x, cross.y, cross.z, 180.0f * angle * M_1_PI);
         state->vulkan_state->view = jtb_camera_to_view_matrix(camera);
         jfw_widget_ask_for_redraw(this);

@@ -12,7 +12,7 @@
 #include "practice_shaders/vert.spv"
 #include "practice_shaders/frag.spv"
 
-#include "gfx_math.h"
+#include "../gfx_math.h"
 
 #include <time.h>
 

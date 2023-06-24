@@ -18,13 +18,14 @@ extern aligned_jallocator* G_ALIGN_JALLOCATOR;
 #include <vulkan/vulkan.h>
 #include <assert.h>
 
-#include "jfw/gfx_math.h"
+#include "gfx_math.h"
 
 typedef struct ubo_3d_struct ubo_3d;
 struct ubo_3d_struct
 {
     mtx4 view;
     mtx4 proj;
+    vec4 view_direction;
 };
 
 #endif //JTB_COMMON_H

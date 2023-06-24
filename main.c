@@ -28,7 +28,7 @@ static jfw_res widget_draw(jfw_widget* this)
     vk_state* const state = draw_state->vulkan_state;
     return draw_3d_scene(
             this->window, state, jfw_window_get_vk_resources(this->window), &state->buffer_vtx_geo,
-            &state->buffer_vtx_mod, state->mesh);
+            &state->buffer_vtx_mod, state->mesh, &draw_state->camera);
 }
 
 static jfw_res widget_dtor(jfw_widget* this)
@@ -166,6 +166,7 @@ int main(int argc, char* argv[argc])
         fputs("Could not create linear allocator\n", stderr);
         exit(EXIT_FAILURE);
     }
+    
 
 #ifdef NDEBUG
     VkAllocationCallbacks VK_ALLOCATION_CALLBACKS =
@@ -179,25 +180,6 @@ int main(int argc, char* argv[argc])
             };
 #endif
 
-//    mtx4 matrix = mtx4_view_look_at(VEC4(0, 0, 0), VEC4(1, 0, 0), 0.0f);
-//    matrix = mtx4_view_matrix(VEC4(0, -1, 0), VEC4(0, 1, 0), 0.0f);
-//    printf("% 4.4f % 4.4f % 4.4f % 4.4f\n% 4.4f % 4.4f % 4.4f % 4.4f\n% 4.4f % 4.4f % 4.4f % 4.4f\n% 4.4f % 4.4f % 4.4f % 4.4f\n", matrix.col0.s0, matrix.col1.s0, matrix.col2.s0, matrix.col3.s0, matrix.col0.s1, matrix.col1.s1, matrix.col2.s1, matrix.col3.s1, matrix.col0.s2, matrix.col1.s2, matrix.col2.s2, matrix.col3.s2, matrix.col0.s3, matrix.col1.s3, matrix.col2.s3, matrix.col3.s3);
-//    exit(0);
-//    vec4 res_vec = mtx4_vector_mul(matrix, VEC4(1, 0, 0));
-//    printf("Res: [%g, %g, %g]\n", res_vec.x, res_vec.y, res_vec.z);
-//    res_vec = mtx4_vector_mul(matrix, VEC4(0, 1, 0));
-//    printf("Res: [%g, %g, %g]\n", res_vec.x, res_vec.y, res_vec.z);
-//    res_vec = mtx4_vector_mul(matrix, VEC4(0, 0, 1));
-//    printf("Res: [%g, %g, %g]\n", res_vec.x, res_vec.y, res_vec.z);
-//
-//    matrix = mtx4_view_look_at(VEC4(0, 1, 0), VEC4(0, 2, 0), M_PI_2);
-//    res_vec = mtx4_vector_mul(matrix, VEC4(1, 0, 0));
-//    printf("Res: [%g, %g, %g]\n", res_vec.x, res_vec.y, res_vec.z);
-//    res_vec = mtx4_vector_mul(matrix, VEC4(0, 1, 0));
-//    printf("Res: [%g, %g, %g]\n", res_vec.x, res_vec.y, res_vec.z);
-//    res_vec = mtx4_vector_mul(matrix, VEC4(0, 0, 1));
-//    printf("Res: [%g, %g, %g]\n", res_vec.x, res_vec.y, res_vec.z);
-//    exit(0);
     jfw_ctx* jctx = NULL;
     jfw_window* jwnd = NULL;
     jfw_res res = jfw_context_create(&jctx,
@@ -311,7 +293,8 @@ int main(int argc, char* argv[argc])
     jwidget->functions.mouse_button_release = truss_mouse_button_release;
     jwidget->functions.mouse_motion = truss_mouse_motion;
     jtb_camera_3d camera;
-    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(0, 0, -1), VEC4(0, 1, 0));
+//    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(0, 0, -1), VEC4(0, 1, 0));
+    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(0, 0, +1), VEC4(0, 1, 0));
     jtb_draw_state draw_state =
             {
             .vulkan_state = &vulkan_state,
@@ -320,7 +303,6 @@ int main(int argc, char* argv[argc])
             };
     jfw_widget_set_user_pointer(jwidget, &draw_state);
     vulkan_state.view = jtb_camera_to_view_matrix(&camera);
-
 
     i32 close = 0;
     while (jfw_success(jfw_context_wait_for_events(jctx)) && !close)

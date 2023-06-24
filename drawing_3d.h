@@ -14,11 +14,13 @@
 
 
 #include "vk_state.h"
+#include "camera.h"
 
 typedef struct jtb_vertex_struct jtb_vertex;
 struct jtb_vertex_struct
 {
     f32 x, y, z;
+    f32 nx, ny, nz;
 };
 
 typedef struct jtb_model_data_struct jtb_model_data;
@@ -42,7 +44,6 @@ struct jtb_model_struct
     u16 vtx_count, idx_count;
     jtb_vertex* vtx_array;
     u16* idx_array;
-    jtb_vertex* normals;
 };
 
 typedef struct jtb_truss_mesh_struct jtb_truss_mesh;
@@ -88,7 +89,8 @@ jfw_res sphere_mesh_uninit(jtb_sphere_mesh* mesh);
 
 jfw_res draw_3d_scene(
         jfw_window* wnd, vk_state* state, jfw_window_vk_resources* vk_resources, vk_buffer_allocation* p_buffer_geo,
-        vk_buffer_allocation* p_buffer_mod, const jtb_truss_mesh* mesh);
+        vk_buffer_allocation* p_buffer_mod, const jtb_truss_mesh* mesh,
+        const jtb_camera_3d* camera);
 
 
 #endif //JTB_DRAWING_3D_H

@@ -2,10 +2,10 @@
 // Created by jan on 21.5.2023.
 //
 #include "common.h"
-#include "jfw/gfx_math.h"
+#include "gfx_math.h"
 #include "camera.h"
 #include "drawing_3d.h"
-
+#include "rotation_camera_test.c"
 
 static inline void print_matrix(mtx4 matrix)
 {
@@ -16,19 +16,45 @@ static inline void print_vec(vec4 v)
 {
     printf("% 4.4f\n% 4.4f\n% 4.4f\n% 4.4f\n", v.x, v.y, v.z, v.w);
 }
+#include <stdlib.h>
+#define ASSERT(x) if (!(x)) {fprintf(stderr, "Failed assertion \"" #x "\"\n"); __builtin_trap(); exit(EXIT_FAILURE);}(void)0
 
 int main()
 {
+    ASSERT(test_camera_rotation());
     jtb_camera_3d camera;
-    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(0, 0, -1), VEC4(0, 1, 0));
+
+    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(0, 0, 1), VEC4(0, 1, 0));
     mtx4 m = jtb_camera_to_view_matrix(&camera);
     print_matrix(m);
     printf("\n");
-    vec4 v = VEC4(0, 0, 1);
-    print_vec(v);
+    vec4 v = VEC4(0, 0, -1);
+    vec4 v_res = mtx4_vector_mul(m, v);
+    ASSERT(vec4_close(v_res, VEC4(0, 0, 2)));
+    v = VEC4(0, 0, -10);
+    v_res = mtx4_vector_mul(m, v);
+    ASSERT(vec4_close(v_res, VEC4(0, 0, 11)));
+    v = VEC4(1, 0, 0);
+    v_res = mtx4_vector_mul(m, v);
+    ASSERT(vec4_close(v_res, VEC4(-1, 0, 1)));
+    v = VEC4(0, 3, 0);
+    v_res = mtx4_vector_mul(m, v);
+    ASSERT(vec4_close(v_res, VEC4(0, 3, 1)));
+    v = VEC4(1, 3, -10);
+    v_res = mtx4_vector_mul(m, v);
+    ASSERT(vec4_close(v_res, VEC4(-1, 3, 11)));
+
+
+    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(1, 1, 0), VEC4(1, -1, 0));
+    m = jtb_camera_to_view_matrix(&camera);
+    print_matrix(m);
     printf("\n");
-    print_vec(mtx4_vector_mul(m, v));
-    printf("\n");
+
+    v = VEC4(0, 0, -10);
+    v_res = mtx4_vector_mul(m, v);
+    ASSERT(vec4_close(v_res, VEC4(10, 0, 1/sqrtf(2))));
+
+
 
     jtb_truss_mesh mesh;
     truss_mesh_init(&mesh, 8);

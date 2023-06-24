@@ -4,10 +4,11 @@
 
 #include <time.h>
 #include "drawing_3d.h"
+#include "camera.h"
 
 jfw_res draw_3d_scene(
         jfw_window* wnd, vk_state* state, jfw_window_vk_resources* vk_resources, vk_buffer_allocation* p_buffer_geo,
-        vk_buffer_allocation* p_buffer_mod, const jtb_truss_mesh* mesh)
+        vk_buffer_allocation* p_buffer_mod, const jtb_truss_mesh* mesh, const jtb_camera_3d* camera)
 {
     assert(p_buffer_geo);
     assert(p_buffer_mod);
@@ -125,13 +126,9 @@ jfw_res draw_3d_scene(
         mtx4 m = mtx4_identity;
         ubo_3d ubo =
                 {
-//                        .model = mtx4_rotation_x(dt * 0.01),
-                        .proj = mtx4_projection(M_PI_2, ((f32)vk_resources->extent.width)/((f32)vk_resources->extent.height), 1.0f, 0.1f, 10.0f),
-                        .view = state->view,// mtx4_view_look_at(
-//                                (vec4){.x = mag * cosf(a), .y = mag * sinf(a), .z = 0.0f},
-//                                (vec4){.x = 0.0f, .y = 0.0f, .z = 0.0f},
-//                                M_PI
-//                                                 ),
+                        .proj = mtx4_projection(M_PI_2, ((f32)vk_resources->extent.width)/((f32)vk_resources->extent.height), 1.0f, camera->near, camera->far),
+                        .view = state->view,
+                        .view_direction = camera->uz,
                 };
         memcpy(state->p_mapped_array[i_frame], &ubo, sizeof(ubo));
     }
@@ -204,9 +201,9 @@ static jfw_res generate_truss_model(jtb_model* const p_out, const u16 pts_per_si
     if (!jfw_success(res = (jfw_calloc(3 * 2 * pts_per_side, sizeof*indices, &indices))))
     {
         JFW_ERROR("Could not allocate memory for truss model");
+        jfw_free(&vertices);
         return res;
     }
-
 
 
     const f32 d_omega = M_PI / pts_per_side;
@@ -214,13 +211,13 @@ static jfw_res generate_truss_model(jtb_model* const p_out, const u16 pts_per_si
 
     for (u32 i = 0; i < pts_per_side; ++i)
     {
-        btm[i].x = cosf(d_omega * (f32)(2 * i));
-        btm[i].y = sinf(d_omega * (f32)(2 * i));
-        btm[i].z = 0.0f;
+        btm[i].nx = btm[i].x = cosf(d_omega * (f32)(2 * i));
+        btm[i].ny = btm[i].y = sinf(d_omega * (f32)(2 * i));
+        btm[i].nz = btm[i].z = 0.0f;
 
-        top[i].x = cosf(d_omega * (f32)(2 * i + 1));
-        top[i].y = sinf(d_omega * (f32)(2 * i + 1));
-        top[i].z = 1.0f;
+        top[i].nx = top[i].x = cosf(d_omega * (f32)(2 * i + 1));
+        top[i].ny = top[i].y = sinf(d_omega * (f32)(2 * i + 1));
+        top[i].nz = top[i].z = 1.0f;
         //  Add top and bottom triangles
         indices[3 * i + 0] = i;
         indices[3 * i + 1] = i + 1;
@@ -363,6 +360,7 @@ static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 nw, const
     if (!jfw_success(res = (jfw_calloc(index_count, sizeof*indices, &indices))))
     {
         JFW_ERROR("Could not allocate memory for truss model");
+        jfw_free(&vertices);
         return res;
     }
 
