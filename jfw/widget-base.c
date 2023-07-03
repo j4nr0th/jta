@@ -1,13 +1,13 @@
 //
 // Created by jan on 2.2.2023.
 //
-
+#include <jdm.h>
 #include "widget-base.h"
 
 jfw_res jfw_widget_destroy(jfw_widget* widget)
 {
     assert(widget);
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
 //    if (widget->window->base == widget)
 //    {
 //        return jfw_res_wnd_widget_root;
@@ -52,68 +52,68 @@ jfw_res jfw_widget_destroy(jfw_widget* widget)
     memset(widget, 0, sizeof(*widget));
     jfw_free(&widget);
     
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
 jfw_res jfw_widget_resize(jfw_widget* widget, u32 w, u32 h)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     widget->width = w;
     widget->height = h;
     jfw_widget_ask_for_redraw(widget);
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
 jfw_res jfw_widget_reposition(jfw_widget* widget, i32 x, i32 y)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     widget->x = x;
     widget->y = y;
     jfw_widget_ask_for_redraw(widget);
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_wnd_widget_root;
 }
 
 jfw_res jfw_widget_ask_for_redraw(jfw_widget* widget)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     widget->redraw += 1;
     if (widget->parent)
     {
         jfw_widget_ask_for_redraw(widget->parent);
     }
     widget->window->redraw += 1;
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
 void* jfw_widget_get_user_pointer(const jfw_widget* widget)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     void* pointer = widget->user_pointer;
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return pointer;
 }
 
 u0 jfw_widget_set_user_pointer(jfw_widget* widget, u0* user_pointer)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     widget->user_pointer = user_pointer;
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
 }
 
 static jfw_res widget_add_child(jfw_widget* parent, jfw_widget* child)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     jfw_res res;
     if (!parent->children_array)
     {
         if (!jfw_success(res = jfw_calloc(8, sizeof(jfw_widget*), &parent->children_array)))
         {
-            JFW_ERROR("Failed allocating memory for child array");
-            JFW_LEAVE_FUNCTION;
+            JDM_ERROR("Failed allocating memory for child array");
+            JDM_LEAVE_FUNCTION;
             return res;
         }
         parent->children_capacity = 8;
@@ -123,8 +123,8 @@ static jfw_res widget_add_child(jfw_widget* parent, jfw_widget* child)
         u32 new_size = parent->children_count + 8;
         if (!jfw_success(res = jfw_realloc(sizeof(jfw_widget*) * new_size, &parent->children_array)))
         {
-            JFW_ERROR("Failed reallocating memory for child array");
-            JFW_LEAVE_FUNCTION;
+            JDM_ERROR("Failed reallocating memory for child array");
+            JDM_LEAVE_FUNCTION;
             return res;
         }
         parent->children_capacity = new_size;
@@ -136,29 +136,29 @@ static jfw_res widget_add_child(jfw_widget* parent, jfw_widget* child)
         {
             char w_buffer[64] = {0};
             jfw_widget_to_string(parent, sizeof(w_buffer), w_buffer);
-            JFW_ERROR("Failed calling child creation function on parent (%s)", w_buffer);
-            JFW_LEAVE_FUNCTION;
+            JDM_ERROR("Failed calling child creation function on parent (%s)", w_buffer);
+            JDM_LEAVE_FUNCTION;
             return res;
         }
     }
     parent->children_array[parent->children_count++] = child;
     child->parent = parent;
     child->window = parent->window;
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
 jfw_res jfw_widget_create_as_child(jfw_widget* parent, u32 w, u32 h, i32 x, i32 y, jfw_widget** pp_widget)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     assert(parent != NULL);
     assert(pp_widget);
     jfw_widget* this = NULL;
     jfw_res res;
     if (!jfw_success(res = jfw_malloc(sizeof(*this), &this)))
     {
-        JFW_ERROR("Failed allocating memory for widget");
-        JFW_LEAVE_FUNCTION;
+        JDM_ERROR("Failed allocating memory for widget");
+        JDM_LEAVE_FUNCTION;
         return res;
     }
     this->width = w;
@@ -170,20 +170,20 @@ jfw_res jfw_widget_create_as_child(jfw_widget* parent, u32 w, u32 h, i32 x, i32 
         char w_buffer[64] = {0};
         jfw_widget_to_string(parent, sizeof(w_buffer), w_buffer);
         jfw_free(&this);
-        JFW_ERROR("Failed adding child to parent (%s)", w_buffer);
-        JFW_LEAVE_FUNCTION;
+        JDM_ERROR("Failed adding child to parent (%s)", w_buffer);
+        JDM_LEAVE_FUNCTION;
         return res;
     }
     this->parent = parent;
     *pp_widget = this;
     jfw_widget_ask_for_redraw(this);
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
 u0 jfw_widget_bounds(jfw_widget* widget, i32* p_x0, i32* p_y0, i32* p_x1, i32* p_y1)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     i32 x0, x1, y0, y1;
     i32 parent_x0, parent_x1, parent_y0, parent_y1;
     if (widget->parent)
@@ -209,20 +209,20 @@ u0 jfw_widget_bounds(jfw_widget* widget, i32* p_x0, i32* p_y0, i32* p_x1, i32* p
         *p_x1 = (i32)widget->width;
         *p_y1 = (i32)widget->height;
     }
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
 }
 
 jfw_res jfw_widget_create_as_base(jfw_window* parent, u32 w, u32 h, i32 x, i32 y, jfw_widget** pp_widget)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     assert(parent != NULL);
     assert(pp_widget);
     jfw_widget* this = NULL;
     jfw_res res;
     if (!jfw_success(res = jfw_malloc(sizeof(*this), &this)))
     {
-        JFW_ERROR("Failed to allocate memory for widget");
-        JFW_LEAVE_FUNCTION;
+        JDM_ERROR("Failed to allocate memory for widget");
+        JDM_LEAVE_FUNCTION;
         return res;
     }
     this->width = w;
@@ -235,7 +235,7 @@ jfw_res jfw_widget_create_as_base(jfw_window* parent, u32 w, u32 h, i32 x, i32 y
     {
         if (!jfw_success(res = jfw_widget_add_child(this, old_base)))
         {
-            JFW_ERROR("Could not add old base as a child to new");
+            JDM_ERROR("Could not add old base as a child to new");
             jfw_free(&this);
             return res;
         }
@@ -243,7 +243,7 @@ jfw_res jfw_widget_create_as_base(jfw_window* parent, u32 w, u32 h, i32 x, i32 y
     parent->base = this;
     *pp_widget = this;
     jfw_widget_ask_for_redraw(this);
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
@@ -255,7 +255,7 @@ jfw_res jfw_widget_add_child(jfw_widget* parent, jfw_widget* child)
         jfw_res res = jfw_realloc(new_capacity * sizeof(*parent->children_array), &parent->children_array);
         if (!jfw_success(res))
         {
-            JFW_ERROR("Failed reallocating child array of a window");
+            JDM_ERROR("Failed reallocating child array of a window");
             return res;
         }
         parent->children_capacity = new_capacity;

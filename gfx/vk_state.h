@@ -4,9 +4,10 @@
 
 #ifndef JTB_VK_STATE_H
 #define JTB_VK_STATE_H
-#include "common.h"
-#include "jfw/window.h"
-#include "mem/vk_mem_allocator.h"
+#include "../common/common.h"
+#include "../jfw/window.h"
+#include "../mem/vk_mem_allocator.h"
+#include "gfxerr.h"
 
 typedef struct vk_state_struct vk_state;
 struct vk_state_struct
@@ -38,10 +39,10 @@ struct vk_state_struct
     mtx4 view;
 };
 
-jfw_res vk_state_create(vk_state* p_state, const jfw_window_vk_resources* vk_resources);
+gfx_result vk_state_create(vk_state* p_state, const jfw_window_vk_resources* vk_resources);
 
 void vk_state_destroy(vk_state* p_state, jfw_window_vk_resources* vk_resources);
 
-jfw_res vk_transfer_memory_to_buffer(jfw_window_vk_resources* vk_resources, vk_state* p_state, vk_buffer_allocation* buffer, size_t size, void* data);
+gfx_result vk_transfer_memory_to_buffer(jfw_window_vk_resources* vk_resources, vk_state* p_state, vk_buffer_allocation* buffer, size_t size, void* data);
 
 #endif //JTB_VK_STATE_H

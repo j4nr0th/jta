@@ -4,9 +4,9 @@
 
 #ifndef JTB_UI_H
 #define JTB_UI_H
-#include "common.h"
-#include "vk_state.h"
-#include "camera.h"
+#include "common/common.h"
+#include "gfx/vk_state.h"
+#include "gfx/camera.h"
 
 typedef struct jtb_draw_state_struct jtb_draw_state;
 struct jtb_draw_state_struct
@@ -14,7 +14,8 @@ struct jtb_draw_state_struct
     vk_state* vulkan_state;
     jfw_window_vk_resources* vulkan_resources;
     jtb_camera_3d camera;
-    u32 track_move;
+    u32 track_turn;
+    i32 track_move;
     i32 mv_x, mv_y;
 };
 

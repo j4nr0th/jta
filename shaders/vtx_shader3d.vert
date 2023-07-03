@@ -5,10 +5,12 @@ layout(location = 1) in vec3 normal_in;
 
 layout(location = 2) in vec4 color_in;
 layout(location = 3) in mat4 model_transform;
+layout(location = 7) in mat4 normal_transform;
 
 layout(location = 0) out vec4 vtx_color;
 layout(location = 1) out vec4 vtx_normal;
 layout(location = 2) out vec3 view_vector;
+
 
 layout(binding = 0) uniform UBO_struct
 {
@@ -24,7 +26,7 @@ void main()
     gl_Position /= p.z;
 
     vtx_color = color_in;
-    vtx_normal = normalize(view * model_transform * vec4(normal_in, 1.0f));
+    vtx_normal = normalize(normal_transform * vec4(normal_in, 1.0f));
     view_vector = normalize(view_dir);
 }
 

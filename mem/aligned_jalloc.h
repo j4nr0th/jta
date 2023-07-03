@@ -4,7 +4,7 @@
 
 #ifndef JTB_ALIGNED_JALLOC_H
 #define JTB_ALIGNED_JALLOC_H
-#include "jalloc.h"
+#include <jmem/jmem.h>
 #include <vulkan/vulkan.h>
 
 //  Based on jalloc allocator

@@ -2,25 +2,25 @@
 #include <vulkan/vulkan.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <inttypes.h>
 
 #include "mem/aligned_jalloc.h"
-#include "mem/jalloc.h"
-#include "mem/lin_jalloc.h"
+#include <jmem/jmem.h>
+#include <jdm.h>
+
+
 
 #include "jfw/window.h"
 #include "jfw/widget-base.h"
 #include "jfw/error_system/error_codes.h"
-#include "jfw/error_system/error_stack.h"
 
 
-#include "vk_state.h"
-#include "drawing_3d.h"
-#include "camera.h"
+#include "gfx/vk_state.h"
+#include "gfx/drawing_3d.h"
+#include "gfx/camera.h"
 #include "ui.h"
 
 
-linear_jallocator* G_LIN_JALLOCATOR = NULL;
-aligned_jallocator* G_ALIGN_JALLOCATOR = NULL;
 
 static jfw_res widget_draw(jfw_widget* this)
 {
@@ -28,7 +28,7 @@ static jfw_res widget_draw(jfw_widget* this)
     vk_state* const state = draw_state->vulkan_state;
     return draw_3d_scene(
             this->window, state, jfw_window_get_vk_resources(this->window), &state->buffer_vtx_geo,
-            &state->buffer_vtx_mod, state->mesh, &draw_state->camera);
+            &state->buffer_vtx_mod, state->mesh, &draw_state->camera) == GFX_RESULT_SUCCESS ? jfw_res_success : jfw_res_error;
 }
 
 static jfw_res widget_dtor(jfw_widget* this)
@@ -46,7 +46,7 @@ static void* VKAPI_PTR vk_aligned_allocation_fn(void* pUserData, size_t size, si
     assert(pUserData == G_ALIGN_JALLOCATOR);
     void* ptr = aligned_jalloc((aligned_jallocator*) pUserData, alignment, size);
     if (alignment > 8)
-    JFW_INFO("Called aligned_jalloc(%p, %zu, %zu) = %p\n", pUserData, alignment, size, ptr);
+    JDM_INFO("Called aligned_jalloc(%p, %zu, %zu) = %p\n", pUserData, alignment, size, ptr);
     return ptr;
 }
 
@@ -55,14 +55,14 @@ static void* VKAPI_PTR vk_aligned_reallocation_fn(void* pUserData, void* pOrigin
     assert(pUserData == G_ALIGN_JALLOCATOR);
     void* ptr = aligned_jrealloc((aligned_jallocator*) pUserData, pOriginal, alignment, size);
     if (alignment > 8)
-    JFW_INFO("Called aligned_rejalloc(%p, %p, %zu, %zu) = %p\n", pUserData, pOriginal, alignment, size, ptr);
+    JDM_INFO("Called aligned_rejalloc(%p, %p, %zu, %zu) = %p\n", pUserData, pOriginal, alignment, size, ptr);
     return ptr;
 }
 
 static void VKAPI_PTR vk_aligned_free_fn(void* pUserData, void* pMemory)
 {
     assert(pUserData == G_ALIGN_JALLOCATOR);
-//    JFW_INFO("Called aligned_jfree(%p, %p)", pUserData, pMemory);
+//    JDM_INFO("Called aligned_jfree(%p, %p)", pUserData, pMemory);
     aligned_jfree(pUserData, pMemory);
 }
 
@@ -101,13 +101,13 @@ static void VKAPI_PTR vk_internal_free_notif(void* pUserData, size_t size, VkInt
 }
 
 
-static i32 jfw_error_hook_callback_function(const char* thread_name, u32 stack_trace_count, const char*const* stack_trace, jfw_error_level level, u32 line, const char* file, const char* function, const char* message, void* param)
+static i32 jfw_error_hook_callback_function(const char* thread_name, u32 stack_trace_count, const char*const* stack_trace, jdm_error_level level, u32 line, const char* file, const char* function, const char* message, void* param)
 {
     switch (level)
     {
-    case jfw_error_level_info:fprintf(stdout, "JFW_INFO (thread %s - %s): %s\n", thread_name, function, message);
+    case JDM_ERROR_LEVEL_INFO:fprintf(stdout, "JDM_INFO (thread %s - %s): %s\n", thread_name, function, message);
         break;
-    case jfw_error_level_warn:
+    case JDM_ERROR_LEVEL_WARN:
         fprintf(stderr, "Warning issued from thread \"%s\", stack trace (%s", thread_name, stack_trace[0]);
         for (u32 i = 1; i < stack_trace_count; ++i)
         {
@@ -116,9 +116,7 @@ static i32 jfw_error_hook_callback_function(const char* thread_name, u32 stack_t
         fprintf(stderr, ") in file \"%s\" on line \"%i\" (function \"%s\"): %s\n\n", file, line, function, message);
         break;
 
-    case jfw_error_level_err:
-    case jfw_error_level_crit:
-    case jfw_error_level_none:
+    case JDM_ERROR_LEVEL_ERR:
     default:
         fprintf(stderr, "Error occurred in thread \"%s\", stack trace (%s", thread_name, stack_trace[0]);
         for (u32 i = 1; i < stack_trace_count; ++i)
@@ -136,20 +134,6 @@ static i32 jfw_error_hook_callback_function(const char* thread_name, u32 stack_t
 
 int main(int argc, char* argv[argc])
 {
-    jfw_error_init_thread("master",
-#ifndef NEBUG
-                            jfw_error_level_none,
-#else
-                            jfw_error_level_warn,
-#endif
-                          64,
-                          64
-                          );
-    JFW_ENTER_FUNCTION;
-    jfw_error_set_hook(jfw_error_hook_callback_function, NULL);
-    //  Important: aligned_jallocator works fine, but will not help with debugging of memory. As such, it's best to use
-    //  it for Vulkan's use only, as this means that I won't fuck up the memory and then be unable to see where. Just
-    //  stick with malloc family when linear allocator can't be used, since that means I can use Vallgrind's memcheck
 
     //  Create allocators
     //  Estimated to be 512 kB per small pool and 512 kB per med pool
@@ -166,6 +150,29 @@ int main(int argc, char* argv[argc])
         fputs("Could not create linear allocator\n", stderr);
         exit(EXIT_FAILURE);
     }
+    G_JALLOCATOR = jallocator_create(1 << 20, 1);
+    if (!G_JALLOCATOR)
+    {
+        fputs("Could not create base jallocator\n", stderr);
+        exit(EXIT_FAILURE);
+    }
+
+
+    jdm_error_init_thread("master",
+#ifndef NEBUG
+                            JDM_ERROR_LEVEL_NONE,
+#else
+                            JDM_ERROR_LEVEL_WARN,
+#endif
+                          64,
+                          64,
+                          G_JALLOCATOR);
+    JDM_ENTER_FUNCTION;
+    jdm_error_set_hook(jfw_error_hook_callback_function, NULL);
+    //  Important: aligned_jallocator works fine, but will not help with debugging of memory. As such, it's best to use
+    //  it for Vulkan's use only, as this means that I won't fuck up the memory and then be unable to see where. Just
+    //  stick with malloc family when linear allocator can't be used, since that means I can use Vallgrind's memcheck
+
     
 
 #ifdef NDEBUG
@@ -182,23 +189,23 @@ int main(int argc, char* argv[argc])
 
     jfw_ctx* jctx = NULL;
     jfw_window* jwnd = NULL;
-    jfw_res res = jfw_context_create(&jctx,
+    jfw_res jfw_result = jfw_context_create(&jctx,
 #ifndef NDEBUG
-                                     nullptr
+                                            nullptr
 #else
                                             &VK_ALLOCATION_CALLBACKS
 #endif
-                                    );
-    if (!jfw_success(res))
+                                           );
+    if (!jfw_success(jfw_result))
     {
         goto cleanup;
     }
-    res = jfw_window_create(
+    jfw_result = jfw_window_create(
             jctx, 1600, 900, "Jan's Truss Builder - 0.0.1", (jfw_color) { .a = 0xFF, .r = 0x80, .g = 0x80, .b = 0x80 },
             &jwnd, 0);
-    if (!jfw_success(res))
+    if (!jfw_success(jfw_result))
     {
-        JFW_ERROR("Could not create window");
+        JDM_ERROR("Could not create window");
         goto cleanup;
     }
     jfw_window_show(jctx, jwnd);
@@ -206,39 +213,39 @@ int main(int argc, char* argv[argc])
     jfw_window_vk_resources* const vk_res = jfw_window_get_vk_resources(jwnd);
     jfw_vulkan_context* const vk_ctx = &jctx->vk_ctx;
     vk_state vulkan_state;
-    res = vk_state_create(&vulkan_state, vk_res);
-    if (!jfw_success(res))
+    gfx_result gfx_res = vk_state_create(&vulkan_state, vk_res);
+    if (gfx_res != GFX_RESULT_SUCCESS)
     {
-        JFW_ERROR("Could not create vulkan state");
+        JDM_ERROR("Could not create vulkan state");
         goto cleanup;
     }
 
     jtb_truss_mesh mesh;
     vulkan_state.mesh = &mesh;
 
-    if (!jfw_success(res = truss_mesh_init(&mesh, 16)))
+    if ((gfx_res = truss_mesh_init(&mesh, 16)) != GFX_RESULT_SUCCESS)
     {
-        JFW_ERROR("Could not create truss mesh: %s", jfw_error_message(res));
+        JDM_ERROR("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
         goto cleanup;
     }
-    if (!jfw_success(res = truss_mesh_add_between_pts(&mesh, (jfw_color){.r = 0xFF, .a = 0xFF}, 0.001f, VEC4(0, 0, 0), VEC4(0.1f, 0, 0), 0.0f)))
+    if ((gfx_res = truss_mesh_add_between_pts(&mesh, (jfw_color){.r = 0xFF, .a = 0xFF}, 0.001f, VEC4(0, 0, 0), VEC4(0.1f, 0, 0), 0.0f)) != GFX_RESULT_SUCCESS)
     {
-        JFW_ERROR("Could not add a new truss to the mesh: %s", jfw_error_message(res));
+        JDM_ERROR("Could not add a new truss to the mesh: %s", gfx_result_to_str(gfx_res));
         goto cleanup;
     }
-    if (!jfw_success(res = truss_mesh_add_between_pts(&mesh, (jfw_color){.g = 0xFF, .a = 0xFF}, 0.001f, VEC4(0, 0, 0), VEC4(0, +0.1, 0), 0.0f)))
+    if ((gfx_res = truss_mesh_add_between_pts(&mesh, (jfw_color){.g = 0xFF, .a = 0xFF}, 0.001f, VEC4(0, 0, 0), VEC4(0, +0.1, 0), 0.0f)) != GFX_RESULT_SUCCESS)
     {
-        JFW_ERROR("Could not add a new truss to the mesh: %s", jfw_error_message(res));
+        JDM_ERROR("Could not add a new truss to the mesh: %s", gfx_result_to_str(gfx_res));
         goto cleanup;
     }
-    if (!jfw_success(res = truss_mesh_add_between_pts(&mesh, (jfw_color){.b = 0xFF, .a = 0xFF}, 0.001f, VEC4(0, 0, 0), VEC4(0, 0, 0.1f), 0.0f)))
+    if ((gfx_res = truss_mesh_add_between_pts(&mesh, (jfw_color){.b = 0xFF, .a = 0xFF}, 0.001f, VEC4(0, 0, 0), VEC4(0, 0, 0.1f), 0.0f)) != GFX_RESULT_SUCCESS)
     {
-        JFW_ERROR("Could not add a new truss to the mesh: %s", jfw_error_message(res));
+        JDM_ERROR("Could not add a new truss to the mesh: %s", gfx_result_to_str(gfx_res));
         goto cleanup;
     }
 //    if (!jfw_success(res = truss_mesh_add_between_pts(&mesh, (jfw_color){.r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF}, 0.001f, VEC4(0, 0, 0), VEC4(1, 1, 1), 0.0f)))
 //    {
-//        JFW_ERROR("Could not add a new truss to the mesh: %s", jfw_error_message(res));
+//        JDM_ERROR("Could not add a new truss to the mesh: %s", jfw_error_message(res));
 //        goto cleanup;
 //    }
 
@@ -246,7 +253,7 @@ int main(int argc, char* argv[argc])
     i32 res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(jtb_vertex) * mesh.model.vtx_count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &vtx_buffer_allocation_geometry);
     if (res_v < 0)
     {
-        JFW_ERROR("Could not allocate geometry vertex buffer memory");
+        JDM_ERROR("Could not allocate geometry vertex buffer memory");
         goto cleanup;
     }
     vk_transfer_memory_to_buffer(vk_res, &vulkan_state, &vtx_buffer_allocation_geometry, sizeof(jtb_vertex) * mesh.model.vtx_count, mesh.model.vtx_array);
@@ -254,7 +261,7 @@ int main(int argc, char* argv[argc])
     res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(*mesh.model.idx_array) * mesh.model.idx_count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &idx_buffer_allocation);
     if (res_v < 0)
     {
-        JFW_ERROR("Could not allocate index buffer memory");
+        JDM_ERROR("Could not allocate index buffer memory");
         goto cleanup;
     }
     vk_transfer_memory_to_buffer(vk_res, &vulkan_state, &idx_buffer_allocation, sizeof(*mesh.model.idx_array) * mesh.model.idx_count, mesh.model.idx_array);
@@ -262,13 +269,13 @@ int main(int argc, char* argv[argc])
     res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(jtb_model_data) * mesh.count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &vtx_buffer_allocation_model);
     if (res_v < 0)
     {
-        JFW_ERROR("Could not allocate index buffer memory");
+        JDM_ERROR("Could not allocate index buffer memory");
         goto cleanup;
     }
     jtb_model_data* model_data = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*model_data) * mesh.count);
     for (u32 i = 0; i < mesh.count; ++i)
     {
-        model_data[i] = jtb_truss_convert_model_data(mesh.model_matrices[i], mesh.colors[i]);
+        model_data[i] = jtb_truss_convert_model_data(mesh.model_matrices[i], mesh.normal_matrices[i], mesh.colors[i]);
     }
     vk_transfer_memory_to_buffer(vk_res, &vulkan_state, &vtx_buffer_allocation_model, sizeof(jtb_model_data) * mesh.count, model_data);
     lin_jfree(G_LIN_JALLOCATOR, model_data);
@@ -281,10 +288,10 @@ int main(int argc, char* argv[argc])
 
     jfw_window_set_usr_ptr(jwnd, &vulkan_state);
     jfw_widget* jwidget;
-    res = jfw_widget_create_as_base(jwnd, 1600, 900, 0, 0, &jwidget);
-    if (!jfw_success(res))
+    jfw_result = jfw_widget_create_as_base(jwnd, 1600, 900, 0, 0, &jwidget);
+    if (!jfw_success(jfw_result))
     {
-        JFW_ERROR("Could not create window's base widget");
+        JDM_ERROR("Could not create window's base widget");
         goto cleanup;
     }
     jwidget->dtor_fn = widget_dtor;
@@ -293,7 +300,7 @@ int main(int argc, char* argv[argc])
     jwidget->functions.mouse_button_release = truss_mouse_button_release;
     jwidget->functions.mouse_motion = truss_mouse_motion;
     jtb_camera_3d camera;
-    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(0, 0, -1), VEC4(0, 1, 0), 1.0f);
+    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(0, 0, -1), VEC4(0, 1, 0), 1.0f, 1.0f);
 //    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(0, 0, +1), VEC4(0, 1, 0));
     jtb_draw_state draw_state =
             {
@@ -325,7 +332,22 @@ cleanup:
         jfw_context_destroy(jctx);
         jctx = NULL;
     }
+    JDM_LEAVE_FUNCTION;
+    jdm_error_cleanup_thread();
     //  Clean up the allocators
+    {
+        jallocator* const allocator = G_JALLOCATOR;
+        G_JALLOCATOR = NULL;
+#ifndef NDEBUG
+        uint_fast32_t leaked_block_indices[256];
+        uint_fast32_t leaked_block_count = jallocator_count_used_blocks(allocator, sizeof(leaked_block_indices) / sizeof(*leaked_block_indices), leaked_block_indices);
+        for (u32 i = 0; i < leaked_block_count; ++i)
+        {
+            fprintf(stderr, "G_JALLOCATOR did not free block %"PRIuFAST32"\n", leaked_block_indices[i]);
+        }
+#endif
+        jallocator_destroy(allocator);
+    }
     {
         linear_jallocator* const allocator = G_LIN_JALLOCATOR;
         G_LIN_JALLOCATOR = NULL;
@@ -337,6 +359,5 @@ cleanup:
         G_ALIGN_JALLOCATOR = NULL;
         aligned_jallocator_destroy(allocator);
     }
-    JFW_LEAVE_FUNCTION;
     return 0;
 }

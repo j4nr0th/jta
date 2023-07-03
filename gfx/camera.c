@@ -4,7 +4,7 @@
 
 #include "camera.h"
 
-void jtb_camera_set(jtb_camera_3d* camera, vec4 target, vec4 camera_pos, vec4 down, f32 turn_sensitivity)
+void jtb_camera_set(jtb_camera_3d* camera, vec4 target, vec4 camera_pos, vec4 down, f32 turn_sensitivity, f32 move_sensitivity)
 {
     camera->target = target;
     camera->position = camera_pos;
@@ -22,6 +22,7 @@ void jtb_camera_set(jtb_camera_3d* camera, vec4 target, vec4 camera_pos, vec4 do
     camera->uy = unit_y;
     camera->uz = unit_z;
     camera->turn_sensitivity = turn_sensitivity;
+    camera->move_sensitivity = move_sensitivity;
     camera->far = 1000.0f * vec4_magnitude(d);      //  Far is taken as 1000 times further away from the target
     camera->near = 0.001f * vec4_magnitude(d);      //  Near is taken as 1000 times closer than target
 }
@@ -54,6 +55,7 @@ void jtb_camera_zoom(jtb_camera_3d* camera, f32 fraction_change)
 
 void jtb_camera_rotate(jtb_camera_3d* camera, vec4 axis_of_rotation, f32 angle)
 {
+    angle *= camera->turn_sensitivity;
     vec4 relative = vec4_sub(camera->position, camera->target);
     mtx4 transformation = mtx4_rotate_around_axis(axis_of_rotation, angle);
     assert(vec4_close(vec4_unit(camera->uz), vec4_unit(vec4_negative(relative))));
@@ -64,6 +66,23 @@ void jtb_camera_rotate(jtb_camera_3d* camera, vec4 axis_of_rotation, f32 angle)
     camera->uz = mtx4_vector_mul(transformation, camera->uz);
     assert(vec4_close(vec4_unit(camera->uz), vec4_unit(vec4_negative(relative))));
 
+}
+
+void jtb_camera_set_turn_sensitivity(jtb_camera_3d* camera, f32 turn_sensitivity)
+{
+    camera->turn_sensitivity = turn_sensitivity;
+}
+
+void jtb_camera_set_move_sensitivity(jtb_camera_3d* camera, f32 move_sensitivity)
+{
+    camera->move_sensitivity = move_sensitivity;
+}
+
+void jtb_camera_move(jtb_camera_3d* camera, vec4 direction)
+{
+    vec4 m = vec4_mul_one(direction, camera->move_sensitivity);
+    camera->position = vec4_add(camera->position, m);
+    camera->target = vec4_add(camera->target, m);
 }
 
 

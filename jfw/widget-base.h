@@ -5,7 +5,6 @@
 #ifndef JFW_WIDGET_BASE_H
 #define JFW_WIDGET_BASE_H
 #include "jfw_common.h"
-#include "error_system/error_stack.h"
 #include "window.h"
 
 jfw_res jfw_widget_functions_set(jfw_widget* widget);

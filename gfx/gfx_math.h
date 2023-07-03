@@ -4,7 +4,7 @@
 
 #ifndef JTB_GFX_MATH_H
 #define JTB_GFX_MATH_H
-#include "jfw/jfw_common.h"
+#include "../jfw/jfw_common.h"
 #include <immintrin.h>
 #include <ammintrin.h>
 #include <math.h>
@@ -46,7 +46,7 @@ typedef union
 
 
 
-static inline vec4 vec4_add(vec4 a, vec4 b)
+[[nodiscard]] static inline vec4 vec4_add(vec4 a, vec4 b)
 {
     assert(a.w == 1.0f);
     assert(b.w == 1.0f);
@@ -61,7 +61,7 @@ static inline vec4 vec4_add(vec4 a, vec4 b)
     return c;
 }
 
-static inline vec4 vec4_sub(vec4 a, vec4 b)
+[[nodiscard]] static inline vec4 vec4_sub(vec4 a, vec4 b)
 {
     assert(a.w == 1.0f);
     assert(b.w == 1.0f);
@@ -76,7 +76,7 @@ static inline vec4 vec4_sub(vec4 a, vec4 b)
     return c;
 }
 
-static inline vec4 vec4_mul(vec4 a, vec4 b)
+[[nodiscard]] static inline vec4 vec4_mul(vec4 a, vec4 b)
 {
     assert(a.w == 1.0f);
     assert(b.w == 1.0f);
@@ -90,7 +90,7 @@ static inline vec4 vec4_mul(vec4 a, vec4 b)
     return c;
 }
 
-static inline vec4 vec4_div(vec4 a, vec4 b)
+[[nodiscard]] static inline vec4 vec4_div(vec4 a, vec4 b)
 {
     assert(a.w == 1.0f);
     assert(b.w == 1.0f);
@@ -104,7 +104,7 @@ static inline vec4 vec4_div(vec4 a, vec4 b)
     return c;
 }
 
-static inline vec4 vec4_add_one(vec4 a, f32 k)
+[[nodiscard]] static inline vec4 vec4_add_one(vec4 a, f32 k)
 {
     assert(a.w == 1.0f);
     vec4 c;
@@ -118,7 +118,7 @@ static inline vec4 vec4_add_one(vec4 a, f32 k)
     return c;
 }
 
-static inline vec4 vec4_sub_one(vec4 a, f32 k)
+[[nodiscard]] static inline vec4 vec4_sub_one(vec4 a, f32 k)
 {
     assert(a.w == 1.0f);
     vec4 c;
@@ -132,7 +132,7 @@ static inline vec4 vec4_sub_one(vec4 a, f32 k)
     return c;
 }
 
-static inline vec4 vec4_mul_one(vec4 a, f32 k)
+[[nodiscard]] static inline vec4 vec4_mul_one(vec4 a, f32 k)
 {
     assert(a.w == 1.0f);
     vec4 c;
@@ -146,7 +146,7 @@ static inline vec4 vec4_mul_one(vec4 a, f32 k)
     return c;
 }
 
-static inline vec4 vec4_div_one(vec4 a, f32 k)
+[[nodiscard]] static inline vec4 vec4_div_one(vec4 a, f32 k)
 {
     assert(a.w == 1.0f);
     vec4 c;
@@ -160,7 +160,7 @@ static inline vec4 vec4_div_one(vec4 a, f32 k)
     return c;
 }
 
-static inline f32 vec4_dot(vec4 a, vec4 b)
+[[nodiscard]] static inline f32 vec4_dot(vec4 a, vec4 b)
 {
     assert(a.w == 1.0f);
     assert(b.w == 1.0f);
@@ -171,7 +171,7 @@ static inline f32 vec4_dot(vec4 a, vec4 b)
     return dot;
 }
 
-static inline vec4 vec4_cross(vec4 a, vec4 b)
+[[nodiscard]] static inline vec4 vec4_cross(vec4 a, vec4 b)
 {
     assert(a.w == 1.0f);
     assert(b.w == 1.0f);
@@ -185,7 +185,7 @@ static inline vec4 vec4_cross(vec4 a, vec4 b)
     return crs;
 }
 
-static inline vec4 vec4_unit(vec4 v)
+[[nodiscard]] static inline vec4 vec4_unit(vec4 v)
 {
     assert(v.w == 1.0f);
     f32 mag;
@@ -195,12 +195,12 @@ static inline vec4 vec4_unit(vec4 v)
     return (vec4){.x = v.x / mag, .y = v.y / mag, .z = v.z / mag, .w = 1.0f};
 }
 
-static inline f32 vec4_magnitude(vec4 v)
+[[nodiscard]] static inline f32 vec4_magnitude(vec4 v)
 {
     return sqrtf(v.x * v.x + v.y * v.y + v.z * v.z);
 }
 
-static inline mtx4 mtx4_rotation_z(f32 alpha)
+[[nodiscard]] static inline mtx4 mtx4_rotation_z(f32 alpha)
 {
     mtx4 m;
     const f32 c = cosf(alpha);
@@ -219,7 +219,7 @@ static inline mtx4 mtx4_rotation_z(f32 alpha)
     return m;
 }
 
-static inline mtx4 mtx4_rotation_y(f32 beta)
+[[nodiscard]] static inline mtx4 mtx4_rotation_y(f32 beta)
 {
     mtx4 m;
     const f32 c = cosf(beta);
@@ -238,7 +238,7 @@ static inline mtx4 mtx4_rotation_y(f32 beta)
     return m;
 }
 
-static inline mtx4 mtx4_rotation_x(f32 gamma)
+[[nodiscard]] static inline mtx4 mtx4_rotation_x(f32 gamma)
 {
     mtx4 m;
     const f32 c = cosf(gamma);
@@ -256,7 +256,7 @@ static inline mtx4 mtx4_rotation_x(f32 gamma)
     return m;
 }
 
-static inline mtx4 mtx4_multiply_manual(mtx4 a, mtx4 b)
+[[nodiscard]] static inline mtx4 mtx4_multiply_manual(mtx4 a, mtx4 b)
 {
     mtx4 res;
     for (u32 i = 0; i < 4; ++i)
@@ -274,7 +274,7 @@ static inline mtx4 mtx4_multiply_manual(mtx4 a, mtx4 b)
     return res;
 }
 
-static inline vec4 mtx4_vector_mul(mtx4 m, vec4 x)
+[[nodiscard]] static inline vec4 mtx4_vector_mul(mtx4 m, vec4 x)
 {
 //    assert(x.w == 1.0f);
     vec4 y;
@@ -297,7 +297,7 @@ static inline vec4 mtx4_vector_mul(mtx4 m, vec4 x)
     return y;
 }
 
-static inline mtx4 mtx4_multiply(mtx4 a, mtx4 b)
+[[nodiscard]] static inline mtx4 mtx4_multiply(mtx4 a, mtx4 b)
 {
     mtx4 c;
     c.col0 = mtx4_vector_mul(a, b.col0);
@@ -318,7 +318,7 @@ static const mtx4 mtx4_identity =
            }
 };
 
-static inline mtx4 mtx4_translate(mtx4 m, vec4 offset)
+[[nodiscard]] static inline mtx4 mtx4_translate(mtx4 m, vec4 offset)
 {
     mtx4 r = m;
     r.col3.x -= offset.x;
@@ -328,7 +328,7 @@ static inline mtx4 mtx4_translate(mtx4 m, vec4 offset)
     return r;
 }
 
-static inline mtx4 mtx4_negative(mtx4 m)
+[[nodiscard]] static inline mtx4 mtx4_negative(mtx4 m)
 {
     return (mtx4)
             {
@@ -351,12 +351,12 @@ static inline mtx4 mtx4_negative(mtx4 m)
             };
 }
 
-static vec4 vec4_negative(vec4 v)
+[[nodiscard]] static vec4 vec4_negative(vec4 v)
 {
     return (vec4){.x = -v.x, .y = -v.y, .z = -v.z, .w = 1.0f};
 }
 
-static inline mtx4 mtx4_view_matrix(vec4 offset, vec4 view_direction, f32 roll)
+[[nodiscard]] static inline mtx4 mtx4_view_matrix(vec4 offset, vec4 view_direction, f32 roll)
 {
     mtx4 m = mtx4_translate(mtx4_identity, offset);
 
@@ -371,7 +371,7 @@ static inline mtx4 mtx4_view_matrix(vec4 offset, vec4 view_direction, f32 roll)
     return m;
 }
 
-static inline mtx4 mtx4_view_look_at(vec4 pos, vec4 target, vec4 down)
+[[nodiscard]] static inline mtx4 mtx4_view_look_at(vec4 pos, vec4 target, vec4 down)
 {
     vec4 d = vec4_sub(target, pos);
     assert(vec4_magnitude(d) > 0.0f);
@@ -392,7 +392,7 @@ static inline mtx4 mtx4_view_look_at(vec4 pos, vec4 target, vec4 down)
             };
 }
 
-static inline mtx4 mtx4_view_matrix_inverse(vec4 d, f32 roll)
+[[nodiscard]] static inline mtx4 mtx4_view_matrix_inverse(vec4 d, f32 roll)
 {
     f32 theta, phi;
     theta = atan2f(d.y, d.x);
@@ -405,7 +405,7 @@ static inline mtx4 mtx4_view_matrix_inverse(vec4 d, f32 roll)
     return m;
 }
 
-static inline mtx4 mtx4_projection(f32 fov, f32 ar, f32 zoom, f32 near, f32 far)
+[[nodiscard]] static inline mtx4 mtx4_projection(f32 fov, f32 ar, f32 zoom, f32 near, f32 far)
 {
     const f32 k = 2 * zoom / tanf(fov / 2);
     assert(far > near);
@@ -421,7 +421,7 @@ static inline mtx4 mtx4_projection(f32 fov, f32 ar, f32 zoom, f32 near, f32 far)
     };
 }
 
-static inline mtx4 mtx4_enlarge(f32 x_factor, f32 y_factor, f32 z_factor)
+[[nodiscard]] static inline mtx4 mtx4_enlarge(f32 x_factor, f32 y_factor, f32 z_factor)
 {
     return (mtx4)
             {
@@ -435,7 +435,7 @@ static inline mtx4 mtx4_enlarge(f32 x_factor, f32 y_factor, f32 z_factor)
             };
 }
 
-static mtx4 mtx4_transpose(mtx4 m)
+[[nodiscard]] static mtx4 mtx4_transpose(mtx4 m)
 {
     for (u32 i = 0; i < 4; ++i)
     {
@@ -450,7 +450,7 @@ static mtx4 mtx4_transpose(mtx4 m)
     return m;
 }
 
-static inline mtx4 mtx4_rotate_around_axis(vec4 axis_of_rotation, f32 rotation_angle)
+[[nodiscard]] static inline mtx4 mtx4_rotate_around_axis(vec4 axis_of_rotation, f32 rotation_angle)
 {
     //  Align the rotation vector with the z axis
     f32 theta, phi;
@@ -462,7 +462,7 @@ static inline mtx4 mtx4_rotate_around_axis(vec4 axis_of_rotation, f32 rotation_a
     return m;
 }
 
-static int vec4_equal(vec4 v1, vec4 v2)
+[[nodiscard]] static int vec4_equal(vec4 v1, vec4 v2)
 {
     assert(v1.w == 1.0f);
     assert(v2.w == 1.0f);
@@ -470,7 +470,7 @@ static int vec4_equal(vec4 v1, vec4 v2)
     return v1.x == v2.x && v1.y == v2.y && v1.z == v2.z;
 }
 
-static int vec4_close(vec4 v1, vec4 v2)
+[[nodiscard]] static int vec4_close(vec4 v1, vec4 v2)
 {
     assert(v1.w == 1.0f);
     assert(v2.w == 1.0f);

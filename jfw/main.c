@@ -3,7 +3,8 @@
 //
 #include "window.h"
 #include "widget-base.h"
-#include "error_system/error_stack.h"
+#include <jdm.h>
+#include <math.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <vulkan/vulkan.h>
@@ -12,7 +13,7 @@
 #include "practice_shaders/vert.spv"
 #include "practice_shaders/frag.spv"
 
-#include "../gfx_math.h"
+#include "../gfx/gfx_math.h"
 
 #include <time.h>
 

@@ -3,6 +3,7 @@
 //
 
 #include "error_codes.h"
+#include "../jfw_common.h"
 
 static const char* const ERROR_MESSAGES[jfw_count] =
         {
@@ -44,7 +45,7 @@ jfw_res jfw_error_message_r(jfw_res error_code, size_t buffer_size, char* buffer
 
 #include <vulkan/vulkan_core.h>
 #define ADD_CODE_TO_SWITCH(i) case (i): return #i;
-const char* jfw_vk_error_msg(u32 vk_code)
+const char* jfw_vk_error_msg(size_t vk_code)
 {
     VkResult code = vk_code;
     switch (code)

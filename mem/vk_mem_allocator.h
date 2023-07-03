@@ -4,7 +4,7 @@
 
 #ifndef JTB_VK_MEM_ALLOCATOR_H
 #define JTB_VK_MEM_ALLOCATOR_H
-#include "../common.h"
+#include "../common/common.h"
 
 typedef struct vk_buffer_allocator_struct vk_buffer_allocator;
 typedef struct vk_buffer_allocation_struct vk_buffer_allocation;

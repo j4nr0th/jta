@@ -4,8 +4,9 @@
 
 #ifndef JFW_ERROR_CODES_H
 #define JFW_ERROR_CODES_H
-#include "../jfw_common.h"
 
+typedef enum jfw_res_enum jfw_res;
+#include <stdlib.h>
 enum jfw_res_enum
 {
     jfw_res_success = 0,
@@ -42,6 +43,6 @@ const char* jfw_error_message(jfw_res error_code);
 
 jfw_res jfw_error_message_r(jfw_res error_code, size_t buffer_size, char* restrict buffer);
 
-const char* jfw_vk_error_msg(u32 vk_code);
+const char* jfw_vk_error_msg(size_t vk_code);
 
 #endif //JFW_ERROR_CODES_H

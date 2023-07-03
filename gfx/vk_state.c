@@ -1,12 +1,12 @@
 //
 // Created by jan on 14.5.2023.
 //
-
+#include <jdm.h>
 #include "vk_state.h"
-#include "jfw/error_system/error_stack.h"
 
-#include "shaders/vtx_shader3d.spv"
-#include "shaders/frg_shader3d.spv"
+
+#include "../shaders/vtx_shader3d.spv"
+#include "../shaders/frg_shader3d.spv"
 
 #include "drawing_3d.h"
 
@@ -34,16 +34,15 @@
 //VkDeviceMemory depth_mem;
 //VkFormat depth_format;
 
-jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* const vk_resources)
+gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* const vk_resources)
 {
-    jfw_res jfw_result = jfw_res_success;
     memset(p_state, 0, sizeof*p_state);
     //  Create buffer allocators
     vk_buffer_allocator* allocator = vk_buffer_allocator_create(vk_resources->device, vk_resources->physical_device, 1 << 20);
     if (!allocator)
     {
-        JFW_ERROR("Failed creating Vulkan buffer allocator");
-        return jfw_res_error;
+        JDM_ERROR("Failed creating Vulkan buffer allocator");
+        return GFX_RESULT_BAD_ALLOC;
     }
     p_state->buffer_allocator = allocator;
 
@@ -53,7 +52,6 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
     {
         VkSampleCountFlags flags = vk_resources->sample_flags;
         if (flags & VK_SAMPLE_COUNT_64_BIT) max_samples = VK_SAMPLE_COUNT_64_BIT;
-        else if (flags & VK_SAMPLE_COUNT_32_BIT) max_samples = VK_SAMPLE_COUNT_32_BIT;
         else if (flags & VK_SAMPLE_COUNT_32_BIT) max_samples = VK_SAMPLE_COUNT_32_BIT;
         else if (flags & VK_SAMPLE_COUNT_16_BIT) max_samples = VK_SAMPLE_COUNT_16_BIT;
         else if (flags & VK_SAMPLE_COUNT_8_BIT) max_samples = VK_SAMPLE_COUNT_8_BIT;
@@ -85,9 +83,9 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
         }
         if (i == n_possible_depth_formats)
         {
-            JFW_ERROR("Could not find a good image format for the depth buffer");
+            JDM_ERROR("Could not find a good image format for the depth buffer");
             vk_buffer_allocator_destroy(allocator);
-            return jfw_res_vk_fail;
+            return GFX_RESULT_NO_IMG_FMT;
         }
         depth_format = possible_depth_formats[i];
         has_stencil = (depth_format == VK_FORMAT_D32_SFLOAT_S8_UINT || depth_format == VK_FORMAT_D24_UNORM_S8_UINT);
@@ -108,10 +106,10 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
         vk_res = vkCreateImage(vk_resources->device, &create_info, NULL, &depth_image);
         if (vk_res != VK_SUCCESS)
         {
-            JFW_ERROR("Could not create depth buffer image, reason: %s", jfw_vk_error_msg(vk_res));
+            JDM_ERROR("Could not create depth buffer image, reason: %s", jfw_vk_error_msg(vk_res));
             vkDestroyImage(vk_resources->device, depth_image, NULL);
             vk_buffer_allocator_destroy(allocator);
-            return jfw_res_vk_fail;
+            return GFX_RESULT_NO_DEPBUF_IMG;
         }
         VkMemoryRequirements mem_req;
         vkGetImageMemoryRequirements(vk_resources->device, depth_image, &mem_req);
@@ -127,10 +125,10 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
             }
             if (heap_type == mem_props->memoryTypeCount)
             {
-                JFW_ERROR("Could not find appropriate memory type for the depth image storage");
+                JDM_ERROR("Could not find appropriate memory type for the depth image storage");
                 vkDestroyImage(vk_resources->device, depth_image, NULL);
                 vk_buffer_allocator_destroy(allocator);
-                return jfw_res_vk_fail;
+                return GFX_RESULT_NO_MEM_TYPE;
             }
         }
         VkMemoryAllocateInfo alloc_info =
@@ -143,19 +141,19 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
         vk_res = vkAllocateMemory(vk_resources->device, &alloc_info, NULL, &depth_memory);
         if (vk_res != VK_SUCCESS)
         {
-            JFW_ERROR("Could not allocate memory for the depth image: %s", jfw_vk_error_msg(vk_res));
+            JDM_ERROR("Could not allocate memory for the depth image: %s", jfw_vk_error_msg(vk_res));
             vkDestroyImage(vk_resources->device, depth_image, NULL);
             vk_buffer_allocator_destroy(allocator);
-            return jfw_res_vk_fail;
+            return GFX_RESULT_BAD_ALLOC;
         }
         vk_res = vkBindImageMemory(vk_resources->device, depth_image, depth_memory, 0);
         if (vk_res != VK_SUCCESS)
         {
-            JFW_ERROR("Failed binding depth image to its memory allocation: %s", jfw_vk_error_msg(vk_res));
+            JDM_ERROR("Failed binding depth image to its memory allocation: %s", jfw_vk_error_msg(vk_res));
             vkFreeMemory(vk_resources->device, depth_memory, NULL);
             vkDestroyImage(vk_resources->device, depth_image, NULL);
             vk_buffer_allocator_destroy(allocator);
-            return jfw_res_vk_fail;
+            return GFX_RESULT_BAD_IMG_BIND;
         }
         VkImageViewCreateInfo view_info =
                 {
@@ -178,18 +176,18 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
         vk_res = vkCreateImageView(vk_resources->device, &view_info, NULL, &depth_view);
         if (vk_res != VK_SUCCESS)
         {
-            JFW_ERROR("Could not create image view for the depth buffer: %s", jfw_vk_error_msg(vk_res));
+            JDM_ERROR("Could not create image view for the depth buffer: %s", jfw_vk_error_msg(vk_res));
             vkFreeMemory(vk_resources->device, depth_memory, NULL);
             vkDestroyImage(vk_resources->device, depth_image, NULL);
             vk_buffer_allocator_destroy(allocator);
-            return jfw_res_vk_fail;
+            return GFX_RESULT_NO_IMG_VIEW;
         }
         p_state->depth_view = depth_view;
         p_state->depth_img = depth_image;
         p_state->depth_mem = depth_memory;
         p_state->depth_format = depth_format;
     }
-
+    gfx_result gfx_res = GFX_RESULT_SUCCESS;
     //  Create render pass(es)
     {
         VkRenderPass render_pass_3d;
@@ -257,8 +255,8 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
         vk_res = vkCreateRenderPass(vk_resources->device, &render_pass_info_3d, NULL, &render_pass_3d);
         if (vk_res != VK_SUCCESS)
         {
-            JFW_ERROR("Could not create 3d render pass: %s", jfw_vk_error_msg(vk_res));
-            jfw_result = jfw_res_vk_fail;
+            JDM_ERROR("Could not create 3d render pass: %s", jfw_vk_error_msg(vk_res));
+            gfx_res = GFX_RESULT_NO_RENDER_PASS;
             goto after_depth;
         }
 
@@ -286,8 +284,8 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
         vk_res = vkCreateDescriptorSetLayout(vk_resources->device, &create_info, NULL, &ubo_layout);
         if (vk_res != VK_SUCCESS)
         {
-            JFW_ERROR("Could not create UBO descriptor set layout: %s", jfw_vk_error_msg(vk_res));
-            jfw_result = jfw_res_vk_fail;
+            JDM_ERROR("Could not create UBO descriptor set layout: %s", jfw_vk_error_msg(vk_res));
+            gfx_res = GFX_RESULT_NO_DESC_SET;
             goto after_render_pass;
         }
         p_state->ubo_layout = ubo_layout;
@@ -364,6 +362,34 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
                 .format = VK_FORMAT_R32G32B32A32_SFLOAT,
                 .offset = offsetof(jtb_model_data, model_data[12]),
                 };
+        VkVertexInputAttributeDescription normal_transform_attribute_description_col1 =
+                {
+                        .binding = 1,
+                        .location = 7,
+                        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+                        .offset = offsetof(jtb_model_data, normal_data[0]),
+                };
+        VkVertexInputAttributeDescription normal_transform_attribute_description_col2 =
+                {
+                        .binding = 1,
+                        .location = 8,
+                        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+                        .offset = offsetof(jtb_model_data, normal_data[4]),
+                };
+        VkVertexInputAttributeDescription normal_transform_attribute_description_col3 =
+                {
+                        .binding = 1,
+                        .location = 9,
+                        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+                        .offset = offsetof(jtb_model_data, normal_data[8]),
+                };
+        VkVertexInputAttributeDescription normal_transform_attribute_description_col4 =
+                {
+                        .binding = 1,
+                        .location = 10,
+                        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+                        .offset = offsetof(jtb_model_data, normal_data[12]),
+                };
         VkShaderModuleCreateInfo shader_vtx_create_info =
                 {
                 .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
@@ -379,16 +405,16 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
         vk_res = vkCreateShaderModule(vk_resources->device, &shader_vtx_create_info, NULL, &module_vtx_3d);
         if (vk_res != VK_SUCCESS)
         {
-            JFW_ERROR("Could not create vertex shader module (3d), reason: %s", jfw_vk_error_msg(vk_res));
-            jfw_result = jfw_res_vk_fail;
+            JDM_ERROR("Could not create vertex shader module (3d), reason: %s", jfw_vk_error_msg(vk_res));
+            gfx_res = GFX_RESULT_NO_VTX_SHADER;
             goto after_ubo_layout;
         }
         vk_res = vkCreateShaderModule(vk_resources->device, &shader_frg_create_info, NULL, &module_frg_3d);
         if (vk_res != VK_SUCCESS)
         {
-            JFW_ERROR("Could not create fragment shader module (3d), reason: %s", jfw_vk_error_msg(vk_res));
+            JDM_ERROR("Could not create fragment shader module (3d), reason: %s", jfw_vk_error_msg(vk_res));
             vkDestroyShaderModule(vk_resources->device, module_vtx_3d, NULL);
-            jfw_result = jfw_res_vk_fail;
+            gfx_res = GFX_RESULT_NO_FRG_SHADER;
             goto after_ubo_layout;
         }
 
@@ -424,7 +450,8 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
                 };
         VkVertexInputAttributeDescription attrib_description_array[] =
                 {
-                position_attribute_description, normal_attribute_description, color_attribute_description, model_transform_attribute_description_col1, model_transform_attribute_description_col2, model_transform_attribute_description_col3, model_transform_attribute_description_col4
+                position_attribute_description, normal_attribute_description, color_attribute_description, model_transform_attribute_description_col1, model_transform_attribute_description_col2, model_transform_attribute_description_col3, model_transform_attribute_description_col4,
+                normal_transform_attribute_description_col1, normal_transform_attribute_description_col2, normal_transform_attribute_description_col3, normal_transform_attribute_description_col4
                 };
         VkVertexInputBindingDescription binding_description_array[] =
                 {
@@ -490,10 +517,10 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
         vk_res = vkCreatePipelineLayout(vk_resources->device, &layout_create_info, NULL, &layout_3d);
         if (vk_res != VK_SUCCESS)
         {
-            JFW_ERROR("Failed creating 3d pipeline layout, reason: %s", jfw_vk_error_msg(vk_res));
+            JDM_ERROR("Failed creating 3d pipeline layout, reason: %s", jfw_vk_error_msg(vk_res));
             vkDestroyShaderModule(vk_resources->device, module_frg_3d, NULL);
             vkDestroyShaderModule(vk_resources->device, module_vtx_3d, NULL);
-            jfw_result = jfw_res_vk_fail;
+            gfx_res = GFX_RESULT_NO_PIPELINE_LAYOUT;
             goto after_ubo_layout;
         }
         VkPipelineDepthStencilStateCreateInfo dp_state_info =
@@ -529,9 +556,9 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
         vkDestroyShaderModule(vk_resources->device, module_vtx_3d, NULL);
         if (vk_res != VK_SUCCESS)
         {
-            JFW_ERROR("Failed creating a gfx 3d pipeline, reason: %s", jfw_vk_error_msg(vk_res));
+            JDM_ERROR("Failed creating a gfx 3d pipeline, reason: %s", jfw_vk_error_msg(vk_res));
             vkDestroyPipelineLayout(vk_resources->device, layout_3d, NULL);
-            jfw_result = jfw_res_vk_fail;
+            gfx_res = GFX_RESULT_NO_PIPELINE;
             goto after_ubo_layout;
         }
         p_state->gfx_pipeline_3D = pipeline_3d;
@@ -541,10 +568,11 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
     //  Create the framebuffer(s)
     {
         VkFramebuffer* framebuffer_array;
-        jfw_result = jfw_calloc(vk_resources->n_images, sizeof(VkFramebuffer), &framebuffer_array);
+        jfw_res jfw_result = jfw_calloc(vk_resources->n_images, sizeof(VkFramebuffer), &framebuffer_array);
         if (!jfw_success(jfw_result))
         {
-            JFW_ERROR("Could not allocate memory for framebuffer array");
+            JDM_ERROR("Could not allocate memory for framebuffer array");
+            gfx_res = GFX_RESULT_BAD_ALLOC;
             goto after_3d_pipeline;
         }
         VkImageView attachments[2] =
@@ -568,9 +596,9 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
             if (vk_res != VK_SUCCESS)
             {
 
-                JFW_ERROR("Could not create framebuffer %u out of %u, reason: %s", i + 1, vk_resources->n_images,
+                JDM_ERROR("Could not create framebuffer %u out of %u, reason: %s", i + 1, vk_resources->n_images,
                           jfw_vk_error_msg(vk_res));
-                jfw_result = jfw_res_vk_fail;
+                gfx_res = GFX_RESULT_NO_FRAMEBUFFER;
                 jfw_free(&framebuffer_array);
                 goto after_3d_pipeline;
             }
@@ -587,8 +615,8 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
     }
     if (ret_v != 0)
     {
-        JFW_ERROR("Could not reserve device memory for vtx and idx buffers");
-        jfw_result = jfw_res_vk_fail;
+        JDM_ERROR("Could not reserve device memory for vtx and idx buffers");
+        gfx_res = GFX_RESULT_BAD_ALLOC;
         goto after_3d_framebuffers;
     }
     //  Reserve space for transfer buffer
@@ -599,7 +627,7 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
 //        ret_v = vk_buffer_allocate(allocator, 1 << 8, 1 << 12, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE, &p_state->buffer_transfer);
 //        if (ret_v != 0)
 //        {
-//            JFW_ERROR("Could not reserve device memory for transfer buffer(s)");
+//            JDM_ERROR("Could not reserve device memory for transfer buffer(s)");
 //            jfw_result = jfw_res_vk_fail;
 //            goto after_3d_framebuffers;
 //        }
@@ -607,8 +635,8 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
         ret_v = vk_buffer_reserve(allocator, 0, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE);
         if (ret_v != 0)
         {
-            JFW_ERROR("Could not reserve device memory for uniform buffer(s)");
-            jfw_result = jfw_res_vk_fail;
+            JDM_ERROR("Could not reserve device memory for uniform buffer(s)");
+            gfx_res = GFX_RESULT_BAD_ALLOC;
             goto after_3d_framebuffers;
         }
     }
@@ -616,8 +644,8 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
     ret_v = vk_buffer_allocate(allocator, 1 << 8, 1 << 12, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE, &p_state->buffer_transfer);
     if (ret_v != 0)
     {
-        JFW_ERROR("Could not reserve device memory for transfer buffer(s)");
-        jfw_result = jfw_res_vk_fail;
+        JDM_ERROR("Could not reserve device memory for transfer buffer(s)");
+        gfx_res = GFX_RESULT_BAD_ALLOC;
         goto after_3d_framebuffers;
     }
 
@@ -631,8 +659,8 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
         vk_res = vkCreateFence(vk_resources->device, &create_info, NULL, &p_state->fence_transfer_free);
         if (vk_res != VK_SUCCESS)
         {
-            JFW_ERROR("Failed creating transfer buffer fence");
-            jfw_result = jfw_res_vk_fail;
+            JDM_ERROR("Failed creating transfer buffer fence");
+            gfx_res = GFX_RESULT_NO_FENCE;
             goto after_3d_framebuffers;
         }
     }
@@ -640,17 +668,19 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
     //  Create (and map uniform buffer)
     {
         ubo_3d** mapped_array;
-        jfw_result = jfw_calloc(vk_resources->n_frames_in_flight, sizeof(void*), &mapped_array);
+        jfw_res jfw_result = jfw_calloc(vk_resources->n_frames_in_flight, sizeof(void*), &mapped_array);
         if (!jfw_success(jfw_result))
         {
-            JFW_ERROR("Could not allocate memory for UBO mapping pointers");
+            JDM_ERROR("Could not allocate memory for UBO mapping pointers");
+            gfx_res = GFX_RESULT_BAD_ALLOC;
             goto after_transfer_fence;
         }
         ret_v = vk_buffer_allocate(allocator, sizeof(ubo_3d), vk_resources->n_frames_in_flight, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &p_state->buffer_uniform);
         if (ret_v != 0)
         {
-            JFW_ERROR("Could not allocate 3d UBO");
+            JDM_ERROR("Could not allocate 3d UBO");
             jfw_free(&mapped_array);
+            gfx_res = GFX_RESULT_BAD_ALLOC;
             goto after_transfer_fence;
         }
         ubo_3d* const original_mapping = vk_map_allocation(&p_state->buffer_uniform);
@@ -680,24 +710,26 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
         vk_res = vkCreateDescriptorPool(vk_resources->device, &create_info, NULL, &desc_pool);
         if (vk_res != VK_SUCCESS)
         {
-            JFW_ERROR("Could not allocate descriptor pool for UBO data, reason: %s", jfw_vk_error_msg(vk_res));
-            jfw_result = jfw_res_vk_fail;
+            JDM_ERROR("Could not allocate descriptor pool for UBO data, reason: %s", jfw_vk_error_msg(vk_res));
+            gfx_res = GFX_RESULT_NO_DESC_POOL;
             goto after_mapped_array;
         }
         VkDescriptorSetLayout* layouts;
-        jfw_result = jfw_calloc(vk_resources->n_frames_in_flight, sizeof(*layouts), &layouts);
+        jfw_res jfw_result = jfw_calloc(vk_resources->n_frames_in_flight, sizeof(*layouts), &layouts);
         if (!jfw_success(jfw_result))
         {
-            JFW_ERROR("Could not allocate memory for descriptor sets");
+            JDM_ERROR("Could not allocate memory for descriptor sets");
             vkDestroyDescriptorPool(vk_resources->device, desc_pool, NULL);
+            gfx_res = GFX_RESULT_BAD_ALLOC;
             goto after_mapped_array;
         }
         jfw_result = jfw_calloc(vk_resources->n_frames_in_flight, sizeof(*desc_sets), &desc_sets);
         if (!jfw_success(jfw_result))
         {
-            JFW_ERROR("Could not allocate memory for descriptor sets");
+            JDM_ERROR("Could not allocate memory for descriptor sets");
             jfw_free(&layouts);
             vkDestroyDescriptorPool(vk_resources->device, desc_pool, NULL);
+            gfx_res = GFX_RESULT_BAD_ALLOC;
             goto after_mapped_array;
         }
 
@@ -716,9 +748,10 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
         jfw_free(&layouts);
         if (vk_res != VK_SUCCESS)
         {
-            JFW_ERROR("Could not allocate descriptor sets, reason: %s", jfw_vk_error_msg(vk_res));
+            JDM_ERROR("Could not allocate descriptor sets, reason: %s", jfw_vk_error_msg(vk_res));
             jfw_free(&desc_sets);
             vkDestroyDescriptorPool(vk_resources->device, desc_pool, NULL);
+            gfx_res = GFX_RESULT_BAD_ALLOC;
             goto after_mapped_array;
         }
         VkDescriptorBufferInfo buffer_info =
@@ -750,7 +783,7 @@ jfw_res vk_state_create(vk_state* const p_state, const jfw_window_vk_resources* 
     }
 
 
-    return jfw_result;
+    return gfx_res;
 after_descriptor_sets:
     vkDestroyDescriptorPool(vk_resources->device, p_state->desc_pool, NULL);
     jfw_free(&p_state->desc_set);
@@ -778,10 +811,10 @@ after_depth:
     vk_buffer_allocator_destroy(allocator);
 
     memset(p_state, 0, sizeof*p_state);
-    return jfw_result;
+    return gfx_res;
 }
 
-jfw_res vk_transfer_memory_to_buffer(
+gfx_result vk_transfer_memory_to_buffer(
         jfw_window_vk_resources* vk_resources, vk_state* p_state, vk_buffer_allocation* buffer, size_t size, void* data)
 {
     assert(size <= p_state->buffer_transfer.size);
@@ -790,8 +823,8 @@ jfw_res vk_transfer_memory_to_buffer(
     void* mapped_memory = vk_map_allocation(&p_state->buffer_transfer);
     if (!mapped_memory)
     {
-        JFW_ERROR("Could not map buffer to memory");
-        return jfw_res_vk_fail;
+        JDM_ERROR("Could not map buffer to memory");
+        return GFX_RESULT_MAP_FAILED;
     }
     memcpy(mapped_memory, data, size);
     vk_unmap_allocation(mapped_memory, &p_state->buffer_transfer);
@@ -804,14 +837,14 @@ jfw_res vk_transfer_memory_to_buffer(
     VkResult vk_res = vkResetCommandBuffer(cmd_buffer, 0);
     if (vk_res != VK_SUCCESS)
     {
-        JFW_ERROR("Could not begin reset the command buffer, reason: %s", jfw_vk_error_msg(vk_res));
-        return jfw_res_vk_fail;
+        JDM_ERROR("Could not begin reset the command buffer, reason: %s", jfw_vk_error_msg(vk_res));
+        return GFX_RESULT_BAD_CMDBUF_RESET;
     }
     vk_res = vkBeginCommandBuffer(cmd_buffer, &begin_info);
     if (vk_res != VK_SUCCESS)
     {
-        JFW_ERROR("Could not begin recording of the command transfer buffer, reason: %s", jfw_vk_error_msg(vk_res));
-        return jfw_res_vk_fail;
+        JDM_ERROR("Could not begin recording of the command transfer buffer, reason: %s", jfw_vk_error_msg(vk_res));
+        return GFX_RESULT_BAD_CMDBUF_RESET;
     }
     const VkBufferCopy buffer_copy_info =
             {
@@ -828,7 +861,7 @@ jfw_res vk_transfer_memory_to_buffer(
             .pCommandBuffers = &cmd_buffer,
             };
     vkQueueSubmit(vk_resources->queue_transfer, 1, &submit_info, p_state->fence_transfer_free);
-    return jfw_res_success;
+    return GFX_RESULT_SUCCESS;
 }
 
 void vk_state_destroy(vk_state* p_state, jfw_window_vk_resources* vk_resources)

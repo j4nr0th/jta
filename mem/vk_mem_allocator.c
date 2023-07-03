@@ -1,9 +1,8 @@
 //
 // Created by jan on 14.5.2023.
 //
-
+#include <jdm.h>
 #include "vk_mem_allocator.h"
-#include "../../jfw/error_system/error_stack.h"
 
 typedef struct allocation_chunk_struct allocation_chunk;
 struct allocation_chunk_struct
@@ -186,7 +185,7 @@ i32 vk_buffer_allocate(
         jfw_result = jfw_realloc(new_capacity * sizeof(buffer_pool*), &allocator->pools);
         if (!jfw_success(jfw_result))
         {
-            JFW_ERROR("Could not reallocate %zu bytes of memory for pool list", new_capacity * sizeof(buffer_pool*));
+            JDM_ERROR("Could not reallocate %zu bytes of memory for pool list", new_capacity * sizeof(buffer_pool*));
             return -1;
         }
         allocator->pool_capacity = new_capacity;
@@ -194,7 +193,7 @@ i32 vk_buffer_allocate(
     jfw_result = jfw_malloc(sizeof *pool, &pool);
     if (!jfw_success(jfw_result))
     {
-        JFW_ERROR("Could not allocate memory for the new buffer pool");
+        JDM_ERROR("Could not allocate memory for the new buffer pool");
         return -1;
     }
 
@@ -202,7 +201,7 @@ i32 vk_buffer_allocate(
 //    jfw_result =  jfw_calloc(n_queue_family_indices, sizeof(*v_qfi), &v_qfi);
 //    if (!jfw_success(jfw_result))
 //    {
-//        JFW_ERROR("Failed allocating memory for the pool's queue list");
+//        JDM_ERROR("Failed allocating memory for the pool's queue list");
 //        jfw_free(&pool);
 //        return -1;
 //    }
@@ -226,7 +225,7 @@ i32 vk_buffer_allocate(
     VkResult vk_res = vkCreateBuffer(allocator->device, &create_info, NULL, &new_buffer);
     if (vk_res != VK_SUCCESS)
     {
-        JFW_ERROR("Failed creating vk_buffer, reason: %s", jfw_vk_error_msg(vk_res));
+        JDM_ERROR("Failed creating vk_buffer, reason: %s", jfw_vk_error_msg(vk_res));
 //        jfw_free(&v_qfi);
         jfw_free(&pool);
         return -1;
@@ -246,7 +245,7 @@ i32 vk_buffer_allocate(
     vk_res = vkAllocateMemory(allocator->device, &alloc_info, NULL, &mem);
     if (vk_res != VK_SUCCESS)
     {
-        JFW_ERROR("Failed creating vk_buffer, reason: %s", jfw_vk_error_msg(vk_res));
+        JDM_ERROR("Failed creating vk_buffer, reason: %s", jfw_vk_error_msg(vk_res));
         vkDestroyBuffer(allocator->device, new_buffer, NULL);
 //        jfw_free(&v_qfi);
         jfw_free(&pool);
@@ -295,13 +294,13 @@ void vk_buffer_deallocate(vk_buffer_allocator* allocator, vk_buffer_allocation* 
     buffer_pool* const pool = allocator->pools[allocation->pool_index];
     if (allocation->pool_index >= allocator->pool_count)
     {
-        JFW_ERROR("Pool index is higher than the pool count (index is %u, should be less than %u)",
+        JDM_ERROR("Pool index is higher than the pool count (index is %u, should be less than %u)",
                   allocation->pool_index, allocator->pool_count);
         return;
     }
     if (allocation->memory != pool->memory || allocation->buffer != pool->buffer)
     {
-        JFW_ERROR("Memory and buffer of the allocation (%p and %p) don't match the pool's values (%p and %p)",
+        JDM_ERROR("Memory and buffer of the allocation (%p and %p) don't match the pool's values (%p and %p)",
                   allocation->memory,
                   allocation->buffer, pool->memory, pool->buffer);
         return;
@@ -320,7 +319,7 @@ void vk_buffer_deallocate(vk_buffer_allocator* allocator, vk_buffer_allocation* 
     }
     if (!chunk)
     {
-        JFW_ERROR("Could not find the allocation chunk in the pool's chunk list");
+        JDM_ERROR("Could not find the allocation chunk in the pool's chunk list");
         return;
     }
 
@@ -353,7 +352,7 @@ i32 vk_buffer_reserve(
         jfw_result = jfw_realloc(new_capacity * sizeof(buffer_pool*), &allocator->pools);
         if (!jfw_success(jfw_result))
         {
-            JFW_ERROR("Could not reallocate %zu bytes of memory for pool list", new_capacity * sizeof(buffer_pool*));
+            JDM_ERROR("Could not reallocate %zu bytes of memory for pool list", new_capacity * sizeof(buffer_pool*));
             return -1;
         }
         allocator->pool_capacity = new_capacity;
@@ -362,7 +361,7 @@ i32 vk_buffer_reserve(
     jfw_result = jfw_malloc(sizeof *pool, &pool);
     if (!jfw_success(jfw_result))
     {
-        JFW_ERROR("Could not allocate memory for the new buffer pool");
+        JDM_ERROR("Could not allocate memory for the new buffer pool");
         return -1;
     }
 
@@ -370,7 +369,7 @@ i32 vk_buffer_reserve(
 //    jfw_result =  jfw_calloc(n_queue_family_indices, sizeof(*v_qfi), &v_qfi);
 //    if (!jfw_success(jfw_result))
 //    {
-//        JFW_ERROR("Failed allocating memory for the pool's queue list");
+//        JDM_ERROR("Failed allocating memory for the pool's queue list");
 //        jfw_free(&pool);
 //        return -1;
 //    }
@@ -395,7 +394,7 @@ i32 vk_buffer_reserve(
     VkResult vk_res = vkCreateBuffer(allocator->device, &create_info, NULL, &new_buffer);
     if (vk_res != VK_SUCCESS)
     {
-        JFW_ERROR("Failed creating vk_buffer, reason: %s", jfw_vk_error_msg(vk_res));
+        JDM_ERROR("Failed creating vk_buffer, reason: %s", jfw_vk_error_msg(vk_res));
 //        jfw_free(&v_qfi);
         jfw_free(&pool);
         return -1;
@@ -428,7 +427,7 @@ i32 vk_buffer_reserve(
     vk_res = vkAllocateMemory(allocator->device, &alloc_info, NULL, &mem);
     if (vk_res != VK_SUCCESS)
     {
-        JFW_ERROR("Failed creating vk_buffer, reason: %s", jfw_vk_error_msg(vk_res));
+        JDM_ERROR("Failed creating vk_buffer, reason: %s", jfw_vk_error_msg(vk_res));
         vkDestroyBuffer(allocator->device, new_buffer, NULL);
 //        jfw_free(&v_qfi);
         jfw_free(&pool);
@@ -469,7 +468,7 @@ void* vk_map_allocation(const vk_buffer_allocation* allocation)
     const VkResult vk_res = vkMapMemory(allocation->device, allocation->memory, allocation->offset, allocation->size, 0, &ptr);
     if (vk_res != VK_SUCCESS)
     {
-        JFW_ERROR("Could not map buffer allocation, reason: %s", jfw_vk_error_msg(vk_res));
+        JDM_ERROR("Could not map buffer allocation, reason: %s", jfw_vk_error_msg(vk_res));
         return NULL;
     }
     return ptr;

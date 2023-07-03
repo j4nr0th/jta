@@ -9,5 +9,5 @@ layout(location = 0) out vec4 color_out;
 void main()
 {
     color_out = vtx_color;
-//    color_out.rgb *= dot(vtx_normal.xyz, view_vector.xyz);
+//    color_out.rgb *= -dot(vtx_normal.xyz, view_vector.xyz);
 }

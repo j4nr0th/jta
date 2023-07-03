@@ -2,7 +2,7 @@
 // Created by jan on 17.1.2023.
 //
 #include "jfw_common.h"
-#include "error_system/error_stack.h"
+#include <jdm.h>
 #undef jfw_malloc
 #undef jfw_calloc
 #undef jfw_realloc
@@ -16,7 +16,7 @@ jfw_res jfw_malloc(size_t size, void** pptr)
     void* ptr = malloc(size);
     if (!ptr)
     {
-        JFW_ERROR("Failed call malloc(%zu), reason: %s", size, strerror(errno));
+        JDM_ERROR("Failed call malloc(%zu), reason: %s", size, strerror(errno));
         result = jfw_res_bad_malloc;
     }
     memset(ptr, 0, size);
@@ -31,7 +31,7 @@ jfw_res jfw_calloc(size_t nmemb, size_t size, void** pptr)
     void* ptr = calloc(nmemb, size);
     if (!ptr)
     {
-        JFW_ERROR("Failed call calloc(%zu, %zu), reason: %s", nmemb, size, strerror(errno));
+        JDM_ERROR("Failed call calloc(%zu, %zu), reason: %s", nmemb, size, strerror(errno));
         result = jfw_res_bad_malloc;
     }
     *pptr = ptr;
@@ -45,7 +45,7 @@ jfw_res jfw_realloc(size_t new_size, void** ptr)
     void* new_ptr = realloc(*ptr, new_size);
     if (!new_ptr)
     {
-        JFW_ERROR("Failed call realloc(%zu, %p), reason: %s", new_size, ptr, strerror(errno));
+        JDM_ERROR("Failed call realloc(%zu, %p), reason: %s", new_size, ptr, strerror(errno));
         result = jfw_res_bad_realloc;
     }
     else

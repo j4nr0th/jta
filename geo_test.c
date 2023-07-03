@@ -1,11 +1,11 @@
 //
 // Created by jan on 21.5.2023.
 //
-#include "common.h"
-#include "gfx_math.h"
-#include "camera.h"
-#include "drawing_3d.h"
-#include "rotation_camera_test.c"
+#include "common/common.h"
+#include "gfx/gfx_math.h"
+#include "gfx/camera.h"
+#include "gfx/drawing_3d.h"
+#include "gfx/rotation_camera_test.c"
 
 static inline void print_matrix(mtx4 matrix)
 {
@@ -161,7 +161,7 @@ int main()
     {
         mtx4 m = {};
         vec4 v = {}, v_res = {};
-        jtb_camera_set(&camera, VEC4(1, 1, 1), VEC4(1, 1, 0), VEC4(0, -1, 0), 1.0);
+        jtb_camera_set(&camera, VEC4(1, 1, 1), VEC4(1, 1, 0), VEC4(0, -1, 0), 1.0f, 1.0f);
         m = jtb_camera_to_view_matrix(&camera);
         v = mtx4_vector_mul(m, VEC4(1.1, 0.9, 0.7));
         ASSERT(vec4_close(v, VEC4(-0.1, +0.1, 0.7)));
@@ -169,7 +169,7 @@ int main()
         ASSERT(vec4_close(v, VEC4(+1, +1, 0)));
 
 
-        jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(1, 0, 0), VEC4(0, 0, 1), 1.0);
+        jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(1, 0, 0), VEC4(0, 0, 1), 1.0f, 1.0f);
         m = jtb_camera_to_view_matrix(&camera);
         v = mtx4_vector_mul(m, VEC4(0, 1, 0));
         ASSERT(vec4_close(v, VEC4(-1, 0, 1)));
@@ -179,7 +179,7 @@ int main()
         ASSERT(vec4_close(v, VEC4(0, 0, 1)));
 
 
-        jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(0, 0, +1), VEC4(0, 1, 0), 1.0);
+        jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(0, 0, +1), VEC4(0, 1, 0), 1.0f, 1.0f);
         m = jtb_camera_to_view_matrix(&camera);
         v = mtx4_vector_mul(m, VEC4(0, 3, 0));
         ASSERT(vec4_close(v, VEC4(0, 3, 1)));
@@ -201,7 +201,7 @@ int main()
 
         {
             vec4 ux = camera.ux, uy = camera.uy, uz = camera.uz;
-            jtb_camera_set(&camera, VEC4(-10, -3, 2.3f), VEC4(3, -3, 2.3f), VEC4(0, 1, 0), 1.0);
+            jtb_camera_set(&camera, VEC4(-10, -3, 2.3f), VEC4(3, -3, 2.3f), VEC4(0, 1, 0), 1.0f, 1.0f);
             ASSERT(vec4_close(ux, camera.ux));
             ASSERT(vec4_close(uy, camera.uy));
             ASSERT(vec4_close(uz, camera.uz));
@@ -214,7 +214,7 @@ int main()
 
     }
 
-    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(0, 0, 1), VEC4(0, 1, 0), 1.0);
+    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(0, 0, 1), VEC4(0, 1, 0), 1.0f, 1.0f);
     mtx4 m = jtb_camera_to_view_matrix(&camera);
     print_matrix(m);
     printf("\n");
@@ -235,7 +235,7 @@ int main()
     ASSERT(vec4_close(v_res, VEC4(-1, 3, 11)));
 
 
-    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(1, 1, 0), VEC4(1, -1, 0), 1.0);
+    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(1, 1, 0), VEC4(1, -1, 0), 1.0f, 1.0f);
     m = jtb_camera_to_view_matrix(&camera);
     print_matrix(m);
     printf("\n");

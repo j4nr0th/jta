@@ -3,7 +3,7 @@
 //
 
 #include "platform.h"
-#include "../error_system/error_stack.h"
+#include <jdm.h>
 #include "../window.h"
 #include "../widget-base.h"
 #include <X11/extensions/Xrender.h>
@@ -127,24 +127,24 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
 
     if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
     {
-        JFW_ERROR("Vulkan DBG utils ERROR (category/ies: %s): %s", category_buffer, pCallbackData->pMessage);
+        JDM_ERROR("Vulkan DBG utils ERROR (category/ies: %s): %s", category_buffer, pCallbackData->pMessage);
 //        assert(0);
     }
     else if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
     {
-        JFW_WARN("Vulkan DBG utils warning (category/ies: %s): %s", category_buffer, pCallbackData->pMessage);
+        JDM_WARN("Vulkan DBG utils warning (category/ies: %s): %s", category_buffer, pCallbackData->pMessage);
     }
     else if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)
     {
-        JFW_INFO("Vulkan DBG utils information (category/ies: %s): %s", category_buffer, pCallbackData->pMessage);
+        JDM_INFO("Vulkan DBG utils information (category/ies: %s): %s", category_buffer, pCallbackData->pMessage);
     }
 //    else if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT)
 //    {
-//        JFW_INFO("Vulkan DBG utils diagnostic (category/ies: %s): %s", category_buffer, pCallbackData->pMessage);
+//        JDM_INFO("Vulkan DBG utils diagnostic (category/ies: %s): %s", category_buffer, pCallbackData->pMessage);
 //    }
 //    else
 //    {
-//        JFW_ERROR("Vulkan DBG utils (unknown severity) (category/ies: %s): %s", category_buffer, pCallbackData->pMessage);
+//        JDM_ERROR("Vulkan DBG utils (unknown severity) (category/ies: %s): %s", category_buffer, pCallbackData->pMessage);
 //    }
 
 
@@ -155,7 +155,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
 
 static jfw_res jfw_vulkan_context_create(jfw_vulkan_context* this, const char* app_name, u32 app_version, VkAllocationCallbacks* alloc_callbacks)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     u32 mtx_created = 0;
     VkResult vk_res;
     jfw_res res;
@@ -177,7 +177,7 @@ static jfw_res jfw_vulkan_context_create(jfw_vulkan_context* this, const char* a
         vk_res = vkEnumerateInstanceLayerProperties(&count, NULL);
         if (vk_res != VK_SUCCESS)
         {
-            JFW_ERROR("Vulkan error with enumerating instance layer properties: %s", jfw_vk_error_msg(vk_res));
+            JDM_ERROR("Vulkan error with enumerating instance layer properties: %s", jfw_vk_error_msg(vk_res));
             res = jfw_res_vk_fail;
             goto failed;
         }
@@ -185,14 +185,14 @@ static jfw_res jfw_vulkan_context_create(jfw_vulkan_context* this, const char* a
         res = jfw_calloc(count, sizeof(*layer_properties), &layer_properties);
         if (!jfw_success(res))
         {
-            JFW_ERROR("Failed allocating memory for vulkan layer properties array");
+            JDM_ERROR("Failed allocating memory for vulkan layer properties array");
             goto failed;
         }
         vk_res = vkEnumerateInstanceLayerProperties(&count, layer_properties);
         if (vk_res != VK_SUCCESS)
         {
             jfw_free(&layer_properties);
-            JFW_ERROR("Vulkan error with enumerating instance layer properties: %s", jfw_vk_error_msg(vk_res));
+            JDM_ERROR("Vulkan error with enumerating instance layer properties: %s", jfw_vk_error_msg(vk_res));
             res = jfw_res_vk_fail;
             goto failed;
         }
@@ -216,7 +216,7 @@ static jfw_res jfw_vulkan_context_create(jfw_vulkan_context* this, const char* a
 
         if (req_layers_found != REQUIRED_LAYERS_COUNT)
         {
-            JFW_ERROR("Could only find %u out of %u required vulkan layers", req_layers_found, REQUIRED_LAYERS_COUNT);
+            JDM_ERROR("Could only find %u out of %u required vulkan layers", req_layers_found, REQUIRED_LAYERS_COUNT);
             res = jfw_res_vk_fail;
             goto failed;
         }
@@ -224,7 +224,7 @@ static jfw_res jfw_vulkan_context_create(jfw_vulkan_context* this, const char* a
         vk_res = vkEnumerateInstanceExtensionProperties(NULL, &count, NULL);
         if (vk_res != VK_SUCCESS)
         {
-            JFW_ERROR("Vulkan error with enumerating instance extension properties: %s", jfw_vk_error_msg(vk_res));
+            JDM_ERROR("Vulkan error with enumerating instance extension properties: %s", jfw_vk_error_msg(vk_res));
             res = jfw_res_vk_fail;
             goto failed;
         }
@@ -233,14 +233,14 @@ static jfw_res jfw_vulkan_context_create(jfw_vulkan_context* this, const char* a
         res = jfw_calloc(count, sizeof(*extension_properties), &extension_properties);
         if (!jfw_success(res))
         {
-            JFW_ERROR("Failed allocating memory for extension properties");
+            JDM_ERROR("Failed allocating memory for extension properties");
             goto failed;
         }
         vk_res = vkEnumerateInstanceExtensionProperties(NULL, &count, extension_properties);
         if (vk_res != VK_SUCCESS)
         {
             jfw_free(&extension_properties);
-            JFW_ERROR("Vulkan error with enumerating extension layer properties: %s", jfw_vk_error_msg(vk_res));
+            JDM_ERROR("Vulkan error with enumerating extension layer properties: %s", jfw_vk_error_msg(vk_res));
             res = jfw_res_vk_fail;
             goto failed;
         }
@@ -263,7 +263,7 @@ static jfw_res jfw_vulkan_context_create(jfw_vulkan_context* this, const char* a
 
         if (req_extensions_found != REQUIRED_EXTENSIONS_COUNT)
         {
-            JFW_ERROR("Could only find %u out of %u required vulkan extensions", req_extensions_found, REQUIRED_EXTENSIONS_COUNT);
+            JDM_ERROR("Could only find %u out of %u required vulkan extensions", req_extensions_found, REQUIRED_EXTENSIONS_COUNT);
             res = jfw_res_vk_fail;
             goto failed;
         }
@@ -281,7 +281,7 @@ static jfw_res jfw_vulkan_context_create(jfw_vulkan_context* this, const char* a
         vk_res = vkCreateInstance(&create_info, alloc_callbacks, &instance);
         if (vk_res != VK_SUCCESS)
         {
-            JFW_ERROR("Failed creating vulkan instance with desired extensions and layers, reason: %s",
+            JDM_ERROR("Failed creating vulkan instance with desired extensions and layers, reason: %s",
                       jfw_vk_error_msg(vk_res));
             res = jfw_res_vk_fail;
             goto failed;
@@ -301,14 +301,14 @@ static jfw_res jfw_vulkan_context_create(jfw_vulkan_context* this, const char* a
         if (!this->vkCreateDebugUtilsMessengerEXT)
         {
             res = jfw_res_vk_fail;
-            JFW_ERROR("Failed fetching the address for procedure \"vkCreateDebugUtilsMessengerEXT\"");
+            JDM_ERROR("Failed fetching the address for procedure \"vkCreateDebugUtilsMessengerEXT\"");
             goto failed;
         }
         this->vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(this->instance, "vkDestroyDebugUtilsMessengerEXT");
         if (!this->vkDestroyDebugUtilsMessengerEXT)
         {
             res = jfw_res_vk_fail;
-            JFW_ERROR("Failed fetching the address for procedure \"vkDestroyDebugUtilsMessengerEXT\"");
+            JDM_ERROR("Failed fetching the address for procedure \"vkDestroyDebugUtilsMessengerEXT\"");
             goto failed;
         }
         VkDebugUtilsMessengerCreateInfoEXT create_info =
@@ -328,7 +328,7 @@ static jfw_res jfw_vulkan_context_create(jfw_vulkan_context* this, const char* a
         if (dbg_messenger == VK_NULL_HANDLE)
         {
             res = jfw_res_vk_fail;
-            JFW_ERROR("Failed creating VkDebugUtilsMessenger");
+            JDM_ERROR("Failed creating VkDebugUtilsMessenger");
             goto failed;
         }
         this->dbg_messenger = dbg_messenger;
@@ -341,13 +341,13 @@ static jfw_res jfw_vulkan_context_create(jfw_vulkan_context* this, const char* a
         vk_res = vkEnumeratePhysicalDevices(this->instance, &count, NULL);
         if (vk_res != VK_SUCCESS)
         {
-            JFW_ERROR("Could not enumerate instance physical devices, reason: %s", jfw_vk_error_msg(vk_res));
+            JDM_ERROR("Could not enumerate instance physical devices, reason: %s", jfw_vk_error_msg(vk_res));
             res = jfw_res_vk_fail;
             goto failed;
         }
         if (!count)
         {
-            JFW_ERROR("The instance had found %u available physical devices!", count);
+            JDM_ERROR("The instance had found %u available physical devices!", count);
             res = jfw_res_vk_fail;
             goto failed;
         }
@@ -355,14 +355,14 @@ static jfw_res jfw_vulkan_context_create(jfw_vulkan_context* this, const char* a
         res = jfw_calloc(count, sizeof(*devices), &devices);
         if (res != jfw_res_success)
         {
-            JFW_ERROR("Could not allocate memory for physical device list");
+            JDM_ERROR("Could not allocate memory for physical device list");
             goto failed;
         }
         vk_res = vkEnumeratePhysicalDevices(this->instance, &count, devices);
         if (vk_res != VK_SUCCESS)
         {
             jfw_free(&devices);
-            JFW_ERROR("Could not enumerate instance physical devices, reason: %s", jfw_vk_error_msg(vk_res));
+            JDM_ERROR("Could not enumerate instance physical devices, reason: %s", jfw_vk_error_msg(vk_res));
             res = jfw_res_vk_fail;
             goto failed;
         }
@@ -386,7 +386,7 @@ static jfw_res jfw_vulkan_context_create(jfw_vulkan_context* this, const char* a
     }
 
 
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 
     failed:
@@ -408,20 +408,20 @@ static jfw_res jfw_vulkan_context_create(jfw_vulkan_context* this, const char* a
         vkDestroyInstance(this->instance, NULL);
         this->instance = VK_NULL_HANDLE;
     }
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return res;
 }
 
 static jfw_res jfw_vulkan_context_destroy(jfw_vulkan_context* this)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     jfw_free(&this->p_physical_devices);
 #ifndef NDEBUG
     this->vkDestroyDebugUtilsMessengerEXT(this->instance, this->dbg_messenger, NULL);
 #endif
     vkDestroyInstance(this->instance, this->has_alloc ? &this->alloc_callback : NULL);
     memset(this, 0, sizeof(*this));
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
@@ -430,21 +430,21 @@ static jfw_res score_physical_device(
         VkExtensionProperties* ext_buffer, i32* p_queue_gfx, i32* p_queue_prs, i32* p_queue_trs, u32 n_queue_buffer,
         VkQueueFamilyProperties* queue_buffer, VkSampleCountFlagBits* p_sample_flags)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     i32 score = 0;
     u32 found_props = 0;
     u32 device_extensions = 0;
     VkResult vk_res = vkEnumerateDeviceExtensionProperties(device, NULL, &device_extensions, NULL);
     if (vk_res != VK_SUCCESS)
     {
-        JFW_ERROR("Could not enumerate device extension properties for device, reason: %s", jfw_vk_error_msg(vk_res));
+        JDM_ERROR("Could not enumerate device extension properties for device, reason: %s", jfw_vk_error_msg(vk_res));
         return jfw_res_vk_fail;
     }
     assert(device_extensions <= n_prop_buffer);
     vk_res = vkEnumerateDeviceExtensionProperties(device, NULL, &device_extensions, ext_buffer);
     if (vk_res != VK_SUCCESS)
     {
-        JFW_ERROR("Could not enumerate device extension properties for device, reason: %s", jfw_vk_error_msg(vk_res));
+        JDM_ERROR("Could not enumerate device extension properties for device, reason: %s", jfw_vk_error_msg(vk_res));
         return jfw_res_vk_fail;
     }
     for (u32 i = 0; i < device_extensions && found_props < DEVICE_REQUIRED_COUNT; ++i)
@@ -559,7 +559,7 @@ static jfw_res score_physical_device(
     *p_queue_trs = trs;
     end:
     *p_score = score;
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
@@ -567,7 +567,7 @@ jfw_res jfw_platform_create(
         jfw_ctx* ctx, jfw_platform* platform, u32 w, u32 h, size_t title_len, const char* title, u32 n_frames_in_filght,
         i32 fixed, jfw_color color)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     jfw_res result = jfw_res_success;
     assert(ctx);
     assert(platform);
@@ -587,8 +587,8 @@ jfw_res jfw_platform_create(
         if (!wnd)
         {
             result = jfw_res_platform_no_wnd;
-            JFW_ERROR("Failed creating platform window handle");
-            JFW_LEAVE_FUNCTION;
+            JDM_ERROR("Failed creating platform window handle");
+            JDM_LEAVE_FUNCTION;
             return result;
         }
         XSelectInput(ctx->dpy, wnd, wa.event_mask);
@@ -650,7 +650,7 @@ jfw_res jfw_platform_create(
         if (vk_res != VK_SUCCESS)
         {
             result = jfw_res_vk_fail;
-            JFW_ERROR("Could not create vulkan surface from window, reason: %s", jfw_vk_error_msg(vk_res));
+            JDM_ERROR("Could not create vulkan surface from window, reason: %s", jfw_vk_error_msg(vk_res));
             goto failed;
         }
         res->surface = surface;
@@ -666,7 +666,7 @@ jfw_res jfw_platform_create(
         result = jfw_calloc(context->max_device_extensions, sizeof(*prop_buffer), &prop_buffer);
         if (result != jfw_res_success)
         {
-            JFW_ERROR("Failed allocating memory for device extensions");
+            JDM_ERROR("Failed allocating memory for device extensions");
             goto failed;
         }
         VkQueueFamilyProperties* queue_buffer;
@@ -674,7 +674,7 @@ jfw_res jfw_platform_create(
         if (result != jfw_res_success)
         {
             jfw_free(&prop_buffer);
-            JFW_ERROR("Failed allocating memory for device extensions");
+            JDM_ERROR("Failed allocating memory for device extensions");
             goto failed;
         }
         for (u32 i = 0; i < context->n_physical_devices; ++i)
@@ -697,7 +697,7 @@ jfw_res jfw_platform_create(
         jfw_free(&queue_buffer);
         if (best_score == -1)
         {
-            JFW_ERROR("Could not find a physical device which would support the bare minimum features required for Vulkan");
+            JDM_ERROR("Could not find a physical device which would support the bare minimum features required for Vulkan");
             result = jfw_res_vk_fail;
             goto failed;
         }
@@ -749,7 +749,7 @@ jfw_res jfw_platform_create(
         if (vk_res != VK_SUCCESS)
         {
             result = jfw_res_vk_fail;
-            JFW_ERROR("Could not create Vulkan logical device interface, reason: %s", jfw_vk_error_msg(vk_res));
+            JDM_ERROR("Could not create Vulkan logical device interface, reason: %s", jfw_vk_error_msg(vk_res));
             goto failed;
         }
         res->device = device;
@@ -789,7 +789,7 @@ jfw_res jfw_platform_create(
         result = jfw_malloc(max_buffer_size, &ptr_buffer);
         if (!jfw_success(result))
         {
-            JFW_ERROR("Could not allocate memory for the buffer used for presentation mode/surface formats");
+            JDM_ERROR("Could not allocate memory for the buffer used for presentation mode/surface formats");
             goto failed;
         }
         VkSurfaceFormatKHR* const formats_buffer = ptr_buffer;
@@ -879,7 +879,7 @@ jfw_res jfw_platform_create(
         if (vk_res != VK_SUCCESS)
         {
             result = jfw_res_vk_fail;
-            JFW_ERROR("Could not create a vulkan swapchain, reason: %s", jfw_vk_error_msg(vk_res));
+            JDM_ERROR("Could not create a vulkan swapchain, reason: %s", jfw_vk_error_msg(vk_res));
             goto failed;
         }
         res->swapchain = sc;
@@ -894,14 +894,14 @@ jfw_res jfw_platform_create(
         if (vk_res != VK_SUCCESS)
         {
             result = jfw_res_vk_fail;
-            JFW_ERROR("Could not find the number of swapchain images, reason: %s", jfw_vk_error_msg(vk_res));
+            JDM_ERROR("Could not find the number of swapchain images, reason: %s", jfw_vk_error_msg(vk_res));
             goto failed;
         }
         VkImageView* views;
         result = jfw_calloc(n_sc_images, sizeof(*views), &views);
         if (!jfw_success(result))
         {
-            JFW_ERROR("Could not allocate memory for the views");
+            JDM_ERROR("Could not allocate memory for the views");
             goto failed;
         }
         {
@@ -910,14 +910,14 @@ jfw_res jfw_platform_create(
             if (!jfw_success(result))
             {
                 jfw_free(&views);
-                JFW_ERROR("Could not allocate memory for swapchain images");
+                JDM_ERROR("Could not allocate memory for swapchain images");
                 goto failed;
             }
             vk_res = vkGetSwapchainImagesKHR(res->device, res->swapchain, &n_sc_images, images);
             if (vk_res != VK_SUCCESS)
             {
                 result = jfw_res_vk_fail;
-                JFW_ERROR("Could not find the number of swapchain images, reason: %s", jfw_vk_error_msg(vk_res));
+                JDM_ERROR("Could not find the number of swapchain images, reason: %s", jfw_vk_error_msg(vk_res));
                 jfw_free(&views);
                 jfw_free(&images);
                 goto failed;
@@ -975,7 +975,7 @@ jfw_res jfw_platform_create(
         if (vk_res != VK_SUCCESS)
         {
             result = jfw_res_vk_fail;
-            JFW_ERROR("Could not create command pool for the gfx queue, reason: %s", jfw_vk_error_msg(vk_res));
+            JDM_ERROR("Could not create command pool for the gfx queue, reason: %s", jfw_vk_error_msg(vk_res));
             goto failed;
         }
         res->cmd_pool = cmd_pool;
@@ -990,20 +990,20 @@ jfw_res jfw_platform_create(
         result = jfw_calloc(n_frames_in_filght, sizeof(*cmd_buffers), &cmd_buffers);
         if (!jfw_success(result))
         {
-            JFW_ERROR("Failed allocating memory for command buffers array");
+            JDM_ERROR("Failed allocating memory for command buffers array");
             goto failed;
         }
         result = jfw_calloc(n_frames_in_filght, sizeof(*sem_img), &sem_img);
         if (!jfw_success(result))
         {
-            JFW_ERROR("Failed allocating memory for image semaphore array");
+            JDM_ERROR("Failed allocating memory for image semaphore array");
             jfw_free(&cmd_buffers);
             goto failed;
         }
         result = jfw_calloc(n_frames_in_filght, sizeof(*sem_prs), &sem_prs);
         if (!jfw_success(result))
         {
-            JFW_ERROR("Failed allocating memory for present semaphore array");
+            JDM_ERROR("Failed allocating memory for present semaphore array");
             jfw_free(&cmd_buffers);
             jfw_free(&sem_img);
             goto failed;
@@ -1011,7 +1011,7 @@ jfw_res jfw_platform_create(
         result = jfw_calloc(n_frames_in_filght, sizeof(*fences), &fences);
         if (!jfw_success(result))
         {
-            JFW_ERROR("Failed allocating memory for fences array");
+            JDM_ERROR("Failed allocating memory for fences array");
             jfw_free(&cmd_buffers);
             jfw_free(&sem_img);
             jfw_free(&sem_prs);
@@ -1028,7 +1028,7 @@ jfw_res jfw_platform_create(
         if (vk_res != VK_SUCCESS)
         {
             result = jfw_res_vk_fail;
-            JFW_ERROR("Could not allocate command buffers for %u frames in flight + transfer", n_frames_in_filght);
+            JDM_ERROR("Could not allocate command buffers for %u frames in flight + transfer", n_frames_in_filght);
             jfw_free(&cmd_buffers);
             jfw_free(&sem_img);
             jfw_free(&sem_prs);
@@ -1046,7 +1046,7 @@ jfw_res jfw_platform_create(
             if (vk_res != VK_SUCCESS)
             {
                 result = jfw_res_vk_fail;
-                JFW_ERROR("Failed creating %u semaphores, reason: %s", n_frames_in_filght, jfw_vk_error_msg(vk_res));
+                JDM_ERROR("Failed creating %u semaphores, reason: %s", n_frames_in_filght, jfw_vk_error_msg(vk_res));
                 for (u32 j = 0; j < i; ++j)
                 {
                     vkDestroySemaphore(res->device, sem_img[j], NULL);
@@ -1068,7 +1068,7 @@ jfw_res jfw_platform_create(
             if (vk_res != VK_SUCCESS)
             {
                 result = jfw_res_vk_fail;
-                JFW_ERROR("Failed creating %u semaphores, reason: %s", n_frames_in_filght, jfw_vk_error_msg(vk_res));
+                JDM_ERROR("Failed creating %u semaphores, reason: %s", n_frames_in_filght, jfw_vk_error_msg(vk_res));
                 for (u32 j = 0; j < i; ++j)
                 {
                     vkDestroySemaphore(res->device, sem_prs[j], NULL);
@@ -1090,7 +1090,7 @@ jfw_res jfw_platform_create(
             if (vk_res != VK_SUCCESS)
             {
                 result = jfw_res_vk_fail;
-                JFW_ERROR("Failed creating %u fences, reason: %s", n_frames_in_filght, jfw_vk_error_msg(vk_res));
+                JDM_ERROR("Failed creating %u fences, reason: %s", n_frames_in_filght, jfw_vk_error_msg(vk_res));
                 for (u32 j = 0; j < i; ++j)
                 {
                     vkDestroyFence(res->device, fences[j], NULL);
@@ -1104,7 +1104,7 @@ jfw_res jfw_platform_create(
 
     unsigned long pixel = ((unsigned long)color.a << (24)) | ((unsigned long)color.r << (16)) | ((unsigned long)color.g << (8)) | ((unsigned long)color.b << (0));
     XSetWindowBackground(ctx->dpy, wnd, pixel);
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return result;
 
 
@@ -1165,13 +1165,13 @@ failed:
     }
     XDestroyWindow(ctx->dpy, wnd);
     memset(platform, 0, sizeof(*platform));
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return result;
 }
 
 jfw_res jfw_platform_destroy(jfw_platform* platform)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     jfw_ctx* ctx = platform->ctx;
     vkDeviceWaitIdle(platform->vk_res.device);
     for (u32 j = 0; j < platform->vk_res.n_frames_in_flight; ++j)
@@ -1202,21 +1202,21 @@ jfw_res jfw_platform_destroy(jfw_platform* platform)
     vkDestroySurfaceKHR(ctx->vk_ctx.instance, platform->vk_res.surface, NULL);
     XDestroyWindow(ctx->dpy, platform->hwnd);
     memset(platform, 0, sizeof(*platform));
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
 jfw_res jfw_context_add_window(jfw_ctx* ctx, jfw_window* p_window)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     jfw_res result = jfw_res_success;
     if (ctx->wnd_count == ctx->wnd_capacity)
     {
         const u32 new_capacity = ctx->wnd_capacity << 1;
         if (!jfw_success(result = jfw_realloc(new_capacity * sizeof(p_window), &ctx->wnd_array)))
         {
-            JFW_ERROR("Failed reallocating memory for context's window handles");
-            JFW_LEAVE_FUNCTION;
+            JDM_ERROR("Failed reallocating memory for context's window handles");
+            JDM_LEAVE_FUNCTION;
             return result;
         }
         memset(ctx->wnd_array + ctx->wnd_count, 0, sizeof(p_window) * (new_capacity - ctx->wnd_capacity));
@@ -1224,45 +1224,45 @@ jfw_res jfw_context_add_window(jfw_ctx* ctx, jfw_window* p_window)
     }
     ctx->wnd_array[ctx->wnd_count++] = p_window;
 
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return result;
 }
 
 jfw_res jfw_context_remove_window(jfw_ctx* ctx, jfw_window* p_window)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     for (u32 i = 0; i < ctx->wnd_count; ++i)
     {
         if (ctx->wnd_array[i] == p_window)
         {
             memmove(ctx->wnd_array + i, ctx->wnd_array + i + 1, sizeof(p_window) * (ctx->wnd_capacity - i - 1));
             ctx->wnd_array[--ctx->wnd_count] = 0;
-            JFW_LEAVE_FUNCTION;
+            JDM_LEAVE_FUNCTION;
             return jfw_res_success;
         }
     }
-    JFW_ERROR("Failed removing window %p from context since it was not found in its array", p_window);
-    JFW_LEAVE_FUNCTION;
+    JDM_ERROR("Failed removing window %p from context since it was not found in its array", p_window);
+    JDM_LEAVE_FUNCTION;
     return jfw_res_invalid_window;
 }
 
 jfw_res jfw_context_create(jfw_ctx** p_ctx, VkAllocationCallbacks* alloc_callbacks)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     jfw_res result = jfw_res_success;
     jfw_ctx* ctx;
     if (!jfw_success(result = jfw_malloc(sizeof(*ctx), &ctx)))
     {
-        JFW_ERROR("Failed allocating memory for context");
-        JFW_LEAVE_FUNCTION;
+        JDM_ERROR("Failed allocating memory for context");
+        JDM_LEAVE_FUNCTION;
         return result;
     }
     memset(ctx, 0, sizeof(*ctx));
     if (!jfw_success(result = jfw_calloc(sizeof(*ctx->wnd_array), 8, &ctx->wnd_array)))
     {
         jfw_free(&ctx);
-        JFW_ERROR("Failed allocating memory for context's window array");
-        JFW_LEAVE_FUNCTION;
+        JDM_ERROR("Failed allocating memory for context's window array");
+        JDM_LEAVE_FUNCTION;
         return result;
     }
     ctx->wnd_capacity = 8;
@@ -1272,8 +1272,8 @@ jfw_res jfw_context_create(jfw_ctx** p_ctx, VkAllocationCallbacks* alloc_callbac
     {
         jfw_free(&ctx->wnd_array);
         jfw_free(&ctx);
-        JFW_ERROR("Failed opening XLib display");
-        JFW_LEAVE_FUNCTION;
+        JDM_ERROR("Failed opening XLib display");
+        JDM_LEAVE_FUNCTION;
         return jfw_res_ctx_no_dpy;
     }
     ctx->dpy = dpy;
@@ -1300,8 +1300,8 @@ jfw_res jfw_context_create(jfw_ctx** p_ctx, VkAllocationCallbacks* alloc_callbac
         XCloseDisplay(dpy);
         jfw_free(&ctx->wnd_array);
         jfw_free(&ctx);
-        JFW_ERROR("Failed opening input method for XLib");
-        JFW_LEAVE_FUNCTION;
+        JDM_ERROR("Failed opening input method for XLib");
+        JDM_LEAVE_FUNCTION;
         return jfw_res_ctx_no_im;
     }
     XIMStyle im_style = XIMStatusNone|XIMPreeditNone;
@@ -1312,8 +1312,8 @@ jfw_res jfw_context_create(jfw_ctx** p_ctx, VkAllocationCallbacks* alloc_callbac
         XCloseDisplay(dpy);
         jfw_free(&ctx->wnd_array);
         jfw_free(&ctx);
-        JFW_ERROR("Failed creating input context for XLib");
-        JFW_LEAVE_FUNCTION;
+        JDM_ERROR("Failed creating input context for XLib");
+        JDM_LEAVE_FUNCTION;
         return jfw_res_ctx_no_ic;
     }
     XSetICFocus(ctx->input_ctx);
@@ -1326,19 +1326,19 @@ jfw_res jfw_context_create(jfw_ctx** p_ctx, VkAllocationCallbacks* alloc_callbac
         XCloseDisplay(dpy);
         jfw_free(&ctx->wnd_array);
         jfw_free(&ctx);
-        JFW_ERROR("Failed creating input context for XLib");
-        JFW_LEAVE_FUNCTION;
+        JDM_ERROR("Failed creating input context for XLib");
+        JDM_LEAVE_FUNCTION;
         return result;
     }
 
     *p_ctx = ctx;
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return result;
 }
 
 jfw_res jfw_context_destroy(jfw_ctx* ctx)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     for (u32 i = ctx->wnd_count; i != 0; --i)
     {
         jfw_window_destroy(ctx, ctx->wnd_array[i - 1]);
@@ -1348,13 +1348,13 @@ jfw_res jfw_context_destroy(jfw_ctx* ctx)
     jfw_vulkan_context_destroy(&ctx->vk_ctx);
     jfw_free(&ctx->wnd_array);
     jfw_free(&ctx);
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
 static jfw_res handle_mouse_button_press(jfw_ctx* ctx, XEvent* ptr, jfw_window* this)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     XButtonPressedEvent* const e = &ptr->xbutton;
 
     if (ctx->mouse_state == 0)
@@ -1385,17 +1385,17 @@ check_children:
     if (widget->functions.mouse_button_press)
     {
         jfw_res res = widget->functions.mouse_button_press(widget, x, y, e->button, e->state);
-        JFW_LEAVE_FUNCTION;
+        JDM_LEAVE_FUNCTION;
         return res;
     }
 
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
 static jfw_res handle_mouse_button_release(jfw_ctx* ctx, XEvent* ptr, jfw_window* this)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     XButtonPressedEvent* const e = &ptr->xbutton;
     i32 x = e->x;
     i32 y = e->y;
@@ -1420,17 +1420,17 @@ static jfw_res handle_mouse_button_release(jfw_ctx* ctx, XEvent* ptr, jfw_window
     if (widget->functions.mouse_button_release)
     {
         jfw_res res = widget->functions.mouse_button_release(widget, x, y, e->button, e->state);
-        JFW_LEAVE_FUNCTION;
+        JDM_LEAVE_FUNCTION;
         return res;
     }
 
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
 static jfw_res handle_motion_notify(jfw_ctx* ctx, XEvent* ptr, jfw_window* this)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     XMotionEvent* const e = &ptr->xmotion;
     i32 x = e->x;
     i32 y = e->y;
@@ -1451,17 +1451,17 @@ static jfw_res handle_motion_notify(jfw_ctx* ctx, XEvent* ptr, jfw_window* this)
     if (widget->functions.mouse_motion)
     {
         jfw_res res = widget->functions.mouse_motion(widget, x, y, e->state);
-        JFW_LEAVE_FUNCTION;
+        JDM_LEAVE_FUNCTION;
         return res;
     }
 
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
 static jfw_res handle_client_message(jfw_ctx* ctx, XEvent* ptr, jfw_window* wnd)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     XClientMessageEvent* const e = &ptr->xclient;
     if (e->data.l[0] == ctx->del_atom)
     {
@@ -1474,59 +1474,59 @@ static jfw_res handle_client_message(jfw_ctx* ctx, XEvent* ptr, jfw_window* wnd)
         else
         {
             jfw_res res = jfw_window_destroy(ctx, wnd);
-            JFW_LEAVE_FUNCTION;
+            JDM_LEAVE_FUNCTION;
             return res;
         }
     }
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
 static jfw_res handle_focus_in(jfw_ctx* ctx, XEvent* ptr, jfw_window* wnd)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     jfw_res res;
     if (wnd->keyboard_focus && wnd->keyboard_focus->functions.keyboard_focus_get && !jfw_success(res = wnd->keyboard_focus->functions.keyboard_focus_get(wnd->keyboard_focus, NULL)))
     {
         char w_buffer[64] = {0};
         jfw_widget_to_string(wnd->keyboard_focus, sizeof(w_buffer), w_buffer);
-        JFW_ERROR("Failed handling giving focus to widget (%s) on focus gain", w_buffer);
-        JFW_LEAVE_FUNCTION;
+        JDM_ERROR("Failed handling giving focus to widget (%s) on focus gain", w_buffer);
+        JDM_LEAVE_FUNCTION;
         return res;
     }
 
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
 static jfw_res handle_focus_out(jfw_ctx* ctx, XEvent* ptr, jfw_window* wnd)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     jfw_res res;
     if (wnd->keyboard_focus && wnd->keyboard_focus->functions.keyboard_focus_lose && !jfw_success(res = wnd->keyboard_focus->functions.keyboard_focus_lose(wnd->keyboard_focus, NULL)))
     {
         char w_buffer[64] = {0};
         jfw_widget_to_string(wnd->keyboard_focus, sizeof(w_buffer), w_buffer);
-        JFW_ERROR("Failed handling taking focus from widget (%s) on focus loss", w_buffer);
-        JFW_LEAVE_FUNCTION;
+        JDM_ERROR("Failed handling taking focus from widget (%s) on focus loss", w_buffer);
+        JDM_LEAVE_FUNCTION;
         return res;
     }
 
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
 static jfw_res handle_kbd_mapping_change(jfw_ctx* ctx, XEvent* ptr, jfw_window* wnd)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     XRefreshKeyboardMapping(&ptr->xmapping);
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
 static jfw_res handle_keyboard_button_down(jfw_ctx* ctx, XEvent* ptr, jfw_window* wnd)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     XKeyPressedEvent* const e = &ptr->xkey;
     char buffer[8];
     KeySym ks; Status stat;
@@ -1536,41 +1536,41 @@ static jfw_res handle_keyboard_button_down(jfw_ctx* ctx, XEvent* ptr, jfw_window
         if (wnd->keyboard_focus->functions.button_down)
         {
             jfw_res res = wnd->keyboard_focus->functions.button_down(wnd->keyboard_focus, e->keycode);
-            JFW_LEAVE_FUNCTION;
+            JDM_LEAVE_FUNCTION;
             return res;
         }
         if (wnd->keyboard_focus->functions.char_input && (stat == XLookupBoth || stat == XLookupChars))
         {
             jfw_res res = wnd->keyboard_focus->functions.char_input(wnd->keyboard_focus, buffer);
-            JFW_LEAVE_FUNCTION;
+            JDM_LEAVE_FUNCTION;
             return res;
         }
     }
 
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
 static jfw_res handle_keyboard_button_up(jfw_ctx* ctx, XEvent* ptr, jfw_window* wnd)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     XKeyReleasedEvent* const e = &ptr->xkey;
     if (wnd->keyboard_focus && wnd->keyboard_focus->functions.button_up)
     {
         {
             jfw_res res = wnd->keyboard_focus->functions.button_up(wnd->keyboard_focus, e->keycode);
-            JFW_LEAVE_FUNCTION;
+            JDM_LEAVE_FUNCTION;
             return res;
         }
     }
 
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
 static jfw_res handle_config_notify(jfw_ctx* ctx, XEvent* ptr, jfw_window* wnd)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     XConfigureEvent* const e = &ptr->xconfigure;
     jfw_res res = jfw_res_success;
     if (e->width != wnd->w || e->height != wnd->h)
@@ -1580,20 +1580,20 @@ static jfw_res handle_config_notify(jfw_ctx* ctx, XEvent* ptr, jfw_window* wnd)
             res = wnd->base->functions.parent_resized(wnd->base, NULL, wnd->w, wnd->h, e->width, e->height);
             if (!jfw_success(res))
             {
-                JFW_ERROR("Window base returned code \"%s\" when it's parent_resized function was called",
+                JDM_ERROR("Window base returned code \"%s\" when it's parent_resized function was called",
                           jfw_error_message(res));
             }
         }
         wnd->w = e->width; wnd->h = e->height;
     }
 
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return res;
 }
 
 static jfw_res handle_map_notify(jfw_ctx* ctx, XEvent* ptr, jfw_window* wnd)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     XMapEvent* const e = &ptr->xmap;
     jfw_res res = jfw_res_success;
     if (wnd->base)
@@ -1602,13 +1602,13 @@ static jfw_res handle_map_notify(jfw_ctx* ctx, XEvent* ptr, jfw_window* wnd)
     }
     wnd->redraw += 1;
 
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return res;
 }
 
 static jfw_res handle_visibility_notify(jfw_ctx* ctx, XEvent* ptr, jfw_window* wnd)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     XVisibilityEvent* const e = &ptr->xvisibility;
     jfw_res res = jfw_res_success;
     if (wnd->base)
@@ -1617,7 +1617,7 @@ static jfw_res handle_visibility_notify(jfw_ctx* ctx, XEvent* ptr, jfw_window* w
     }
     wnd->redraw += 1;
 
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return res;
 }
 
@@ -1677,10 +1677,10 @@ static const char* const XEVENT_NAMES[LASTEvent] =
 
 jfw_res jfw_context_process_events(jfw_ctx* ctx)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     if (!ctx->wnd_count)
     {
-        JFW_LEAVE_FUNCTION;
+        JDM_LEAVE_FUNCTION;
         return jfw_res_ctx_no_windows;
     }
     XEvent e;
@@ -1701,31 +1701,31 @@ jfw_res jfw_context_process_events(jfw_ctx* ctx)
                 if (wnd->platform.hwnd == e.xany.window)
                 {
                     jfw_res res = handler(ctx, &e, wnd);
-                    JFW_LEAVE_FUNCTION;
+                    JDM_LEAVE_FUNCTION;
                     return res;
                 }
             }
         }
     }
 //    XFlush(ctx->dpy);
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
 int jfw_context_status(jfw_ctx* ctx)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     int status = ctx->status;
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return status;
 }
 
 int jfw_context_set_status(jfw_ctx* ctx, int status)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     const int prev_status = ctx->status;
     ctx->status = status;
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return prev_status;
 }
 
@@ -1738,81 +1738,81 @@ static int map_predicate(Display* dpy, XEvent* e, XPointer ptr)
 
 jfw_res jfw_platform_show(jfw_ctx* ctx, jfw_platform* wnd)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     XMapWindow(ctx->dpy, wnd->hwnd);
     XEvent unused;
     XPeekIfEvent(ctx->dpy, &unused, map_predicate, (XPointer)wnd->hwnd);
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
 jfw_res jfw_platform_hide(jfw_ctx* ctx, jfw_platform* wnd)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     XUnmapWindow(ctx->dpy, wnd->hwnd);
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
 jfw_res jfw_platform_draw_bind(jfw_ctx* ctx, jfw_platform* wnd)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     const int res = True;
 //    const int res = glXMakeCurrent(ctx->dpy, wnd->glw, wnd->gl_ctx);
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return res == True ? jfw_res_success : jfw_res_platform_no_bind;
 }
 
 jfw_res jfw_platform_unbind(jfw_ctx* ctx)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
 //    glXMakeCurrent(ctx->dpy, None, None);
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
 jfw_res jfw_platform_swap(jfw_ctx* ctx, jfw_platform* wnd)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
 //    glXMakeCurrent(ctx->dpy, None, None);
 
 //    glXMakeCurrent(ctx->dpy, wnd->glw, wnd->gl_ctx);
 //    glXSwapBuffers(ctx->dpy, wnd->glw);
 //    glFinish();
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
 u32 jfw_context_window_count(jfw_ctx* ctx)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     u32 count = ctx->wnd_count;
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return count;
 }
 
 jfw_res jfw_context_wait_for_events(jfw_ctx* ctx)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     XEvent unused;
     XPeekEvent(ctx->dpy, &unused);
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
 int jfw_context_has_events(jfw_ctx* ctx)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     int pending = XPending(ctx->dpy);
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return pending;
 }
 
 jfw_res jfw_platform_clear_window(jfw_ctx* ctx, jfw_platform* wnd)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     XClearWindow(ctx->dpy, wnd->hwnd);
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
@@ -1849,7 +1849,7 @@ static inline jfw_res create_swapchain(jfw_ctx* ctx, jfw_platform* plt, jfw_wind
         result = jfw_malloc(max_buffer_size, &ptr_buffer);
         if (!jfw_success(result))
         {
-            JFW_ERROR("Could not allocate memory for the buffer used for presentation mode/surface formats");
+            JDM_ERROR("Could not allocate memory for the buffer used for presentation mode/surface formats");
             goto failed;
         }
         VkSurfaceFormatKHR* const formats_buffer = ptr_buffer;
@@ -1939,7 +1939,7 @@ static inline jfw_res create_swapchain(jfw_ctx* ctx, jfw_platform* plt, jfw_wind
         if (vk_res != VK_SUCCESS)
         {
             result = jfw_res_vk_fail;
-            JFW_ERROR("Could not create a vulkan swapchain, reason: %s", jfw_vk_error_msg(vk_res));
+            JDM_ERROR("Could not create a vulkan swapchain, reason: %s", jfw_vk_error_msg(vk_res));
             goto failed;
         }
         res->swapchain = sc;
@@ -1960,7 +1960,7 @@ static inline jfw_res create_swapchain_img_views(jfw_window_vk_resources* res)
     if (vk_res != VK_SUCCESS)
     {
         result = jfw_res_vk_fail;
-        JFW_ERROR("Could not find the number of swapchain images, reason: %s", jfw_vk_error_msg(vk_res));
+        JDM_ERROR("Could not find the number of swapchain images, reason: %s", jfw_vk_error_msg(vk_res));
         goto failed;
     }
     assert(n_sc_images == res->n_images);
@@ -1968,7 +1968,7 @@ static inline jfw_res create_swapchain_img_views(jfw_window_vk_resources* res)
 //    result = jfw_calloc(n_sc_images, sizeof(*views), &views);
 //    if (!jfw_success(result))
 //    {
-//        JFW_ERROR("Could not allocate memory for the views");
+//        JDM_ERROR("Could not allocate memory for the views");
 //        goto failed;
 //    }
     {
@@ -1977,14 +1977,14 @@ static inline jfw_res create_swapchain_img_views(jfw_window_vk_resources* res)
         if (!jfw_success(result))
         {
             jfw_free(&views);
-            JFW_ERROR("Could not allocate memory for swapchain images");
+            JDM_ERROR("Could not allocate memory for swapchain images");
             goto failed;
         }
         vk_res = vkGetSwapchainImagesKHR(res->device, res->swapchain, &n_sc_images, images);
         if (vk_res != VK_SUCCESS)
         {
             result = jfw_res_vk_fail;
-            JFW_ERROR("Could not find the number of swapchain images, reason: %s", jfw_vk_error_msg(vk_res));
+            JDM_ERROR("Could not find the number of swapchain images, reason: %s", jfw_vk_error_msg(vk_res));
 //            jfw_free(&views);
             jfw_free(&images);
             goto failed;
@@ -2034,7 +2034,7 @@ failed:
 
 jfw_res jfw_window_update_swapchain(jfw_window* p_window)
 {
-    JFW_ENTER_FUNCTION;
+    JDM_ENTER_FUNCTION;
     jfw_window_vk_resources* const this = &p_window->platform.vk_res;
     vkDeviceWaitIdle(this->device);
 
@@ -2051,7 +2051,7 @@ jfw_res jfw_window_update_swapchain(jfw_window* p_window)
     jfw_res result = create_swapchain(p_window->ctx, &p_window->platform, &p_window->platform.vk_res);
     if (!jfw_success(result))
     {
-        JFW_ERROR("Could not recreate swapchain");
+        JDM_ERROR("Could not recreate swapchain");
         goto failed;
     }
 
@@ -2059,13 +2059,13 @@ jfw_res jfw_window_update_swapchain(jfw_window* p_window)
     result = create_swapchain_img_views(&p_window->platform.vk_res);
     if (!jfw_success(result))
     {
-        JFW_ERROR("Could not recreate image views");
+        JDM_ERROR("Could not recreate image views");
         goto failed;
     }
 
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
     failed:
-    JFW_LEAVE_FUNCTION;
+    JDM_LEAVE_FUNCTION;
     return result;
 }

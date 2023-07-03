@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include "error_system/error_codes.h"
 
 typedef struct jfw_context_struct jfw_ctx;
 typedef struct jfw_window_struct jfw_window;
@@ -30,7 +31,7 @@ typedef void u0;
 typedef float f32;
 typedef double f64;
 
-typedef enum jfw_res_enum jfw_res;
+//typedef enum jfw_res_enum jfw_res;
 
 typedef struct rect32u_struct
 {

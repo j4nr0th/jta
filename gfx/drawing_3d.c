@@ -3,10 +3,11 @@
 //
 
 #include <time.h>
+#include <jdm.h>
 #include "drawing_3d.h"
 #include "camera.h"
 
-jfw_res draw_3d_scene(
+gfx_result draw_3d_scene(
         jfw_window* wnd, vk_state* state, jfw_window_vk_resources* vk_resources, vk_buffer_allocation* p_buffer_geo,
         vk_buffer_allocation* p_buffer_mod, const jtb_truss_mesh* mesh, const jtb_camera_3d* camera)
 {
@@ -18,42 +19,42 @@ jfw_res draw_3d_scene(
     VkResult vk_res =  vkWaitForFences(ctx->device, 1, ctx->swap_fences + i_frame, VK_TRUE, UINT64_MAX);
     if (vk_res != VK_SUCCESS)
     {
-        JFW_ERROR("Failed waiting for the fence for swapchain: %s", jfw_vk_error_msg(vk_res));
-        return jfw_res_vk_fail;
+        JDM_ERROR("Failed waiting for the fence for swapchain: %s", jfw_vk_error_msg(vk_res));
+        return GFX_RESULT_BAD_SWAPCHAIN_WAIT;
     }
     u32 img_index;
     vk_res = vkAcquireNextImageKHR(ctx->device, ctx->swapchain, UINT64_MAX, ctx->sem_img_available[i_frame], VK_NULL_HANDLE, &img_index);
     if (vk_res != VK_SUCCESS)
     {
-        JFW_ERROR("Failed acquiring next image in the swapchain: %s", jfw_vk_error_msg(vk_res));
-        return jfw_res_vk_fail;
+        JDM_ERROR("Failed acquiring next image in the swapchain: %s", jfw_vk_error_msg(vk_res));
+        return GFX_RESULT_BAD_SWAPCHAIN_IMG;
     }
     switch (vk_res)
     {
-    case VK_NOT_READY: return jfw_res_success;
+    case VK_NOT_READY: return GFX_RESULT_SUCCESS;
     case VK_SUCCESS:
     case VK_SUBOPTIMAL_KHR: break;
-    case VK_ERROR_OUT_OF_DATE_KHR:JFW_ERROR("Swapchain was out of date");
-        return jfw_res_error;
-    default: { assert(0); } return jfw_res_error;
+    case VK_ERROR_OUT_OF_DATE_KHR:JDM_ERROR("Swapchain was out of date");
+        return GFX_RESULT_SWAPCHAIN_OUT_OF_DATE;
+    default: { assert(0); } return GFX_RESULT_UNEXPECTED;
     }
 
 
     vk_res = vkResetFences(ctx->device, 1, ctx->swap_fences + i_frame);
     if (vk_res != VK_SUCCESS)
     {
-        JFW_ERROR("Failed resetting fence for swapchain: %s", jfw_vk_error_msg(vk_res));
-        return jfw_res_vk_fail;
+        JDM_ERROR("Failed resetting fence for swapchain: %s", jfw_vk_error_msg(vk_res));
+        return GFX_RESULT_BAD_FENCE_RESET;
     }
     vk_res = vkResetCommandBuffer(ctx->cmd_buffers[i_frame], 0);
     if (vk_res != VK_SUCCESS)
     {
-        JFW_ERROR("Failed resetting command buffer for swapchain: %s", jfw_vk_error_msg(vk_res));
-        return jfw_res_vk_fail;
+        JDM_ERROR("Failed resetting command buffer for swapchain: %s", jfw_vk_error_msg(vk_res));
+        return GFX_RESULT_BAD_CMDBUF_RESET;
     }
 
     //  issue drawing commands
-    const VkCommandBuffer cmd_buffer = vk_resources->cmd_buffers[i_frame];
+    VkCommandBuffer cmd_buffer = vk_resources->cmd_buffers[i_frame];
     {
         VkCommandBufferBeginInfo cmd_buffer_begin_info =
                 {
@@ -62,6 +63,7 @@ jfw_res draw_3d_scene(
                 .flags = 0,
                 };
         vk_res = vkBeginCommandBuffer(cmd_buffer, &cmd_buffer_begin_info);
+        assert(vk_res == VK_SUCCESS);
         VkClearValue clear_color =
                 {
                 .color = {0.0f, 0.0f, 0.0f, 0.0f},
@@ -101,29 +103,13 @@ jfw_res draw_3d_scene(
         vk_res = vkEndCommandBuffer(cmd_buffer);
         if (vk_res != VK_SUCCESS)
         {
-            JFW_ERROR("Failed completing command buffer recording: %s", jfw_vk_error_msg(vk_res));
-            return jfw_res_vk_fail;
+            JDM_ERROR("Failed completing command buffer recording: %s", jfw_vk_error_msg(vk_res));
+            return GFX_RESULT_BAD_CMDBUF_END;
         }
     }
 
     //  Update uniforms
     {
-        static clock_t t = -1;
-        f32 dt;
-        if (t == -1)
-        {
-            dt = 0;
-            t = clock();
-        }
-        else
-        {
-            clock_t new_t = clock();
-            dt = (1000.0f * (f32)(new_t - t)) / (f32)CLOCKS_PER_SEC;
-//            printf("DT: %g\n", dt);
-        }
-        f32 a = M_PI / 50.0f * dt;
-        f32 mag = 2.f;
-        mtx4 m = mtx4_identity;
         ubo_3d ubo =
                 {
                         .proj = mtx4_projection(M_PI_2, ((f32)vk_resources->extent.width)/((f32)vk_resources->extent.height), 1.0f, camera->near, camera->far),
@@ -149,8 +135,8 @@ jfw_res draw_3d_scene(
 //    assert(vk_res == VK_SUCCESS);
     if (vk_res != VK_SUCCESS)
     {
-        JFW_ERROR("Could not submit render queue, reason: %s", jfw_vk_error_msg(vk_res));
-        return jfw_res_vk_fail;
+        JDM_ERROR("Could not submit render queue, reason: %s", jfw_vk_error_msg(vk_res));
+        return GFX_RESULT_BAD_QUEUE_SUBMIT;
     }
     VkPresentInfoKHR present_info =
             {
@@ -166,41 +152,42 @@ jfw_res draw_3d_scene(
     switch (vk_res)
     {
     case VK_SUCCESS:
-    case VK_SUBOPTIMAL_KHR: /*printf("Draw fn worked!\n");*/ return jfw_res_success;
+    case VK_SUBOPTIMAL_KHR: /*printf("Draw fn worked!\n");*/ return GFX_RESULT_SUCCESS;
     case VK_ERROR_OUT_OF_DATE_KHR:
     {
-        JFW_ERROR("Swapchain became outdated");
+        JDM_ERROR("Swapchain became outdated");
     }
-    return jfw_res_error;
-    default: { assert(0); } return jfw_res_error;
+    return GFX_RESULT_SWAPCHAIN_OUT_OF_DATE;
+    default: { assert(0); } return GFX_RESULT_UNEXPECTED;
     }
 
-    return jfw_res_success;
+    return GFX_RESULT_SUCCESS;
 }
 
-static jfw_res clean_truss_model(jtb_model* model)
+static gfx_result clean_truss_model(jtb_model* model)
 {
     jfw_free(&model->vtx_array);
     jfw_free(&model->idx_array);
     memset(model, 0, sizeof*model);
-    return jfw_res_success;
+    return GFX_RESULT_SUCCESS;
 }
 
-static jfw_res generate_truss_model(jtb_model* const p_out, const u16 pts_per_side)
+static gfx_result generate_truss_model(jtb_model* const p_out, const u16 pts_per_side)
 {
-    jfw_res res;
+    gfx_result res;
+    jfw_res jfw_result;
     jtb_vertex* vertices;
-    if (!jfw_success(res = (jfw_calloc(2 * pts_per_side, sizeof*vertices, &vertices))))
+    if (!jfw_success(jfw_result = (jfw_calloc(2 * pts_per_side, sizeof*vertices, &vertices))))
     {
-        JFW_ERROR("Could not allocate memory for truss model");
-        return res;
+        JDM_ERROR("Could not allocate memory for truss model");
+        return GFX_RESULT_BAD_ALLOC;
     }
     jtb_vertex* const btm = vertices;
     jtb_vertex* const top = vertices + pts_per_side;
     u16* indices;
-    if (!jfw_success(res = (jfw_calloc(3 * 2 * pts_per_side, sizeof*indices, &indices))))
+    if (!jfw_success(jfw_result = (jfw_calloc(3 * 2 * pts_per_side, sizeof*indices, &indices))))
     {
-        JFW_ERROR("Could not allocate memory for truss model");
+        JDM_ERROR("Could not allocate memory for truss model");
         jfw_free(&vertices);
         return res;
     }
@@ -217,7 +204,7 @@ static jfw_res generate_truss_model(jtb_model* const p_out, const u16 pts_per_si
 
         top[i].nx = top[i].x = cosf(d_omega * (f32)(2 * i + 1));
         top[i].ny = top[i].y = sinf(d_omega * (f32)(2 * i + 1));
-        top[i].nz = top[i].z = 1.0f;
+        top[i].z = 1.0f; top[i].nz = 0.0f;
         //  Add top and bottom triangles
         indices[3 * i + 0] = i;
         indices[3 * i + 1] = i + 1;
@@ -240,48 +227,58 @@ static jfw_res generate_truss_model(jtb_model* const p_out, const u16 pts_per_si
     p_out->vtx_array = vertices;
     p_out->idx_array = indices;
 
-    return jfw_res_success;
+    return GFX_RESULT_SUCCESS;
 }
 
 const u64 DEFAULT_MESH_CAPACITY = 64;
 
-jfw_res truss_mesh_init(jtb_truss_mesh* mesh, u16 pts_per_side)
+gfx_result truss_mesh_init(jtb_truss_mesh* mesh, u16 pts_per_side)
 {
     jfw_res res;
-    if (!jfw_success(res = generate_truss_model(&mesh->model, pts_per_side)))
+    gfx_result gfx_res;
+    if ((gfx_res = generate_truss_model(&mesh->model, pts_per_side)) != GFX_RESULT_SUCCESS)
     {
-        JFW_ERROR("Could not generate a truss model for a mesh");
-        return res;
+        JDM_ERROR("Could not generate a truss model for a mesh");
+        return gfx_res;
     }
     mesh->count = 0;
     mesh->capacity = DEFAULT_MESH_CAPACITY;
     if (!jfw_success(res = jfw_calloc(mesh->capacity, sizeof(*mesh->colors), &mesh->colors)))
     {
-        JFW_ERROR("Could not allocate memory for mesh color array");
+        JDM_ERROR("Could not allocate memory for mesh color array");
         clean_truss_model(&mesh->model);
-        return res;
+        return GFX_RESULT_BAD_ALLOC;
     }
 
     if (!jfw_success(res = jfw_calloc(mesh->capacity, sizeof(*mesh->model_matrices), &mesh->model_matrices)))
     {
-        JFW_ERROR("Could not allocate memory for mesh model matrix array");
+        JDM_ERROR("Could not allocate memory for mesh model matrix array");
         jfw_free(&mesh->colors);
         clean_truss_model(&mesh->model);
-        return res;
+        return GFX_RESULT_BAD_ALLOC;
     }
 
-    return jfw_res_success;
+    if (!jfw_success(res = jfw_calloc(mesh->capacity, sizeof(*mesh->normal_matrices), &mesh->normal_matrices)))
+    {
+        JDM_ERROR("Could not allocate memory for mesh normal matrix array");
+        jfw_free(&mesh->colors);
+        jfw_free(&mesh->model_matrices);
+        clean_truss_model(&mesh->model);
+        return GFX_RESULT_BAD_ALLOC;
+    }
+
+    return GFX_RESULT_SUCCESS;
 }
 
-jfw_res truss_mesh_uninit(jtb_truss_mesh* mesh)
+gfx_result truss_mesh_uninit(jtb_truss_mesh* mesh)
 {
     jfw_free(&mesh->model_matrices);
     jfw_free(&mesh->colors);
     clean_truss_model(&mesh->model);
-    return jfw_res_success;
+    return GFX_RESULT_SUCCESS;
 }
 
-jfw_res truss_mesh_add_new(jtb_truss_mesh* mesh, mtx4 model_transform, jfw_color color)
+gfx_result truss_mesh_add_new(jtb_truss_mesh* mesh, mtx4 model_transform, mtx4 normal_transform, jfw_color color)
 {
     jfw_res res;
     if (mesh->count == mesh->capacity)
@@ -289,25 +286,31 @@ jfw_res truss_mesh_add_new(jtb_truss_mesh* mesh, mtx4 model_transform, jfw_color
         const u32 new_capacity = mesh->capacity + 64;
         if (!jfw_success(res = jfw_realloc(new_capacity * sizeof(*mesh->colors), &mesh->colors)))
         {
-            JFW_ERROR("Could not reallocate memory for mesh color array");
-            return res;
+            JDM_ERROR("Could not reallocate memory for mesh color array");
+            return GFX_RESULT_BAD_ALLOC;
         }
         if (!jfw_success(res = jfw_realloc(new_capacity * sizeof(*mesh->model_matrices), &mesh->model_matrices)))
         {
-            JFW_ERROR("Could not reallocate memory for mesh model matrix array");
-            return res;
+            JDM_ERROR("Could not reallocate memory for mesh model matrix array");
+            return GFX_RESULT_BAD_ALLOC;
+        }
+        if (!jfw_success(res = jfw_realloc(new_capacity * sizeof(*mesh->normal_matrices), &mesh->normal_matrices)))
+        {
+            JDM_ERROR("Could not reallocate memory for mesh normal matrix array");
+            return GFX_RESULT_BAD_ALLOC;
         }
         mesh->capacity = new_capacity;
     }
 
     mesh->colors[mesh->count] = color;
     mesh->model_matrices[mesh->count] = model_transform;
+    mesh->normal_matrices[mesh->count] = normal_transform;
     mesh->count += 1;
 
-    return jfw_res_success;
+    return GFX_RESULT_SUCCESS;
 }
 
-jfw_res truss_mesh_add_between_pts(jtb_truss_mesh* mesh, jfw_color color, f32 radius, vec4 pt1, vec4 pt2, f32 roll)
+gfx_result truss_mesh_add_between_pts(jtb_truss_mesh* mesh, jfw_color color, f32 radius, vec4 pt1, vec4 pt2, f32 roll)
 {
     assert(pt2.w == 1.0f);
     assert(pt1.w == 1.0f);
@@ -322,15 +325,19 @@ jfw_res truss_mesh_add_between_pts(jtb_truss_mesh* mesh, jfw_color color, f32 ra
     // first deform the model
     mtx4 model = mtx4_enlarge(radius, radius, len);
     // roll the model
-    model = mtx4_multiply(mtx4_rotation_z(roll), model);
+    mtx4 normal_transform = mtx4_rotation_z(roll);
+//    model = mtx4_multiply(mtx4_rotation_z(roll), model);
     //  rotate about y-axis
-    model = mtx4_multiply(mtx4_rotation_y(-rotation_y), model);
+    normal_transform = mtx4_multiply(mtx4_rotation_y(-rotation_y), normal_transform);
+    //    model = mtx4_multiply(mtx4_rotation_y(-rotation_y), model);
     //  rotate about z-axis again
-    model = mtx4_multiply(mtx4_rotation_z(-rotation_z), model);
+    normal_transform = mtx4_multiply(mtx4_rotation_z(-rotation_z), normal_transform);
+    //    model = mtx4_multiply(mtx4_rotation_z(-rotation_z), model);
+    model = mtx4_multiply(normal_transform, model);
     //  move the model to the point pt1
     model = mtx4_translate(model, pt1);
 
-    return truss_mesh_add_new(mesh, model, color);
+    return truss_mesh_add_new(mesh, model, normal_transform, color);
 }
 
 
@@ -351,7 +358,7 @@ static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 nw, const
     const u32 vertex_count = 2 + nw * nh;
     if (!jfw_success(res = (jfw_calloc(vertex_count, sizeof*vertices, &vertices))))
     {
-        JFW_ERROR("Could not allocate memory for truss model");
+        JDM_ERROR("Could not allocate memory for truss model");
         return res;
     }
 
@@ -359,7 +366,7 @@ static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 nw, const
     const u32 index_count = 3 * 2 * nw * (nh + 1);
     if (!jfw_success(res = (jfw_calloc(index_count, sizeof*indices, &indices))))
     {
-        JFW_ERROR("Could not allocate memory for truss model");
+        JDM_ERROR("Could not allocate memory for truss model");
         jfw_free(&vertices);
         return res;
     }
@@ -455,49 +462,48 @@ static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 nw, const
     return jfw_res_success;
 }
 
-jfw_res sphere_mesh_init(jtb_sphere_mesh* mesh, u16 nw, u16 nh)
+gfx_result sphere_mesh_init(jtb_sphere_mesh* mesh, u16 nw, u16 nh)
 {
     jfw_res res;
-    if (!jfw_success(res = generate_sphere_model(&mesh->model, nw, nh)))
+    if (!jfw_success(generate_sphere_model(&mesh->model, nw, nh)))
     {
-        JFW_ERROR("Could not generate a sphere model for a mesh");
-        return res;
+        JDM_ERROR("Could not generate a sphere model for a mesh");
+        return GFX_RESULT_BAD_ALLOC;
     }
     mesh->count = 0;
     mesh->capacity = DEFAULT_MESH_CAPACITY;
     if (!jfw_success(res = jfw_calloc(mesh->capacity, sizeof(*mesh->colors), &mesh->colors)))
     {
-        JFW_ERROR("Could not allocate memory for mesh color array");
+        JDM_ERROR("Could not allocate memory for mesh color array");
         clean_sphere_model(&mesh->model);
-        return res;
+        return GFX_RESULT_BAD_ALLOC;
     }
 
     if (!jfw_success(res = jfw_calloc(mesh->capacity, sizeof(*mesh->model_matrices), &mesh->model_matrices)))
     {
-        JFW_ERROR("Could not allocate memory for mesh model matrix array");
+        JDM_ERROR("Could not allocate memory for mesh model matrix array");
         jfw_free(&mesh->colors);
         clean_sphere_model(&mesh->model);
-        return res;
+        return GFX_RESULT_BAD_ALLOC;
     }
 
-    return jfw_res_success;
+    return GFX_RESULT_SUCCESS;
 }
 
-jfw_res sphere_mesh_add_new(jtb_sphere_mesh* mesh, mtx4 model_transform, jfw_color color)
+gfx_result sphere_mesh_add_new(jtb_sphere_mesh* mesh, mtx4 model_transform, jfw_color color)
 {
-    jfw_res res;
     if (mesh->count == mesh->capacity)
     {
         const u32 new_capacity = mesh->capacity + 64;
-        if (!jfw_success(res = jfw_realloc(new_capacity * sizeof(*mesh->colors), &mesh->colors)))
+        if (!jfw_success(jfw_realloc(new_capacity * sizeof(*mesh->colors), &mesh->colors)))
         {
-            JFW_ERROR("Could not reallocate memory for mesh color array");
-            return res;
+            JDM_ERROR("Could not reallocate memory for mesh color array");
+            return GFX_RESULT_BAD_ALLOC;
         }
-        if (!jfw_success(res = jfw_realloc(new_capacity * sizeof(*mesh->model_matrices), &mesh->model_matrices)))
+        if (!jfw_success(jfw_realloc(new_capacity * sizeof(*mesh->model_matrices), &mesh->model_matrices)))
         {
-            JFW_ERROR("Could not reallocate memory for mesh model matrix array");
-            return res;
+            JDM_ERROR("Could not reallocate memory for mesh model matrix array");
+            return GFX_RESULT_BAD_ALLOC;
         }
         mesh->capacity = new_capacity;
     }
@@ -506,18 +512,18 @@ jfw_res sphere_mesh_add_new(jtb_sphere_mesh* mesh, mtx4 model_transform, jfw_col
     mesh->model_matrices[mesh->count] = model_transform;
     mesh->count += 1;
 
-    return jfw_res_success;
+    return GFX_RESULT_SUCCESS;
 }
 
-jfw_res sphere_mesh_uninit(jtb_sphere_mesh* mesh)
+gfx_result sphere_mesh_uninit(jtb_sphere_mesh* mesh)
 {
     jfw_free(&mesh->model_matrices);
     jfw_free(&mesh->colors);
     clean_truss_model(&mesh->model);
-    return jfw_res_success;
+    return GFX_RESULT_SUCCESS;
 }
 
-jfw_res sphere_mesh_add_at_location(jtb_sphere_mesh* mesh, jfw_color color, f32 radius, vec4 pt)
+gfx_result sphere_mesh_add_at_location(jtb_sphere_mesh* mesh, jfw_color color, f32 radius, vec4 pt)
 {
     mtx4 m = mtx4_enlarge(radius, radius, radius);
     m = mtx4_translate(m, pt);
