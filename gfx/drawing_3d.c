@@ -179,7 +179,7 @@ static gfx_result generate_truss_model(jtb_model* const p_out, const u16 pts_per
     jtb_vertex* vertices;
     if (!jfw_success(jfw_result = (jfw_calloc(2 * pts_per_side, sizeof*vertices, &vertices))))
     {
-        JDM_ERROR("Could not allocate memory for truss model");
+        JDM_ERROR("Could not allocate memory for truss model, reason: %s", jfw_error_message(jfw_result));
         return GFX_RESULT_BAD_ALLOC;
     }
     jtb_vertex* const btm = vertices;
@@ -187,7 +187,7 @@ static gfx_result generate_truss_model(jtb_model* const p_out, const u16 pts_per
     u16* indices;
     if (!jfw_success(jfw_result = (jfw_calloc(3 * 2 * pts_per_side, sizeof*indices, &indices))))
     {
-        JDM_ERROR("Could not allocate memory for truss model");
+        JDM_ERROR("Could not allocate memory for truss model, reason: %s", jfw_error_message(jfw_result));
         jfw_free(&vertices);
         return res;
     }
@@ -245,14 +245,14 @@ gfx_result truss_mesh_init(jtb_truss_mesh* mesh, u16 pts_per_side)
     mesh->capacity = DEFAULT_MESH_CAPACITY;
     if (!jfw_success(res = jfw_calloc(mesh->capacity, sizeof(*mesh->colors), &mesh->colors)))
     {
-        JDM_ERROR("Could not allocate memory for mesh color array");
+        JDM_ERROR("Could not allocate memory for mesh color array, reason: %s", jfw_error_message(res));
         clean_truss_model(&mesh->model);
         return GFX_RESULT_BAD_ALLOC;
     }
 
     if (!jfw_success(res = jfw_calloc(mesh->capacity, sizeof(*mesh->model_matrices), &mesh->model_matrices)))
     {
-        JDM_ERROR("Could not allocate memory for mesh model matrix array");
+        JDM_ERROR("Could not allocate memory for mesh model matrix array, reason: %s", jfw_error_message(res));
         jfw_free(&mesh->colors);
         clean_truss_model(&mesh->model);
         return GFX_RESULT_BAD_ALLOC;
@@ -260,7 +260,7 @@ gfx_result truss_mesh_init(jtb_truss_mesh* mesh, u16 pts_per_side)
 
     if (!jfw_success(res = jfw_calloc(mesh->capacity, sizeof(*mesh->normal_matrices), &mesh->normal_matrices)))
     {
-        JDM_ERROR("Could not allocate memory for mesh normal matrix array");
+        JDM_ERROR("Could not allocate memory for mesh normal matrix array, reason: %s", jfw_error_message(res));
         jfw_free(&mesh->colors);
         jfw_free(&mesh->model_matrices);
         clean_truss_model(&mesh->model);

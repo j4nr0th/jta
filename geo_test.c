@@ -159,8 +159,8 @@ int main()
 
     //  Check that vectors are properly projected
     {
-        mtx4 m = {};
-        vec4 v = {}, v_res = {};
+        mtx4 m;
+        vec4 v, v_res;
         jtb_camera_set(&camera, VEC4(1, 1, 1), VEC4(1, 1, 0), VEC4(0, -1, 0), 1.0f, 1.0f);
         m = jtb_camera_to_view_matrix(&camera);
         v = mtx4_vector_mul(m, VEC4(1.1, 0.9, 0.7));

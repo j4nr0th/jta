@@ -81,7 +81,7 @@ jfw_res jfw_window_create(jfw_ctx* ctx, u32 w, u32 h, char* title, jfw_color col
 jfw_res jfw_window_destroy(jfw_ctx* ctx, jfw_window* wnd)
 {
     JDM_ENTER_FUNCTION;
-    jfw_res result = jfw_res_success;
+    jfw_res result;
     if (!jfw_success(result = jfw_context_remove_window(ctx, wnd)))
     {
         JDM_ERROR("Removing window registration from the library context failed");
@@ -166,7 +166,7 @@ static void redraw_widget(jfw_widget* widget)
 jfw_res jfw_window_redraw(jfw_ctx* ctx, jfw_window* wnd)
 {
     JDM_ENTER_FUNCTION;
-    jfw_res res = jfw_res_success;
+    jfw_res res;
 
     if (wnd->redraw && wnd->base)
     {
@@ -198,7 +198,7 @@ jfw_res jfw_window_set_mouse_focus(jfw_ctx* ctx, jfw_window* wnd, jfw_widget* ne
 {
     JDM_ENTER_FUNCTION;
     jfw_widget* const old_focus = wnd->mouse_focus;
-    jfw_res res = jfw_res_success;
+    jfw_res res;
     if (old_focus && old_focus->functions.mouse_focus_lose && !jfw_success(res = old_focus->functions.mouse_focus_lose(old_focus, new_focus)))
     {
         char w_buffer_1[64];
@@ -230,7 +230,7 @@ jfw_res jfw_window_set_keyboard_focus(jfw_ctx* ctx, jfw_window* wnd, jfw_widget*
 {
     JDM_ENTER_FUNCTION;
     jfw_widget* const old_focus = wnd->keyboard_focus;
-    jfw_res res = jfw_res_success;
+    jfw_res res;
     if (old_focus && old_focus->functions.keyboard_focus_lose && !jfw_success(res = old_focus->functions.keyboard_focus_lose(old_focus, new_focus)))
     {
         char w_buffer_1[64];

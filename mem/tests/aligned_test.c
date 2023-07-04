@@ -170,7 +170,6 @@ int main()
         NEW_SIZES[i] = SIZE_ARRAY[SHUFFLE_ARRAY_1[i]];
         NEW_ALIGN[i] = ALIGN_ARRAY[SHUFFLE_ARRAY_1[i]];
     }
-    struct {uint8_t v;} *p;
     for (uint32_t i = 0; i < A; ++i)
     {
         for (uint32_t j = 0; j < A; ++j)
@@ -189,10 +188,6 @@ int main()
         assert(aligned_jallocator_verify(allocator));
         void* new_ptr = aligned_jrealloc(allocator, POINTER_ARRAY[i], NEW_ALIGN[i], NEW_SIZES[i]);
         assert(new_ptr != NULL);
-        if (i == 7)
-        {
-            p = new_ptr + 0;
-        }
         assert(((uintptr_t)new_ptr % NEW_ALIGN[i]) == 0);
         assert(aligned_jallocator_verify(allocator));
         POINTER_ARRAY[i] = new_ptr;
@@ -206,7 +201,7 @@ int main()
         }
         SIZE_ARRAY[i] = NEW_SIZES[i];
         ALIGN_ARRAY[i] = NEW_ALIGN[i];
-        memset(new_ptr, i, NEW_SIZES[i]);
+        memset(new_ptr, (int)i, NEW_SIZES[i]);
     }
 
     for (uint32_t i = 0; i < A; ++i)
@@ -269,7 +264,6 @@ int main()
             assert(((uint8_t*)tmp)[i] == 69);
         }
         memset(tmp, 69, 64);
-        tmp = 0;
         tmp = aligned_jrealloc(allocator, big_pointers[1], 64, 512);
         assert(tmp);
         big_pointers[1] = tmp;
@@ -278,7 +272,6 @@ int main()
             assert(((uint8_t*)tmp)[i] == 69);
         }
         memset(tmp, 69, 512);
-        tmp = 0;
         tmp = aligned_jrealloc(allocator, big_pointers[2], 8, 1 << 21);
         assert(tmp);
         big_pointers[2] = tmp;

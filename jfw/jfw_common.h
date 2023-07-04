@@ -81,16 +81,16 @@ static inline i32 clamp_i32(i32 x, i32 min, i32 max)
 }
 
 jfw_res jfw_malloc(size_t size, void** pptr);
-#define jfw_malloc(size, pptr) jfw_malloc(size, (void**)pptr)
+#define jfw_malloc(size, pptr) jfw_malloc(size, (void**)(pptr))
 
-jfw_res jfw_calloc(size_t nmemb, size_t size, void** pptr);
-#define jfw_calloc(nmemb, size, pptr) jfw_calloc(nmemb, size, (void**)pptr)
+jfw_res jfw_calloc(size_t nmemb, size_t size, void** (pptr));
+#define jfw_calloc(nmemb, size, pptr) jfw_calloc(nmemb, size, (void**)(pptr))
 
 jfw_res jfw_realloc(size_t new_size, void** ptr);
-#define jfw_realloc(new_size, ptr) jfw_realloc(new_size, (void**)ptr)
+#define jfw_realloc(new_size, ptr) jfw_realloc(new_size, (void**)(ptr))
 
 jfw_res jfw_free(void** ptr);
-#define jfw_free(ptr) jfw_free((void**)ptr)
+#define jfw_free(ptr) jfw_free((void**)(ptr))
 
 int jfw_success(jfw_res res);
 

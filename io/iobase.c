@@ -28,7 +28,7 @@ static void* file_to_memory(const char* filename, u64* p_out_size, int write, in
         }
     }
 
-    int o_flags = 0, p_flags = 0;
+    int o_flags, p_flags;
     if (write)
     {
         o_flags = O_RDWR;
@@ -50,7 +50,7 @@ static void* file_to_memory(const char* filename, u64* p_out_size, int write, in
     }
 
 
-    int fd = -1;
+    int fd;
     if (!must_create)
     {
         fd = open(filename, o_flags);

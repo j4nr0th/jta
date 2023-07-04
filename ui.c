@@ -6,7 +6,6 @@
 
 jfw_res truss_mouse_button_press(jfw_widget* this, i32 x, i32 y, u32 button, u32 mods)
 {
-    jfw_res result = jfw_res_success;
     jtb_draw_state* const state = jfw_widget_get_user_pointer(this);
     assert(state);
     switch (button)

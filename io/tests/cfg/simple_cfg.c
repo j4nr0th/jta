@@ -49,7 +49,6 @@ int error_hook_fn(const char* thread_name, uint32_t stack_trace_count, const cha
         break;
     }
     fprintf(f_out, "%s from \"%s\" at line %u in file \"%s\", message: %s\n", err_level_str, function, line, file, message);
-    __builtin_trap();
     return 0;
 }
 

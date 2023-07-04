@@ -216,7 +216,7 @@ static jfw_res jfw_vulkan_context_create(jfw_vulkan_context* this, const char* a
 
         if (req_layers_found != REQUIRED_LAYERS_COUNT)
         {
-            JDM_ERROR("Could only find %u out of %u required vulkan layers", req_layers_found, REQUIRED_LAYERS_COUNT);
+            JDM_ERROR("Could only find %u out of %lu required vulkan layers", req_layers_found, REQUIRED_LAYERS_COUNT);
             res = jfw_res_vk_fail;
             goto failed;
         }
@@ -263,7 +263,7 @@ static jfw_res jfw_vulkan_context_create(jfw_vulkan_context* this, const char* a
 
         if (req_extensions_found != REQUIRED_EXTENSIONS_COUNT)
         {
-            JDM_ERROR("Could only find %u out of %u required vulkan extensions", req_extensions_found, REQUIRED_EXTENSIONS_COUNT);
+            JDM_ERROR("Could only find %u out of %lu required vulkan extensions", req_extensions_found, REQUIRED_EXTENSIONS_COUNT);
             res = jfw_res_vk_fail;
             goto failed;
         }

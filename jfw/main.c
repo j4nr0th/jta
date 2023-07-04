@@ -143,9 +143,6 @@ static void update_uniforms(const jfw_window_vk_resources* vk_res, struct draw_i
         dt = (1000.0f * (f32)(new_t - t)) / (f32)CLOCKS_PER_SEC;
         printf("DT: %g\n", dt);
     }
-    f32 a = M_PI / 10.0f * dt;
-    f32 mag = 20.f;
-    mtx4 m = mtx4_identity;
     struct UBO_struct ubo =
             {
             .model = mtx4_identity,//euler_rotation_z(a),
