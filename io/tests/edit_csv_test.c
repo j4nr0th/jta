@@ -89,17 +89,17 @@ int main()
 
     jio_csv_data* csv_data;
     //  Test failures
-    res = jio_parse_csv(NULL, ',', true, true, &csv_data, allocator, lin_allocator);
+    res = jio_parse_csv(NULL, ",", true, true, &csv_data, allocator, lin_allocator);
     ASSERT(res == JIO_RESULT_NULL_ARG);
-    res = jio_parse_csv(&csv_file, ',', true, true, NULL, allocator, lin_allocator);
+    res = jio_parse_csv(&csv_file, ",", true, true, NULL, allocator, lin_allocator);
     ASSERT(res == JIO_RESULT_NULL_ARG);
-    res = jio_parse_csv(&csv_file, ',', true, true, &csv_data, NULL, lin_allocator);
+    res = jio_parse_csv(&csv_file, ",", true, true, &csv_data, NULL, lin_allocator);
     ASSERT(res == JIO_RESULT_NULL_ARG);
-    res = jio_parse_csv(&csv_file, ',', true, true, &csv_data, allocator, NULL);
+    res = jio_parse_csv(&csv_file, ",", true, true, &csv_data, allocator, NULL);
     ASSERT(res == JIO_RESULT_NULL_ARG);
 
     //  Test correct version
-    res = jio_parse_csv(&csv_file, ',', true, true, &csv_data, allocator, lin_allocator);
+    res = jio_parse_csv(&csv_file, ",", true, true, &csv_data, allocator, lin_allocator);
     ASSERT(res == JIO_RESULT_SUCCESS);
     printf("\nCsv contents before editing:\n\n");
     print_csv(csv_data);
@@ -257,13 +257,14 @@ int main()
     print_csv(csv_data);
 
     size_t data_size = 0;
+    const char* new_sep = "( ͡° ͜ʖ ͡°)";
     //  Incorrect versions
-    res = jio_csv_print_size(NULL, &data_size, 1, 1, true);
+    res = jio_csv_print_size(NULL, &data_size, strlen(new_sep), 1, true);
     ASSERT(res == JIO_RESULT_NULL_ARG);
-    res = jio_csv_print_size(csv_data, NULL, 1, 1, true);
+    res = jio_csv_print_size(csv_data, NULL, strlen(new_sep), 1, true);
     ASSERT(res == JIO_RESULT_NULL_ARG);
     //  Correct version
-    res = jio_csv_print_size(csv_data, &data_size, 1, 1, true);
+    res = jio_csv_print_size(csv_data, &data_size, strlen(new_sep), 1, true);
     ASSERT(res == JIO_RESULT_SUCCESS);
     printf("Space needed to print the data: %zu bytes\n", data_size);
 
@@ -272,10 +273,10 @@ int main()
     ASSERT(res == JIO_RESULT_SUCCESS);
     ASSERT(f_out.file_size >= data_size);
     ASSERT(f_out.can_write == 1);
-
     size_t real_usage = 0;
-    res = jio_csv_print(csv_data, &real_usage, f_out.ptr, ",", 1, true, false);
+    res = jio_csv_print(csv_data, &real_usage, f_out.ptr, new_sep, 1, true, true);
     ASSERT(res == JIO_RESULT_SUCCESS);
+    printf("Real usage: %zu bytes\n", real_usage);
 
     res = jio_memory_file_sync(&f_out, 1);
     ASSERT(res == JIO_RESULT_SUCCESS);

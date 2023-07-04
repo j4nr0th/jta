@@ -22,11 +22,11 @@ typedef struct jio_csv_data_struct jio_csv_data;
 jio_result jio_csv_column_index(const jio_csv_data* data, const jio_csv_column* column, uint32_t* p_idx);
 
 jio_result jio_parse_csv(
-        const jio_memory_file* mem_file, char separator, bool trim_whitespace, bool has_headers,
+        const jio_memory_file* mem_file, const char* restrict separator, bool trim_whitespace, bool has_headers,
         jio_csv_data** pp_csv, jallocator* allocator, linear_jallocator* lin_allocator);
 
 jio_result jio_process_csv_exact(
-        const jio_memory_file* mem_file, char separator, uint32_t column_count, const jio_string_segment* headers,
+        const jio_memory_file* mem_file, const char* separator, uint32_t column_count, const jio_string_segment* headers,
         bool (** converter_array)(jio_string_segment*, void*), void** param_array, linear_jallocator* lin_allocator);
 
 jio_result jio_csv_get_column(const jio_csv_data* data, uint32_t index, const jio_csv_column** pp_column);

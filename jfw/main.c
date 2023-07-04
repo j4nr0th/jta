@@ -149,11 +149,11 @@ static void update_uniforms(const jfw_window_vk_resources* vk_res, struct draw_i
     struct UBO_struct ubo =
             {
             .model = mtx4_identity,//euler_rotation_z(a),
-            .proj = mtx4_projection(M_PI_2, ((f32)w)/((f32)h), 0.5f * 1980.0f/(f32)w),
+            .proj = mtx4_projection(M_PI_2, ((f32)w)/((f32)h), 0.5f * 1980.0f/(f32)w, 0.01f, 100.0f),
             .view = mtx4_view_look_at(
-                    (vec4){.y = -3, .x = 0, .z = -10.0f},
-                    (vec4){.x = 0.0f, .y = 0.0f, .z = 0.0f},
-                    M_PI
+                    (vec4){.y = -3, .x = 0, .z = -10.0f, .w = 1.0f},
+                    (vec4){.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f},
+                    (vec4){.x = 0.0f, .y = -1.0f, .z = 0.0f, .w = 1.0f}
                     ),
             };
     memcpy(draw->p_mapped_array[img_idx], &ubo, sizeof(ubo));
@@ -445,14 +445,14 @@ static jfw_res destroy_draw(jfw_widget* this)
     return jfw_res_success;
 }
 
-static i32 hook_fn(const char* thread_name, u32 stack_trace_count, const char*const* stack_trace, jfw_error_level level, u32 line, const char* file, const char* function, const char* message, void* param)
+static i32 hook_fn(const char* thread_name, u32 stack_trace_count, const char*const* stack_trace, jdm_message_level level, u32 line, const char* file, const char* function, const char* message, void* param)
 {
-    printf("Error reported at level \"%s\" at line %u in file %s (function %s), message: %s\n", jfw_error_level_str(level), line, file, function, message);
+    printf("Error reported at level \"%s\" at line %u in file %s (function %s), message: %s\n", jdm_message_level_str(level), line, file, function, message);
     return 0;
 }
-static i32 report_fn(u32 total_count, u32 index, jfw_error_level level, u32 line, const char* file, const char* function, const char* message, void* param)
+static i32 report_fn(u32 total_count, u32 index, jdm_message_level level, u32 line, const char* file, const char* function, const char* message, void* param)
 {
-    printf("Error (%u out of %u) reported at level \"%s\" at line %u in file %s (function %s), message: %s\n", index + 1, total_count, jfw_error_level_str(level), line, file, function, message);
+    printf("Error (%u out of %u) reported at level \"%s\" at line %u in file %s (function %s), message: %s\n", index + 1, total_count, jdm_message_level_str(level), line, file, function, message);
     return 0;
 }
 
@@ -565,8 +565,9 @@ static VkSampleCountFlagBits find_max_sample_flag(VkSampleCountFlagBits flags)
 
 int main()
 {
-    jfw_error_init_thread("master", jfw_error_level_none, 64, 64);
-    JFW_ENTER_FUNCTION;
+    jallocator* JALLOCATOR = jallocator_create(1 << 10, 1);
+    jdm_init_thread("master", JDM_MESSAGE_LEVEL_NONE, 64, 64, JALLOCATOR);
+    JDM_ENTER_FUNCTION;
     jfw_ctx* context = NULL;
     jfw_window* wnd = NULL;
 //    jfw_error_set_hook(hook_fn, NULL);
@@ -584,7 +585,7 @@ int main()
     assert(result == jfw_res_success);
     result = jfw_widget_create_as_child(wnd_background, 100, 100, 0, 0, &button);
     assert(result == jfw_res_success);
-    jfw_error_process(report_fn, NULL);
+    jdm_process(report_fn, NULL);
     jfw_window_vk_resources* vk_res = jfw_window_get_vk_resources(wnd);
 
     VkSampleCountFlagBits sample_count = find_max_sample_flag(vk_res->sample_flags);
@@ -1124,7 +1125,7 @@ int main()
     assert(result == jfw_res_success);
     for (;;)
     {
-        jfw_error_process(report_fn, NULL);
+        jdm_process(report_fn, NULL);
         if (!jfw_success(jfw_context_process_events(context)))
         {
             break;
@@ -1139,8 +1140,9 @@ int main()
     result = jfw_context_destroy(context);
     assert(result == jfw_res_success);
 
-    jfw_error_process(report_fn, NULL);
-    JFW_LEAVE_FUNCTION;
-    jfw_error_cleanup_thread();
+    jdm_process(report_fn, NULL);
+    JDM_LEAVE_FUNCTION;
+    jdm_cleanup_thread();
+    jallocator_destroy(JALLOCATOR);
     return 0;
 }

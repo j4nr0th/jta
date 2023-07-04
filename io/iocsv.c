@@ -16,10 +16,10 @@ struct jio_csv_data_struct
     jio_csv_column* columns;                //  Columns themselves
 };
 
-static inline jio_string_segment extract_string_segment(const char* ptr, const char* const row_end, const char** p_end, const char separator)
+static inline jio_string_segment extract_string_segment(const char* ptr, const char* const row_end, const char** p_end, const char* restrict separator)
 {
     jio_string_segment ret = {.begin = NULL, .len = 0};
-    const char* entry_end = strchr(ptr, separator);
+    const char* entry_end = strstr(ptr, separator);
     if (entry_end > row_end || !entry_end)
     {
         entry_end = row_end;
@@ -31,25 +31,25 @@ static inline jio_string_segment extract_string_segment(const char* ptr, const c
     return ret;
 }
 
-static inline u32 count_row_entries(const char* const csv, const char* const end_of_row, const char sep)
+static inline u32 count_row_entries(const char* const csv, const char* const end_of_row, const char* restrict sep, size_t sep_len)
 {
     u32 so_far = 0;
-    for (const char* ptr = strchr(csv, sep); ptr && ptr < end_of_row; ++so_far)
+    for (const char* ptr = strstr(csv, sep); ptr && ptr < end_of_row; ++so_far)
     {
-        ptr = strchr(ptr + 1, sep);
+        ptr = strstr(ptr + sep_len, sep);
     }
     return so_far + 1;
 }
 
-static inline jio_result extract_row_entries(const u32 expected_elements, const char* const row_begin, const char* const row_end, const char sep, const bool trim, jio_string_segment* const p_out)
+static inline jio_result extract_row_entries(const u32 expected_elements, const char* const row_begin, const char* const row_end, const char* restrict sep, size_t sep_len, const bool trim, jio_string_segment* const p_out)
 {
     JDM_ENTER_FUNCTION;
     u32 i;
-    const char* end, *begin = row_begin;
+    const char* end = NULL, *begin = row_begin;
     for (i = 0; i < expected_elements && end < row_end; ++i)
     {
         p_out[i] = extract_string_segment(begin, row_end, &end, sep);
-        begin = end + 1;
+        begin = end + sep_len;
     }
     
     if (i != expected_elements)
@@ -59,7 +59,7 @@ static inline jio_result extract_row_entries(const u32 expected_elements, const 
     }
     if (end < row_end)
     {
-        JDM_ERROR("Row contained %u elements instead of %u", count_row_entries(row_begin, row_end, sep), expected_elements);
+        JDM_ERROR("Row contained %u elements instead of %u", count_row_entries(row_begin, row_end, sep, sep_len), expected_elements);
         return JIO_RESULT_BAD_CSV_FORMAT;
     }
 
@@ -89,11 +89,11 @@ static inline jio_result extract_row_entries(const u32 expected_elements, const 
 }
 
 jio_result jio_parse_csv(
-        const jio_memory_file* const mem_file, const char separator, const bool trim_whitespace, const bool has_headers,
+        const jio_memory_file* const mem_file, const char* restrict separator, const bool trim_whitespace, const bool has_headers,
         jio_csv_data** const pp_csv, jallocator* const allocator, linear_jallocator* const lin_allocator)
 {
     JDM_ENTER_FUNCTION;
-    if (!mem_file || !pp_csv || !allocator || !lin_allocator)
+    if (!mem_file || !pp_csv || !allocator || !lin_allocator || !separator)
     {
         if (!mem_file)
         {
@@ -110,6 +110,10 @@ jio_result jio_parse_csv(
         if (!lin_allocator)
         {
             JDM_ERROR("Linear allocator was not provided");
+        }
+        if (!separator)
+        {
+            JDM_ERROR("Separator was not provided");
         }
         JDM_LEAVE_FUNCTION;
         return JIO_RESULT_NULL_ARG;
@@ -132,7 +136,9 @@ jio_result jio_parse_csv(
     const char* row_end = strchr(row_begin, '\n');
 
     //  Count columns in the csv file
-    const u32 column_count = count_row_entries(row_begin, row_end ?: mem_file->ptr + mem_file->file_size, separator);
+    size_t sep_len = strlen(separator);
+    const u32 column_count = count_row_entries(row_begin, row_end ?: mem_file->ptr + mem_file->file_size, separator,
+                                               sep_len);
     u32 row_capacity = 128;
     u32 row_count = 0;
     jio_string_segment* segments = lin_jalloc(lin_allocator, sizeof(*segments) * row_capacity * column_count);
@@ -160,7 +166,7 @@ jio_result jio_parse_csv(
             row_capacity = new_capacity;
         }
 
-        if ((res = extract_row_entries(column_count, row_begin, row_end, separator, trim_whitespace, segments + row_count * column_count)))
+        if ((res = extract_row_entries(column_count, row_begin, row_end, separator, sep_len, trim_whitespace, segments + row_count * column_count)))
         {
             JDM_ERROR("Failed parsing row %u of CSV file \"%s\", reason: %s", row_count + 1, mem_file->name, jio_result_to_str(res));
             goto end;
@@ -806,7 +812,7 @@ end:
 }
 
 jio_result jio_process_csv_exact(
-        const jio_memory_file* mem_file, char separator, uint32_t column_count, const jio_string_segment* headers,
+        const jio_memory_file* mem_file, const char* separator, uint32_t column_count, const jio_string_segment* headers,
         bool (** converter_array)(jio_string_segment*, void*), void** param_array, linear_jallocator* lin_allocator)
 {
     JDM_ENTER_FUNCTION;
@@ -855,9 +861,10 @@ jio_result jio_process_csv_exact(
     const char* row_end = strchr(row_begin, '\n');
 
     //  Count columns in the csv file
+    size_t sep_len = strlen(separator);
     {
         const u32 real_column_count = count_row_entries(
-                row_begin, row_end ?: mem_file->ptr + mem_file->file_size, separator);
+                row_begin, row_end ?: mem_file->ptr + mem_file->file_size, separator, sep_len);
         if (real_column_count == column_count)
         {
             JDM_ERROR("Csv file has %"PRIu32" columns, but %"PRIu32" were specified", real_column_count, column_count);
@@ -876,7 +883,7 @@ jio_result jio_process_csv_exact(
     uint32_t row_count = 0;
     while (row_end)
     {
-        if ((res = extract_row_entries(column_count, row_begin, row_end, separator, false, segments)))
+        if ((res = extract_row_entries(column_count, row_begin, row_end, separator, sep_len, false, segments)))
         {
             JDM_ERROR("Failed parsing row %u of CSV file \"%s\", reason: %s", row_count + 1, mem_file->name, jio_result_to_str(res));
             goto end;
