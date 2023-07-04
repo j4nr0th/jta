@@ -15,6 +15,7 @@ typedef struct jio_memory_file_struct jio_memory_file;
 
 struct jio_memory_file_struct
 {
+    uint32_t can_write:1;
     void* ptr;
     u64 file_size;
 #ifndef _WIN32
@@ -33,19 +34,22 @@ struct jio_string_segment_struct
 
 bool iswhitespace(char32_t c);
 
-bool string_segment_cmp(const jio_string_segment* first, const jio_string_segment* second);
+bool string_segment_equal(const jio_string_segment* first, const jio_string_segment* second);
 
-bool string_segment_cmp_case(const jio_string_segment* first, const jio_string_segment* second);
+bool string_segment_equal_case(const jio_string_segment* first, const jio_string_segment* second);
 
-bool string_segment_cmp_str(const jio_string_segment* first, const char* str);
+bool string_segment_equal_str(const jio_string_segment* first, const char* str);
 
 bool string_segment_cmp_str_case(const jio_string_segment* first, const char* str);
 
-jio_result jio_map_file_to_memory(const char* filename, jio_memory_file* p_file_out);
+jio_result jio_memory_file_create(
+        const char* filename, jio_memory_file* p_file_out, int write, int can_create, size_t size);
 
-void jio_unmap_file(jio_memory_file* p_file_out);
+jio_result jio_memory_file_sync(const jio_memory_file* file, int sync);
 
-bool jio_check_if_file_is_same(const jio_memory_file* f1, const char* filename);
+void jio_memory_file_destroy(jio_memory_file* p_file_out);
+
+//bool jio_memory_file_equal(const jio_memory_file* f1, const char* filename);
 
 
 

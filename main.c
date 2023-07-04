@@ -101,13 +101,13 @@ static void VKAPI_PTR vk_internal_free_notif(void* pUserData, size_t size, VkInt
 }
 
 
-static i32 jfw_error_hook_callback_function(const char* thread_name, u32 stack_trace_count, const char*const* stack_trace, jdm_error_level level, u32 line, const char* file, const char* function, const char* message, void* param)
+static i32 jfw_error_hook_callback_function(const char* thread_name, u32 stack_trace_count, const char*const* stack_trace, jdm_message_level level, u32 line, const char* file, const char* function, const char* message, void* param)
 {
     switch (level)
     {
-    case JDM_ERROR_LEVEL_INFO:fprintf(stdout, "JDM_INFO (thread %s - %s): %s\n", thread_name, function, message);
+    case JDM_MESSAGE_LEVEL_INFO:fprintf(stdout, "JDM_INFO (thread %s - %s): %s\n", thread_name, function, message);
         break;
-    case JDM_ERROR_LEVEL_WARN:
+    case JDM_MESSAGE_LEVEL_WARN:
         fprintf(stderr, "Warning issued from thread \"%s\", stack trace (%s", thread_name, stack_trace[0]);
         for (u32 i = 1; i < stack_trace_count; ++i)
         {
@@ -116,7 +116,7 @@ static i32 jfw_error_hook_callback_function(const char* thread_name, u32 stack_t
         fprintf(stderr, ") in file \"%s\" on line \"%i\" (function \"%s\"): %s\n\n", file, line, function, message);
         break;
 
-    case JDM_ERROR_LEVEL_ERR:
+    case JDM_MESSAGE_LEVEL_ERR:
     default:
         fprintf(stderr, "Error occurred in thread \"%s\", stack trace (%s", thread_name, stack_trace[0]);
         for (u32 i = 1; i < stack_trace_count; ++i)
@@ -158,17 +158,17 @@ int main(int argc, char* argv[argc])
     }
 
 
-    jdm_error_init_thread("master",
+    jdm_init_thread("master",
 #ifndef NEBUG
-                            JDM_ERROR_LEVEL_NONE,
+                            JDM_MESSAGE_LEVEL_NONE,
 #else
-                            JDM_ERROR_LEVEL_WARN,
+                            JDM_MESSAGE_LEVEL_WARN,
 #endif
                           64,
                           64,
                           G_JALLOCATOR);
     JDM_ENTER_FUNCTION;
-    jdm_error_set_hook(jfw_error_hook_callback_function, NULL);
+    jdm_set_hook(jfw_error_hook_callback_function, NULL);
     //  Important: aligned_jallocator works fine, but will not help with debugging of memory. As such, it's best to use
     //  it for Vulkan's use only, as this means that I won't fuck up the memory and then be unable to see where. Just
     //  stick with malloc family when linear allocator can't be used, since that means I can use Vallgrind's memcheck
@@ -333,7 +333,7 @@ cleanup:
         jctx = NULL;
     }
     JDM_LEAVE_FUNCTION;
-    jdm_error_cleanup_thread();
+    jdm_cleanup_thread();
     //  Clean up the allocators
     {
         jallocator* const allocator = G_JALLOCATOR;

@@ -1,4 +1,15 @@
-add_executable(jio_test_csv iobase.c iocsv.c ioerr.c tests/csv_test.c)
+add_executable(jio_test_csv iobase.c iocsv.c ioerr.c tests/simple_csv_test.c)
 configure_file(tests/simple.csv "${CMAKE_BINARY_DIR}/csv_test_simple.csv" COPYONLY)
 target_link_libraries(jio_test_csv PRIVATE jmem jdm)
 add_test(NAME csv_test COMMAND jio_test_csv)
+
+add_executable(jio_test_edit_csv iobase.c iocsv.c ioerr.c tests/edit_csv_test.c)
+configure_file(tests/simple.csv "${CMAKE_BINARY_DIR}/csv_test_simple.csv" COPYONLY)
+target_link_libraries(jio_test_edit_csv PRIVATE jmem jdm)
+add_test(NAME csv_edit_test COMMAND jio_test_edit_csv)
+
+add_executable(jio_test_ugly_csv iobase.c iocsv.c ioerr.c tests/ugly_csv_test.c)
+configure_file(tests/ugly.csv "${CMAKE_BINARY_DIR}/csv_test_ugly.csv" COPYONLY)
+configure_file(tests/ugly2.csv "${CMAKE_BINARY_DIR}/csv_test_ugly2.csv" COPYONLY)
+target_link_libraries(jio_test_ugly_csv PRIVATE jmem jdm)
+add_test(NAME csv_ugly_test COMMAND jio_test_ugly_csv)

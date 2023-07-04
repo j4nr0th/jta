@@ -12,7 +12,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-static void* file_to_memory(const char* filename, u64* p_out_size)
+static void* file_to_memory(const char* filename, u64* p_out_size, int write, int must_create)
 {
     JDM_ENTER_FUNCTION;
     static long PG_SIZE = 0;
@@ -27,21 +27,69 @@ static void* file_to_memory(const char* filename, u64* p_out_size)
             goto end;
         }
     }
-    const int fd = open(filename, O_RDONLY);
-    if (fd < -1)
+
+    int o_flags = 0, p_flags = 0;
+    if (write)
     {
-        JDM_ERROR("Could not open a file descriptor for file \"%s\", reason: %s", filename, strerror(errno));
-        goto end;
+        o_flags = O_RDWR;
+        p_flags = PROT_READ | PROT_WRITE;
     }
-    struct stat fd_stats;
-    if (fstat(fd, &fd_stats) < 0)
+    else
     {
-        JDM_ERROR("Could not retrieve stats for fd of file \"%s\", reason: %s", filename, strerror(errno));
-        close(fd);
-        goto end;
+        o_flags = O_RDONLY;
+        p_flags = PROT_READ;
+    }
+    if (must_create)
+    {
+        if (!write)
+        {
+            JDM_ERROR("Create flag was specified for memory file, but write access was not demanded");
+            goto end;
+        }
+        o_flags |= O_CREAT;
     }
 
-    u64 size = fd_stats.st_size + 1;  //  That extra one for the sick null terminator
+
+    int fd = -1;
+    if (!must_create)
+    {
+        fd = open(filename, o_flags);
+    }
+    else
+    {
+        fd = open(filename, o_flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
+    }
+    if (fd < 0)
+    {
+        JDM_ERROR("Could not open a file descriptor for file \"%s\" (perms: %s), reason: %s", filename,
+                  write ? (read ? "O_RDWR" : "O_WRONLY") : (read ? "O_RDONLY" : "0"), strerror(errno));
+        goto end;
+    }
+    u64 size;
+    if (*p_out_size == 0)
+    {
+
+        struct stat fd_stats;
+        if (fstat(fd, &fd_stats) < 0)
+        {
+            JDM_ERROR("Could not retrieve stats for fd of file \"%s\", reason: %s", filename, strerror(errno));
+            close(fd);
+            goto end;
+        }
+        size = fd_stats.st_size + 1;  //  That extra one for the sick null terminator
+    }
+    else
+    {
+        size = *p_out_size;
+        if (ftruncate(fd, (off_t)size) != 0)
+        {
+            JDM_ERROR("Failed truncating FD to %zu bytes, reason: %s", (size_t)size, JDM_ERRNO_MESSAGE);
+            close(fd);
+            goto end;
+        }
+
+    }
+
     //  Round size up to the closest larger multiple of page size
     u64 extra = size % PG_SIZE;
     if (extra)
@@ -49,11 +97,12 @@ static void* file_to_memory(const char* filename, u64* p_out_size)
         size += (PG_SIZE - extra);
     }
     assert(size % PG_SIZE == 0);
-    ptr = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    ptr = mmap(NULL, size, p_flags, MAP_SHARED, fd, 0);
     close(fd);
     if (ptr == MAP_FAILED)
     {
-        JDM_ERROR("Failed mapping file \"%s\" to memory, reason: %s", filename, strerror(errno));
+        JDM_ERROR("Failed mapping file \"%s\" to memory (prot: %s), reason: %s", filename,
+                  write ? (read ? "PROT_READ|PROT_WRITE" : "PROT_WRITE") : (read ? "PROT_READ" : "0"), strerror(errno));
         ptr = NULL;
         goto end;
     }
@@ -77,29 +126,35 @@ static void file_from_memory(void* ptr, u64 size)
 
 
 
-jio_result jio_map_file_to_memory(const char* filename, jio_memory_file* p_file_out)
+jio_result jio_memory_file_create(
+        const char* filename, jio_memory_file* p_file_out, int write, int can_create, size_t size)
 {
     JDM_ENTER_FUNCTION;
     jio_result res = JIO_RESULT_SUCCESS;
+    int should_create = 0;
     if (!realpath(filename, p_file_out->name))
     {
-        JDM_ERROR("Could not find full path of file \"%s\", reason: %s", filename, strerror(errno));
-        res = JIO_RESULT_BAD_PATH;
-        goto end;
+        if (!can_create)
+        {
+            JDM_ERROR("Could not find full path of file \"%s\", reason: %s", filename, strerror(errno));
+            res = JIO_RESULT_BAD_PATH;
+            goto end;
+        }
+        should_create = 1;
     }
 
-    u64 size;
-    void* ptr = file_to_memory(filename, &size);
+    u64 real_size = size;
+    void* ptr = file_to_memory(filename, &real_size, write, should_create);
     if (!ptr)
     {
         JDM_ERROR("Failed mapping file to memory");
         res = JIO_RESULT_BAD_MAP;
         goto end;
     }
-
+    p_file_out->can_write = (write != 0);
     p_file_out->ptr = ptr;
-    p_file_out->file_size = size;
-    end:
+    p_file_out->file_size = real_size;
+end:
     JDM_LEAVE_FUNCTION;
     return res;
 }
@@ -196,28 +251,28 @@ rmod_result rmod_map_file_to_memory(const char* filename, jio_memory_file* p_fil
 #endif
 
 
-void jio_unmap_file(jio_memory_file* p_file_out)
+void jio_memory_file_destroy(jio_memory_file* p_file_out)
 {
     file_from_memory(p_file_out->ptr, p_file_out->file_size);
 }
 
-bool string_segment_cmp(const jio_string_segment* first, const jio_string_segment* second)
+bool string_segment_equal(const jio_string_segment* first, const jio_string_segment* second)
 {
     return first->len == second->len && (memcmp(first->begin, second->begin, first->len) == 0);
 }
 
-bool string_segment_cmp_case(const jio_string_segment* first, const jio_string_segment* second)
+bool string_segment_equal_case(const jio_string_segment* first, const jio_string_segment* second)
 {
     return first->len == second->len && (strncasecmp((const char*)first->begin, (const char*)second->begin, first->len) == 0);
 }
 
-bool string_segment_cmp_str(const jio_string_segment* first, const char* str)
+bool string_segment_equal_str(const jio_string_segment* first, const char* str)
 {
     const size_t len = strlen(str);
     return first->len == len && (memcmp(first->begin, str, len) == 0);
 }
 
-bool string_segment_cmp_str_case(const jio_string_segment* first, const char* str)
+bool string_segment_equal_str_case(const jio_string_segment* first, const char* str)
 {
     const size_t len = strlen(str);
     return first->len == len && (strncasecmp((const char*)first->begin, str, len) == 0);
@@ -226,5 +281,27 @@ bool string_segment_cmp_str_case(const jio_string_segment* first, const char* st
 bool iswhitespace(char32_t c)
 {
     return c == ' ' || c == '\t' || c == '\n';
+}
+
+jio_result jio_memory_file_sync(const jio_memory_file* file, int sync)
+{
+    JDM_ENTER_FUNCTION;
+    jio_result res = JIO_RESULT_SUCCESS;
+    if (!file)
+    {
+        JDM_ERROR("Mapped file was not provided");
+        res = JIO_RESULT_NULL_ARG;
+        goto end;
+    }
+
+    if (msync(file->ptr, file->file_size, sync ? MS_SYNC : MS_ASYNC) != 0)
+    {
+        JDM_ERROR("Could not sync memory mapping of file \"%s\" (write allowed: %u), reason: %s", file->name, file->can_write, JDM_ERRNO_MESSAGE);
+        res = JIO_RESULT_BAD_ACCESS;
+    }
+
+end:
+    JDM_LEAVE_FUNCTION;
+    return res;
 }
 
