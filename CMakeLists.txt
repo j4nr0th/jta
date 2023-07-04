@@ -20,8 +20,8 @@ list(APPEND UTILITY_HEADER_FILES common/common.h)
 list(APPEND GFX_SOURCE_FILES gfx/vk_state.c gfx/drawing_3d.c gfx/camera.c ui.c)
 list(APPEND GFX_HEADER_FILES gfx/vk_state.h gfx/drawing_3d.h gfx/camera.h ui.h)
 
-list(APPEND JIO_SOURCE_FILES io/iobase.c io/ioerr.c io/iocsv.c)
-list(APPEND JIO_HEADER_FILES io/iobase.h io/ioerr.h io/iocsv.h)
+list(APPEND JIO_SOURCE_FILES io/iobase.c io/ioerr.c io/iocsv.c io/iocfg.c)
+list(APPEND JIO_HEADER_FILES io/iobase.h io/ioerr.h io/iocsv.h io/iocfg.h)
 
 add_executable(jtb main.c
         ${JFW_SOURCE_FILES} ${JFW_HEADER_FILES}

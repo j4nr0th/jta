@@ -1,7 +1,7 @@
 //
-// Created by jan on 1.7.2023.
+// Created by jan on 4.7.2023.
 //
-#include "../iocsv.h"
+#include "../../iocfg.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
@@ -12,7 +12,6 @@
 #define DGB_STOP (void)0;
 #endif
 #define ASSERT(x) if (!(x)) {fputs("Failed assertion \"" #x "\"\n", stderr); DBG_STOP; exit(EXIT_FAILURE);} (void)0
-
 
 int error_hook_fn(const char* thread_name, uint32_t stack_trace_count, const char*const* stack_trace, jdm_message_level level, uint32_t line, const char* file, const char* function, const char* message, void* param)
 {
@@ -50,8 +49,11 @@ int error_hook_fn(const char* thread_name, uint32_t stack_trace_count, const cha
         break;
     }
     fprintf(f_out, "%s from \"%s\" at line %u in file \"%s\", message: %s\n", err_level_str, function, line, file, message);
+    __builtin_trap();
     return 0;
 }
+
+
 
 int main()
 {
@@ -62,34 +64,37 @@ int main()
     linear_jallocator* lin_allocator = lin_jallocator_create(1 << 20);
     ASSERT(lin_allocator);
     void* const base = lin_jalloc_get_current(lin_allocator);
+    JDM_ENTER_FUNCTION;
 
-    jio_memory_file csv_file;
-    jio_result res = jio_memory_file_create("../csv_test_simple.csv", &csv_file, 0, 0, 0);
+    jio_memory_file cfg_file;
+    jio_result res = jio_memory_file_create("../ini_test_simple.ini", &cfg_file, 0, 0, 0);
     ASSERT(res == JIO_RESULT_SUCCESS);
 
-
-    jio_csv_data* csv_data;
-    res = jio_parse_csv(&csv_file, ",", true, true, &csv_data, allocator, lin_allocator);
+    jio_cfg_section* root;
+    res = jio_cfg_parse(&cfg_file, &root, allocator);
     ASSERT(res == JIO_RESULT_SUCCESS);
-    uint32_t rows, cols;
-    res = jio_csv_shape(csv_data, &rows, &cols);
+
+    size_t size_needed = 0, actual_size = 0;
+    res = jio_cfg_print_size(root, 1, &size_needed, true, false);
     ASSERT(res == JIO_RESULT_SUCCESS);
-    for (uint32_t i = 0; i < cols; ++i)
-    {
-        const jio_csv_column* p_column;
-        res = jio_csv_get_column(csv_data, i, &p_column);
-        ASSERT(res == JIO_RESULT_SUCCESS);
-        printf("Column %u has a header \"%.*s\" and length of %u:\n", i, (int)p_column->header.len, p_column->header.begin, p_column->count);
-        for (uint32_t j = 0; j < rows; ++j)
-        {
-            jio_string_segment* segment = p_column->elements + j;
-            printf("\telement %u: \"%.*s\"\n", j, (int)segment->len, segment->begin);
-        }
-    }
-    jio_csv_release(csv_data);
-    jio_memory_file_destroy(&csv_file);
+    printf("Space needed: %zu bytes\n", size_needed);
+    jio_memory_file f_out;
+    res = jio_memory_file_create("../out.ini", &f_out, 1, 1, size_needed);
+    ASSERT(res == JIO_RESULT_SUCCESS);
+    ASSERT(f_out.file_size >= size_needed);
+    char big_buffer[4096] = {0};
+    res = jio_cfg_print(root, big_buffer, "=", &actual_size, true, false, false);
+    ASSERT(res == JIO_RESULT_SUCCESS);
+    fwrite(big_buffer, 1, actual_size, stdout);
+    fflush(stdout);
+    ASSERT(actual_size <= size_needed);
+    jio_memory_file_sync(&f_out, 1);
+    jio_memory_file_destroy(&f_out);
 
+    jio_cfg_section_destroy(root);
+    jio_memory_file_destroy(&cfg_file);
 
+    JDM_LEAVE_FUNCTION;
     jdm_cleanup_thread();
     int_fast32_t i_pool, i_block;
     ASSERT(jallocator_verify(allocator, &i_pool, &i_block) == 0);

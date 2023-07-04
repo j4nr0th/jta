@@ -19,6 +19,9 @@ static const char* const jio_result_strings[JIO_RESULT_COUNT] =
                 [JIO_RESULT_BAD_CONVERTER] = "Converter given was not provided",
                 [JIO_RESULT_BAD_VALUE] = "Value in csv file was invalid",
                 [JIO_RESULT_BAD_ACCESS] = "File's access mode does not allow for operation",
+                [JIO_RESULT_BAD_CFG_SECTION_NAME] = "Section name of a cfg/ini file was invalid",
+                [JIO_RESULT_BAD_CFG_FORMAT] = "Cfg/ini file was formatted badly",
+                [JIO_RESULT_BAD_CFG_KEY] = "Invalid cfg/ini file key",
         };
 
 const char* jio_result_to_str(jio_result res)

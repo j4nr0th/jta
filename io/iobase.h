@@ -40,7 +40,7 @@ bool string_segment_equal_case(const jio_string_segment* first, const jio_string
 
 bool string_segment_equal_str(const jio_string_segment* first, const char* str);
 
-bool string_segment_cmp_str_case(const jio_string_segment* first, const char* str);
+bool string_segment_equal_str_case(const jio_string_segment* first, const char* str);
 
 jio_result jio_memory_file_create(
         const char* filename, jio_memory_file* p_file_out, int write, int can_create, size_t size);
