@@ -28,6 +28,8 @@ enum jio_result_enum : unsigned
     JIO_RESULT_BAD_CFG_KEY,
     JIO_RESULT_BAD_CFG_SECTION_NAME,
 
+    JIO_RESULT_BAD_XML_FORMAT,
+
     JIO_RESULT_COUNT,
 };
 typedef enum jio_result_enum jio_result;
