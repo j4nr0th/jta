@@ -4,7 +4,24 @@
 
 #include "camera.h"
 
-void jtb_camera_set(jtb_camera_3d* camera, vec4 target, vec4 camera_pos, vec4 down, f32 turn_sensitivity, f32 move_sensitivity)
+void jtb_camera_find_depth_planes(const jtb_camera_3d* camera, f32* p_near, f32* p_far)
+{
+    f32 geo_projection_distance = vec4_dot(vec4_sub(camera->geo_origin, camera->position), camera->uz);
+    f32 near = geo_projection_distance - camera->geo_radius;
+    f32 far = geo_projection_distance + camera->geo_radius;
+    if (near < 1e-5f)
+    {
+        near = 1e-5f;
+    }
+    if (far < 0)
+    {
+        far = 0;
+    }
+    *p_near = near;
+    *p_far = far;
+}
+
+void jtb_camera_set(jtb_camera_3d* camera, vec4 target, vec4 geo_o, f32 geo_r, vec4 camera_pos, vec4 down, f32 turn_sensitivity, f32 move_sensitivity)
 {
     camera->target = target;
     camera->position = camera_pos;
@@ -21,10 +38,10 @@ void jtb_camera_set(jtb_camera_3d* camera, vec4 target, vec4 camera_pos, vec4 do
     camera->ux = unit_x;
     camera->uy = unit_y;
     camera->uz = unit_z;
+    camera->geo_origin = geo_o;
+    camera->geo_radius = geo_r;
     camera->turn_sensitivity = turn_sensitivity;
     camera->move_sensitivity = move_sensitivity;
-    camera->far = 1000.0f * vec4_magnitude(d);      //  Far is taken as 1000 times further away from the target
-    camera->near = 0.001f * vec4_magnitude(d);      //  Near is taken as 1000 times closer than target
 }
 
 mtx4 jtb_camera_to_view_matrix(const jtb_camera_3d* camera)
@@ -48,8 +65,6 @@ void jtb_camera_zoom(jtb_camera_3d* camera, f32 fraction_change)
 {
     vec4 relative = vec4_sub(camera->position, camera->target);
     relative = vec4_mul_one(relative, 1.0f + fraction_change);
-    camera->far = 1000.0f * vec4_magnitude(relative);
-    camera->near = 0.001f * vec4_magnitude(relative);
     camera->position = vec4_add(relative, camera->target);
 }
 

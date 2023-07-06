@@ -154,7 +154,7 @@ typedef union
     va = _mm_load_ps(a.data);
     vb = _mm_set_ps1(k);
 
-    vc = _mm_mul_ps(va, vb);
+    vc = _mm_div_ps(va, vb);
     _mm_store_ps(c.data, vc);
     c.w = 1;
     return c;
@@ -321,9 +321,9 @@ static const mtx4 mtx4_identity =
 [[nodiscard]] static inline mtx4 mtx4_translate(mtx4 m, vec4 offset)
 {
     mtx4 r = m;
-    r.col3.x -= offset.x;
-    r.col3.y -= offset.y;
-    r.col3.z -= offset.z;
+    r.col3.x += offset.x;
+    r.col3.y += offset.y;
+    r.col3.z += offset.z;
 
     return r;
 }

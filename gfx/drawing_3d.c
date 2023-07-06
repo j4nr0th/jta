@@ -110,9 +110,12 @@ gfx_result draw_3d_scene(
 
     //  Update uniforms
     {
+        f32 near, far;
+//        jtb_camera_find_depth_planes(camera, &near, &far);
+        gfx_find_bounding_planes(&state->geometry, camera->position, camera->uz, &near, &far);
         ubo_3d ubo =
                 {
-                        .proj = mtx4_projection(M_PI_2, ((f32)vk_resources->extent.width)/((f32)vk_resources->extent.height), 1.0f, camera->near, camera->far),
+                        .proj = mtx4_projection(M_PI_2, ((f32)vk_resources->extent.width)/((f32)vk_resources->extent.height), 1.0f, near, far),
                         .view = state->view,
                         .view_direction = camera->uz,
                 };
@@ -335,7 +338,7 @@ gfx_result truss_mesh_add_between_pts(jtb_truss_mesh* mesh, jfw_color color, f32
     //    model = mtx4_multiply(mtx4_rotation_z(-rotation_z), model);
     model = mtx4_multiply(normal_transform, model);
     //  move the model to the point pt1
-    model = mtx4_translate(model, pt1);
+    model = mtx4_translate(model, (pt1));
 
     return truss_mesh_add_new(mesh, model, normal_transform, color);
 }

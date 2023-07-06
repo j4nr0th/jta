@@ -1,0 +1,7 @@
+material label,elastic modulus,density,tensile strength,compressive strength
+steel,200E9,7.85E3,250E6,250E6
+high_carbon_steel,200E9,7.8E3,433E6,433E6
+low_alloy_steel,200E9,7.8E3,469E6,469E6
+low_carbon_steel,200E9,7.8E3,255E6,255E6
+med_carbon_steel,200E9,7.8E3,376E6,376E6
+st_steel,190E9,7.61E3,252E6,252E6

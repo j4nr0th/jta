@@ -7,6 +7,7 @@
 #include "mem/aligned_jalloc.h"
 #include <jmem/jmem.h>
 #include <jdm.h>
+#include <jio/iocfg.h>
 
 
 
@@ -18,8 +19,9 @@
 #include "gfx/vk_state.h"
 #include "gfx/drawing_3d.h"
 #include "gfx/camera.h"
+#include "gfx/bounding_box.h"
 #include "ui.h"
-
+#include "solver/jtbelements.h"
 
 
 static jfw_res widget_draw(jfw_widget* this)
@@ -173,35 +175,268 @@ int main(int argc, char* argv[argc])
     //  it for Vulkan's use only, as this means that I won't fuck up the memory and then be unable to see where. Just
     //  stick with malloc family when linear allocator can't be used, since that means I can use Vallgrind's memcheck
 
-    
+    if (argc == 1)
+    {
+        printf("usage:\n    %s CFG_FILE\n", argv[0]);
+        exit(EXIT_SUCCESS);
+    }
 
-#ifdef NDEBUG
-    VkAllocationCallbacks VK_ALLOCATION_CALLBACKS =
+    //  Load up the configuration
+    char* pts_file_name;
+    char* mat_file_name;
+    char* pro_file_name;
+    char* elm_file_name;
+
+    {
+        jio_memory_file cfg_file;
+        jio_result jio_res = jio_memory_file_create(argv[1], &cfg_file, 0, 0, 0);
+        if (jio_res != JIO_RESULT_SUCCESS)
+        {
+            JDM_FATAL("Could not open configuration file \"%s\", reason: %s", argv[1], jio_result_to_str(jio_res));
+        }
+
+        jio_cfg_section* cfg_root;
+        jio_res = jio_cfg_parse(&cfg_file, &cfg_root, G_JALLOCATOR);
+        if (jio_res != JIO_RESULT_SUCCESS)
+        {
+            JDM_FATAL("Could not parse configuration file \"%s\", reason: %s", argv[1], jio_result_to_str(jio_res));
+        }
+
+
+        //  Parse the config file
+        {
+            jio_cfg_section* setup_section;
+            jio_res = jio_cfg_get_subsection(cfg_root, "problem setup", &setup_section);
+            if (jio_res != JIO_RESULT_SUCCESS)
             {
-            .pUserData = G_ALIGN_JALLOCATOR,
-            .pfnAllocation = vk_aligned_allocation_fn,
-            .pfnReallocation = vk_aligned_reallocation_fn,
-            .pfnFree = vk_aligned_free_fn,
-            .pfnInternalAllocation = vk_internal_alloc_notif,
-            .pfnInternalFree = vk_internal_free_notif,
-            };
-#endif
+                JDM_FATAL("Could not find the configuration file's \"problem setup\" section, reason: %s",
+                          jio_result_to_str(jio_res));
+            }
+
+
+            {
+                jio_cfg_section* input_section;
+                jio_res = jio_cfg_get_subsection(setup_section, "input files", &input_section);
+                if (jio_res != JIO_RESULT_SUCCESS)
+                {
+                    JDM_FATAL(
+                            "Could not find the configuration file's \"problem setup.input files\" section, reason: %s",
+                            jio_result_to_str(jio_res));
+                }
+                //  Get the points file
+                {
+                    jio_cfg_value v;
+                    jio_res = jio_cfg_get_value_by_key(input_section, "points", &v);
+                    if (jio_res != JIO_RESULT_SUCCESS)
+                    {
+                        JDM_FATAL("Could not get the element of section \"problem setup.input files\" with key \"points\", reason: %s", jio_result_to_str(jio_res));
+                    }
+                    if (v.type != JIO_CFG_TYPE_STRING)
+                    {
+                        JDM_FATAL("Element \"points\" of section \"problem setup.input files\" was not a string");
+                    }
+                    pts_file_name = lin_jalloc(G_LIN_JALLOCATOR ,v.value_string.len + 1);
+                    if (!pts_file_name)
+                    {
+                        JDM_FATAL("Could not allocate %zu bytes for point file string", (size_t)v.value_string.len + 1);
+                    }
+                    memcpy(pts_file_name, v.value_string.begin, v.value_string.len);
+                    pts_file_name[v.value_string.len] = 0;
+                }
+                //  Get the material file
+                {
+                    jio_cfg_value v;
+                    jio_res = jio_cfg_get_value_by_key(input_section, "materials", &v);
+                    if (jio_res != JIO_RESULT_SUCCESS)
+                    {
+                        JDM_FATAL("Could not get the element of section \"problem setup.input files\" with key \"materials\", reason: %s", jio_result_to_str(jio_res));
+                    }
+                    if (v.type != JIO_CFG_TYPE_STRING)
+                    {
+                        JDM_FATAL("Element \"materials\" of section \"problem setup.input files\" was not a string");
+                    }
+                    mat_file_name = lin_jalloc(G_LIN_JALLOCATOR ,v.value_string.len + 1);
+                    if (!mat_file_name)
+                    {
+                        JDM_FATAL("Could not allocate %zu bytes for material file string", (size_t)v.value_string.len + 1);
+                    }
+                    memcpy(mat_file_name, v.value_string.begin, v.value_string.len);
+                    mat_file_name[v.value_string.len] = 0;
+                }
+                //  Get the profile file
+                {
+                    jio_cfg_value v;
+                    jio_res = jio_cfg_get_value_by_key(input_section, "profiles", &v);
+                    if (jio_res != JIO_RESULT_SUCCESS)
+                    {
+                        JDM_FATAL("Could not get the element of section \"problem setup.input files\" with key \"profiles\", reason: %s", jio_result_to_str(jio_res));
+                    }
+                    if (v.type != JIO_CFG_TYPE_STRING)
+                    {
+                        JDM_FATAL("Element \"profiles\" of section \"problem setup.input files\" was not a string");
+                    }
+                    pro_file_name = lin_jalloc(G_LIN_JALLOCATOR ,v.value_string.len + 1);
+                    if (!pro_file_name)
+                    {
+                        JDM_FATAL("Could not allocate %zu bytes for profile file string", (size_t)v.value_string.len + 1);
+                    }
+                    memcpy(pro_file_name, v.value_string.begin, v.value_string.len);
+                    pro_file_name[v.value_string.len] = 0;
+                }
+                //  Get the element file
+                {
+                    jio_cfg_value v;
+                    jio_res = jio_cfg_get_value_by_key(input_section, "elements", &v);
+                    if (jio_res != JIO_RESULT_SUCCESS)
+                    {
+                        JDM_FATAL("Could not get the element of section \"problem setup.input files\" with key \"elements\", reason: %s", jio_result_to_str(jio_res));
+                    }
+                    if (v.type != JIO_CFG_TYPE_STRING)
+                    {
+                        JDM_FATAL("Element \"elements\" of section \"problem setup.input files\" was not a string");
+                    }
+                    elm_file_name = lin_jalloc(G_LIN_JALLOCATOR ,v.value_string.len + 1);
+                    if (!elm_file_name)
+                    {
+                        JDM_FATAL("Could not allocate %zu bytes for element file string", (size_t)v.value_string.len + 1);
+                    }
+                    memcpy(elm_file_name, v.value_string.begin, v.value_string.len);
+                    elm_file_name[v.value_string.len] = 0;
+                }
+            }
+
+            {
+                jio_cfg_section* parameter_section;
+                jio_res = jio_cfg_get_subsection(setup_section, "parameters", &parameter_section);
+                if (jio_res != JIO_RESULT_SUCCESS)
+                {
+                    JDM_FATAL(
+                            "Could not find the configuration file's \"problem setup.parameters\" section, reason: %s",
+                            jio_result_to_str(jio_res));
+                }
+            }
+
+            {
+                jio_cfg_section* output_section;
+                jio_res = jio_cfg_get_subsection(setup_section, "output files", &output_section);
+                if (jio_res != JIO_RESULT_SUCCESS)
+                {
+                    JDM_FATAL(
+                            "Could not find the configuration file's \"problem setup.output files\" section, reason: %s",
+                            jio_result_to_str(jio_res));
+                }
+            }
+        }
+
+        jio_cfg_section_destroy(cfg_root);
+        jio_memory_file_destroy(&cfg_file);
+    }
+
+
+    u32 n_points, n_materials, n_profiles, n_elements;
+    jio_memory_file file_points, file_materials, file_profiles, file_elements;
+    jtb_point* points;
+    jtb_material* materials;
+    jtb_profile* profiles;
+    jtb_element* elements;
+
+    jio_result jio_res = jio_memory_file_create(pts_file_name, &file_points, 0, 0, 0);
+    if (jio_res != JIO_RESULT_SUCCESS)
+    {
+        JDM_FATAL("Could not open point file \"%s\"", pts_file_name);
+    }
+    jio_res = jio_memory_file_create(mat_file_name, &file_materials, 0, 0, 0);
+    if (jio_res != JIO_RESULT_SUCCESS)
+    {
+        JDM_FATAL("Could not open material file \"%s\"", mat_file_name);
+    }
+    jio_res = jio_memory_file_create(pro_file_name, &file_profiles, 0, 0, 0);
+    if (jio_res != JIO_RESULT_SUCCESS)
+    {
+        JDM_FATAL("Could not open profile file \"%s\"", pro_file_name);
+    }
+    jio_res = jio_memory_file_create(elm_file_name, &file_elements, 0, 0, 0);
+    if (jio_res != JIO_RESULT_SUCCESS)
+    {
+        JDM_FATAL("Could not open element file \"%s\"", elm_file_name);
+    }
+    lin_jfree(G_LIN_JALLOCATOR, elm_file_name);
+    lin_jfree(G_LIN_JALLOCATOR, pro_file_name);
+    lin_jfree(G_LIN_JALLOCATOR, mat_file_name);
+    lin_jfree(G_LIN_JALLOCATOR, pts_file_name);
+//    jallocator_set_debug_trap(G_JALLOCATOR, 22);
+    jtb_result jtb_res = jtb_load_points(&file_points, &n_points, &points);
+    if (jtb_res != JTB_RESULT_SUCCESS)
+    {
+        JDM_FATAL("Could not load points");
+    }
+    if (n_points < 2)
+    {
+        JDM_FATAL("At least two points should be defined");
+    }
+    jtb_res = jtb_load_materials(&file_materials, &n_materials, &materials);
+    if (jtb_res != JTB_RESULT_SUCCESS)
+    {
+        JDM_FATAL("Could not load materials");
+    }
+    if (n_materials < 1)
+    {
+        JDM_FATAL("At least one material should be defined");
+    }
+    jtb_res = jtb_load_profiles(&file_profiles, &n_profiles, &profiles);
+    if (jtb_res != JTB_RESULT_SUCCESS)
+    {
+        JDM_FATAL("Could not load profiles");
+    }
+    if (n_profiles < 1)
+    {
+        JDM_FATAL("At least one profile should be defined");
+    }
+
+    jtb_res = jtb_load_elements(&file_elements, n_points, points, n_materials, materials, n_profiles, profiles, &n_elements, &elements);
+    if (jtb_res != JTB_RESULT_SUCCESS)
+    {
+        JDM_FATAL("Could not load elements");
+    }
+    if (n_elements < 1)
+    {
+        JDM_FATAL("At least one profile should be defined");
+    }
+
+    //  Find the bounding box of the geometry
+    vec4 geo_base;
+    f32 geo_radius;
+    gfx_find_bounding_sphere(n_points, points, &geo_base, &geo_radius);
+
+
+
+//#ifdef NDEBUG
+//    VkAllocationCallbacks VK_ALLOCATION_CALLBACKS =
+//            {
+//            .pUserData = G_ALIGN_JALLOCATOR,
+//            .pfnAllocation = vk_aligned_allocation_fn,
+//            .pfnReallocation = vk_aligned_reallocation_fn,
+//            .pfnFree = vk_aligned_free_fn,
+//            .pfnInternalAllocation = vk_internal_alloc_notif,
+//            .pfnInternalFree = vk_internal_free_notif,
+//            };
+//#endif
 
     jfw_ctx* jctx = NULL;
     jfw_window* jwnd = NULL;
     jfw_res jfw_result = jfw_context_create(&jctx,
-#ifndef NDEBUG
-                                            nullptr
-#else
-                                            &VK_ALLOCATION_CALLBACKS
-#endif
+//#ifndef NDEBUG
+                                            NULL
+//#else
+//                                            &VK_ALLOCATION_CALLBACKS
+//#endif
                                            );
     if (!jfw_success(jfw_result))
     {
         goto cleanup;
     }
     jfw_result = jfw_window_create(
-            jctx, 1600, 900, "Jan's Truss Builder - 0.0.1", (jfw_color) { .a = 0xFF, .r = 0x80, .g = 0x80, .b = 0x80 },
+            jctx, 1600, 900, "JANSYS - jtb - 0.0.1", (jfw_color) { .a = 0xFF, .r = 0x80, .g = 0x80, .b = 0x80 },
             &jwnd, 0);
     if (!jfw_success(jfw_result))
     {
@@ -228,26 +463,39 @@ int main(int argc, char* argv[argc])
         JDM_ERROR("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
         goto cleanup;
     }
-    if ((gfx_res = truss_mesh_add_between_pts(&mesh, (jfw_color){.r = 0xFF, .a = 0xFF}, 0.001f, VEC4(0, 0, 0), VEC4(0.1f, 0, 0), 0.0f)) != GFX_RESULT_SUCCESS)
+    
+    //  These are the coordinate axis
+    //  Can take these values from the config later
+    f32 axis_length_fraction = 0.1f;    //  fraction of geo_radius
+    f32 axis_radius_fraction = 0.001f;    //  fraction of length
+    if ((gfx_res = truss_mesh_add_between_pts(&mesh, (jfw_color){.r = 0xFF, .a = 0xFF}, axis_radius_fraction * axis_length_fraction * geo_radius, VEC4(0, 0, 0), VEC4(axis_length_fraction * geo_radius, 0, 0), 0.0f)) != GFX_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not add a new truss to the mesh: %s", gfx_result_to_str(gfx_res));
         goto cleanup;
     }
-    if ((gfx_res = truss_mesh_add_between_pts(&mesh, (jfw_color){.g = 0xFF, .a = 0xFF}, 0.001f, VEC4(0, 0, 0), VEC4(0, +0.1, 0), 0.0f)) != GFX_RESULT_SUCCESS)
+    if ((gfx_res = truss_mesh_add_between_pts(&mesh, (jfw_color){.g = 0xFF, .a = 0xFF}, axis_radius_fraction * axis_length_fraction * geo_radius, VEC4(0, 0, 0), VEC4(0, axis_length_fraction * geo_radius, 0), 0.0f)) != GFX_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not add a new truss to the mesh: %s", gfx_result_to_str(gfx_res));
         goto cleanup;
     }
-    if ((gfx_res = truss_mesh_add_between_pts(&mesh, (jfw_color){.b = 0xFF, .a = 0xFF}, 0.001f, VEC4(0, 0, 0), VEC4(0, 0, 0.1f), 0.0f)) != GFX_RESULT_SUCCESS)
+    if ((gfx_res = truss_mesh_add_between_pts(&mesh, (jfw_color){.b = 0xFF, .a = 0xFF}, axis_radius_fraction * axis_length_fraction * geo_radius, VEC4(0, 0, 0), VEC4(0, 0, axis_length_fraction * geo_radius), 0.0f)) != GFX_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not add a new truss to the mesh: %s", gfx_result_to_str(gfx_res));
         goto cleanup;
     }
-//    if (!jfw_success(res = truss_mesh_add_between_pts(&mesh, (jfw_color){.r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF}, 0.001f, VEC4(0, 0, 0), VEC4(1, 1, 1), 0.0f)))
-//    {
-//        JDM_ERROR("Could not add a new truss to the mesh: %s", jfw_error_message(res));
-//        goto cleanup;
-//    }
+    
+    //  This is the truss mesh :)
+    f32 radius_factor = 10.0f;  //  This could be a config option
+    for (u32 i = 0; i < n_elements; ++i)
+    {
+        const jtb_element element = elements[i];
+        if ((gfx_res = truss_mesh_add_between_pts(&mesh, (jfw_color){.r = 0xD0, .g = 0xD0, .b = 0xD0, .a = 0xFF}, radius_factor * (f32)sqrt(profiles[element.i_profile].area * M_1_PI), VEC4(points[element.i_point0].x, points[element.i_point0].y, points[element.i_point0].z), VEC4(points[element.i_point1].x, points[element.i_point1].y, points[element.i_point1].z), 0.0f)))
+        {
+            JDM_ERROR("Could not add element %"PRIu32" to the mesh, reason: %s", i, gfx_result_to_str(gfx_res));
+            goto cleanup;
+        }
+    }
+    
 
     vk_buffer_allocation vtx_buffer_allocation_geometry, vtx_buffer_allocation_model, idx_buffer_allocation;
     i32 res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(jtb_vertex) * mesh.model.vtx_count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &vtx_buffer_allocation_geometry);
@@ -286,6 +534,8 @@ int main(int argc, char* argv[argc])
     vulkan_state.buffer_vtx_mod = vtx_buffer_allocation_model;
     vulkan_state.buffer_idx = idx_buffer_allocation;
 
+    gfx_convert_points_to_geometry_contents(n_points, points, &vulkan_state.geometry);
+
     jfw_window_set_usr_ptr(jwnd, &vulkan_state);
     jfw_widget* jwidget;
     jfw_result = jfw_widget_create_as_base(jwnd, 1600, 900, 0, 0, &jwidget);
@@ -300,8 +550,36 @@ int main(int argc, char* argv[argc])
     jwidget->functions.mouse_button_release = truss_mouse_button_release;
     jwidget->functions.mouse_motion = truss_mouse_motion;
     jtb_camera_3d camera;
-    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(0, 0, -1), VEC4(0, 1, 0), 1.0f, 1.0f);
-//    jtb_camera_set(&camera, VEC4(0, 0, 0), VEC4(0, 0, +1), VEC4(0, 1, 0));
+    jtb_camera_set(
+            &camera,                                    //  Camera
+            geo_base,                                   //  View target
+            geo_base,                                   //  Geometry center
+            geo_radius,                                 //  Geometry radius
+            VEC4(0, 0, -1),                             //  Down
+            vec4_sub(geo_base, vec4_mul_one(VEC4(0, -1, 0), geo_radius)), //  Camera position
+            4.0f,                                       //  Turn sensitivity
+            1.0f                                        //  Move sensitivity
+            );
+#ifndef NDEBUG
+    f32 min = +INFINITY, max = -INFINITY;
+    for (u32 i = 0; i < n_points; ++i)
+    {
+        vec4 p = VEC4(points[i].x, points[i].y, points[i].z);
+        p = vec4_sub(p, camera.position);
+        f32 d = vec4_dot(p, camera.uz);
+        if (d < min)
+        {
+            min = d;
+        }
+        if (d > max)
+        {
+            max = d;
+        }
+    }
+    f32 n, f;
+    jtb_camera_find_depth_planes(&camera, &n, &f);
+    assert(min >= n); assert(max <= f);
+#endif
     jtb_draw_state draw_state =
             {
             .vulkan_state = &vulkan_state,
@@ -327,6 +605,14 @@ int main(int argc, char* argv[argc])
     jwnd = NULL;
 
 cleanup:
+    jfree(G_JALLOCATOR, elements);
+    jfree(G_JALLOCATOR, profiles);
+    jfree(G_JALLOCATOR, materials);
+    jfree(G_JALLOCATOR, points);
+    jio_memory_file_destroy(&file_elements);
+    jio_memory_file_destroy(&file_profiles);
+    jio_memory_file_destroy(&file_materials);
+    jio_memory_file_destroy(&file_points);
     if (jctx)
     {
         jfw_context_destroy(jctx);

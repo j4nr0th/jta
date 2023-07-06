@@ -12,12 +12,17 @@ struct jtb_camera_3d_state_struct
     vec4 target;            //  Position of camera target in global coordinate system
     vec4 position;          //  Position of camera's origin in global coordinate system
     vec4 ux, uy, uz;        //  Unit vectors of camera in the global coordinate system
-    f32 near, far;          //  Near and far values for camera, not used directly
     f32 turn_sensitivity;   //  Factor by which look angles are multiplied with
     f32 move_sensitivity;   //  Factor by which move distances are multiplied with
+
+    //  Actual geometry can be bound by a sphere located at geo_origin and radius of geo_radius
+    vec4 geo_origin;
+    f32 geo_radius;
 };
 
-void jtb_camera_set(jtb_camera_3d* camera, vec4 target, vec4 camera_pos, vec4 down, f32 turn_sensitivity, f32 move_sensitivity);
+void jtb_camera_find_depth_planes(const jtb_camera_3d* camera, f32* p_near, f32* p_far);
+
+void jtb_camera_set(jtb_camera_3d* camera, vec4 target, vec4 geo_o, f32 geo_r, vec4 camera_pos, vec4 down, f32 turn_sensitivity, f32 move_sensitivity);
 
 void jtb_camera_set_turn_sensitivity(jtb_camera_3d* camera, f32 turn_sensitivity);
 

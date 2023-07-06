@@ -17,11 +17,13 @@ list(APPEND ALLOCATORS_HEADER_FILES mem/vk_mem_allocator.h mem/aligned_jalloc.h)
 list(APPEND UTILITY_SOURCE_FILES common/common.c)
 list(APPEND UTILITY_HEADER_FILES common/common.h)
 
-list(APPEND GFX_SOURCE_FILES gfx/vk_state.c gfx/drawing_3d.c gfx/camera.c ui.c)
-list(APPEND GFX_HEADER_FILES gfx/vk_state.h gfx/drawing_3d.h gfx/camera.h ui.h)
+list(APPEND GFX_SOURCE_FILES gfx/vk_state.c gfx/drawing_3d.c gfx/camera.c ui.c gfx/gfxerr.c)
+list(APPEND GFX_HEADER_FILES gfx/vk_state.h gfx/drawing_3d.h gfx/camera.h ui.h gfx/gfxerr.h)
 
-list(APPEND JIO_SOURCE_FILES io/iobase.c io/ioerr.c io/iocsv.c io/iocfg.c io/ioxml.c)
-list(APPEND JIO_HEADER_FILES io/iobase.h io/ioerr.h io/iocsv.h io/iocfg.h io/ioxml.h)
+list(APPEND JTB_SOLVER_SOURCE_FILES solver/jtberr.c solver/jtbpoints.c solver/jtbmaterials.c solver/jtbprofiles.c solver/jtbelements.c)
+list(APPEND JTB_SOLVER_HEADER_FILES solver/jtberr.h solver/jtbpoints.h solver/jtbmaterials.h solver/jtbprofiles.h solver/jtbelements.h)
+
+add_subdirectory(jio)
 
 add_executable(jtb main.c
         ${JFW_SOURCE_FILES} ${JFW_HEADER_FILES}
@@ -31,9 +33,12 @@ add_executable(jtb main.c
         ${GFX_SOURCE_FILES} ${GFX_HEADER_FILES}
         ${PARSING_SOURCE_FILES} ${PARSING_HEADER_FILES}
         ${UTILITY_SOURCE_FILES} ${UTILITY_HEADER_FILES}
-        ${JIO_SOURCE_FILES} ${JIO_HEADER_FILES}
-        mem/vk_mem_allocator.c mem/vk_mem_allocator.h gfx/gfxerr.c gfx/gfxerr.h gfx/gfxerr.c)
-target_link_libraries(jtb PRIVATE vulkan X11 m jmem jfmt jdm)
+        ${JTB_SOLVER_SOURCE_FILES} ${JTB_SOLVER_HEADER_FILES} gfx/bounding_box.h gfx/bounding_box.c)
+
+configure_file(test_configuration.cfg "${CMAKE_BINARY_DIR}/test_configuration.cfg" COPYONLY)
+
+target_include_directories(jtb PRIVATE jio/include)
+target_link_libraries(jtb PRIVATE vulkan X11 m jmem jfmt jdm jio)
 
 add_executable(jfw_test ${JFW_SOURCE_FILES} ${JFW_HEADER_FILES} jfw/main.c)
 target_link_libraries(jfw_test PRIVATE vulkan X11 m jmem jfmt jdm)
@@ -41,4 +46,3 @@ enable_testing()
 add_executable(geo_test gfx/gfx_math.h gfx/gfx_math.c geo_test.c gfx/camera.c gfx/camera.h gfx/drawing_3d.h gfx/drawing_3d.c ${JFW_SOURCE_FILES} ${JFW_HEADER_FILES} gfx/rotation_camera_test.c)
 target_link_libraries(geo_test PRIVATE m X11 vulkan jdm)
 add_subdirectory(mem)
-add_subdirectory(io)

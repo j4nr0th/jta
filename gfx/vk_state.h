@@ -8,6 +8,7 @@
 #include "../jfw/window.h"
 #include "../mem/vk_mem_allocator.h"
 #include "gfxerr.h"
+#include "bounding_box.h"
 
 typedef struct vk_state_struct vk_state;
 struct vk_state_struct
@@ -37,6 +38,7 @@ struct vk_state_struct
     VkFormat depth_format;
     void* mesh;
     mtx4 view;
+    geometry_contents geometry;
 };
 
 gfx_result vk_state_create(vk_state* p_state, const jfw_window_vk_resources* vk_resources);
