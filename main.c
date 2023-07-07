@@ -145,7 +145,6 @@ int main(int argc, char* argv[argc])
         fputs("Could not create aligned allocator\n", stderr);
         exit(EXIT_FAILURE);
     }
-    //  Estimated to be 16 kB in size
     G_LIN_JALLOCATOR = lin_jallocator_create(1 << 16);
     if (!G_LIN_JALLOCATOR)
     {
@@ -457,8 +456,7 @@ int main(int argc, char* argv[argc])
 
     jtb_truss_mesh mesh;
     vulkan_state.mesh = &mesh;
-
-    if ((gfx_res = truss_mesh_init(&mesh, 16)) != GFX_RESULT_SUCCESS)
+    if ((gfx_res = truss_mesh_init(&mesh, 1 << 12)) != GFX_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
         goto cleanup;
@@ -467,7 +465,7 @@ int main(int argc, char* argv[argc])
     //  These are the coordinate axis
     //  Can take these values from the config later
     f32 axis_length_fraction = 0.1f;    //  fraction of geo_radius
-    f32 axis_radius_fraction = 0.001f;    //  fraction of length
+    f32 axis_radius_fraction = 0.001f;  //  fraction of length
     if ((gfx_res = truss_mesh_add_between_pts(&mesh, (jfw_color){.r = 0xFF, .a = 0xFF}, axis_radius_fraction * axis_length_fraction * geo_radius, VEC4(0, 0, 0), VEC4(axis_length_fraction * geo_radius, 0, 0), 0.0f)) != GFX_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not add a new truss to the mesh: %s", gfx_result_to_str(gfx_res));

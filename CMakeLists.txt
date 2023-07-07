@@ -33,7 +33,7 @@ add_executable(jtb main.c
         ${GFX_SOURCE_FILES} ${GFX_HEADER_FILES}
         ${PARSING_SOURCE_FILES} ${PARSING_HEADER_FILES}
         ${UTILITY_SOURCE_FILES} ${UTILITY_HEADER_FILES}
-        ${JTB_SOLVER_SOURCE_FILES} ${JTB_SOLVER_HEADER_FILES} gfx/bounding_box.h gfx/bounding_box.c)
+        ${JTB_SOLVER_SOURCE_FILES} ${JTB_SOLVER_HEADER_FILES} gfx/bounding_box.h gfx/bounding_box.c gfx/mesh.c gfx/mesh.h)
 
 configure_file(test_configuration.cfg "${CMAKE_BINARY_DIR}/test_configuration.cfg" COPYONLY)
 

@@ -14,6 +14,7 @@ typedef struct vk_state_struct vk_state;
 struct vk_state_struct
 {
     VkRenderPass render_pass_3D;
+    VkRenderPass render_pass_cf;
     VkRenderPass render_pass_UI;
     u32 framebuffer_count;
     VkFramebuffer* framebuffers;

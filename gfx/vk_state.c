@@ -200,7 +200,7 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
                 .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
                 .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
                 .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                 };
         VkAttachmentReference color_attach_ref =
                 {
@@ -263,6 +263,83 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
 
         p_state->render_pass_3D = render_pass_3d;
     }
+    //  Create Coordinate frame render pass
+    {
+        VkRenderPass render_pass_cf;
+        VkAttachmentDescription color_attach_description =
+                {
+                        .format = vk_resources->surface_format.format,
+                        .samples = VK_SAMPLE_COUNT_1_BIT,
+                        .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+                        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                        .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                        .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                };
+        VkAttachmentReference color_attach_ref =
+                {
+                        .attachment = 0,
+                        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                };
+        VkAttachmentDescription depth_attach_description =
+                {
+                        .format = p_state->depth_format,
+                        .samples = VK_SAMPLE_COUNT_1_BIT,
+                        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                        .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                        .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                };
+        VkAttachmentReference depth_attach_ref =
+                {
+                        .attachment = 1,
+                        .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                };
+        VkSubpassDescription subpass_description_cf =
+                {
+                        .colorAttachmentCount = 1,
+                        .pColorAttachments = &color_attach_ref,
+                        .pDepthStencilAttachment = &depth_attach_ref,
+                };
+        VkSubpassDependency subpass_dependency_cf =
+                {
+                        .srcSubpass = VK_SUBPASS_EXTERNAL,
+                        .dstSubpass = 0,
+                        .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+                        .srcAccessMask = 0,
+                        .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+                        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                };
+        VkAttachmentDescription attachment_array_cf[] =
+                {
+                        color_attach_description, depth_attach_description
+                };
+        VkRenderPassCreateInfo render_pass_info_cf =
+                {
+                        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+                        .attachmentCount = 2,
+                        .pAttachments = attachment_array_cf,
+                        .dependencyCount = 1,
+                        .pDependencies = &subpass_dependency_cf,
+                        .subpassCount = 1,
+                        .pSubpasses = &subpass_description_cf,
+                };
+        vk_res = vkCreateRenderPass(vk_resources->device, &render_pass_info_cf, NULL, &render_pass_cf);
+        if (vk_res != VK_SUCCESS)
+        {
+            JDM_ERROR("Could not create 3d render pass: %s", jfw_vk_error_msg(vk_res));
+            gfx_res = GFX_RESULT_NO_RENDER_PASS;
+            goto after_render_pass_3d;
+        }
+
+
+        p_state->render_pass_cf = render_pass_cf;
+
+
+    }
 
     //  Create ubo layout descriptors
     {
@@ -286,7 +363,7 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
         {
             JDM_ERROR("Could not create UBO descriptor set layout: %s", jfw_vk_error_msg(vk_res));
             gfx_res = GFX_RESULT_NO_DESC_SET;
-            goto after_render_pass;
+            goto after_render_pass_cf;
         }
         p_state->ubo_layout = ubo_layout;
     }
@@ -802,7 +879,9 @@ after_3d_pipeline:
     vkDestroyPipelineLayout(vk_resources->device, p_state->layout_3D, NULL);
 after_ubo_layout:
     vkDestroyDescriptorSetLayout(vk_resources->device, p_state->ubo_layout, NULL);
-after_render_pass:
+after_render_pass_cf:
+    vkDestroyRenderPass(vk_resources->device, p_state->render_pass_cf, NULL);
+after_render_pass_3d:
     vkDestroyRenderPass(vk_resources->device, p_state->render_pass_3D, NULL);
 after_depth:
     vkDestroyImageView(vk_resources->device, p_state->depth_view, NULL);
@@ -878,6 +957,7 @@ void vk_state_destroy(vk_state* p_state, jfw_window_vk_resources* vk_resources)
     vkDestroyPipeline(vk_resources->device, p_state->gfx_pipeline_3D, NULL);
     vkDestroyPipelineLayout(vk_resources->device, p_state->layout_3D, NULL);
     vkDestroyDescriptorSetLayout(vk_resources->device, p_state->ubo_layout, NULL);
+    vkDestroyRenderPass(vk_resources->device, p_state->render_pass_cf, NULL);
     vkDestroyRenderPass(vk_resources->device, p_state->render_pass_3D, NULL);
     vkDestroyImageView(vk_resources->device, p_state->depth_view, NULL);
     vkFreeMemory(vk_resources->device, p_state->depth_mem, NULL);

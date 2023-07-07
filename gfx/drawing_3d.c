@@ -76,7 +76,7 @@ gfx_result draw_3d_scene(
                 {
                 clear_color, clear_ds
                 };
-        VkRenderPassBeginInfo render_pass_info =
+        VkRenderPassBeginInfo render_pass_3d_info =
                 {
                 .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
                 .renderPass = state->render_pass_3D,
@@ -87,7 +87,8 @@ gfx_result draw_3d_scene(
                 .framebuffer = state->framebuffers[img_index],
                 };
 
-        vkCmdBeginRenderPass(cmd_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+        //  Drawing the truss model
+        vkCmdBeginRenderPass(cmd_buffer, &render_pass_3d_info, VK_SUBPASS_CONTENTS_INLINE);
         vkCmdSetViewport(cmd_buffer, 0, 1, &state->viewport);
         vkCmdSetScissor(cmd_buffer, 0, 1, &state->scissor);
         vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, state->gfx_pipeline_3D);
@@ -98,6 +99,40 @@ gfx_result draw_3d_scene(
 
         vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, state->layout_3D, 0, 1, state->desc_set + i_frame, 0, NULL);
         vkCmdDrawIndexed(cmd_buffer, mesh->model.idx_count, mesh->count, 0, 0, 0);
+        vkCmdEndRenderPass(cmd_buffer);
+
+        //  Drawing the coordinate frame
+
+        VkRenderPassBeginInfo render_pass_cf_info =
+                {
+                        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+                        .renderPass = state->render_pass_cf,
+                        .clearValueCount = 2,
+                        .pClearValues = clear_array,
+                        .framebuffer = state->framebuffers[img_index],
+                };
+        VkExtent2D extent_cf = vk_resources->extent;
+        VkOffset2D offset_cf = { (int32_t)vk_resources->extent.width, 0 };
+
+        {
+            extent_cf.width >>= 3;
+            extent_cf.height >>= 3;
+            if (extent_cf.width > extent_cf.height)
+            {
+                extent_cf.width = extent_cf.height;
+            }
+            else
+            {
+                extent_cf.height = extent_cf.width;
+            }
+            offset_cf.x -= (int32_t)extent_cf.width;
+
+            //  Configure cf render pass
+            render_pass_cf_info.renderArea.offset = offset_cf;
+            render_pass_cf_info.renderArea.extent = extent_cf;
+        }
+        vkCmdBeginRenderPass(cmd_buffer, &render_pass_cf_info, VK_SUBPASS_CONTENTS_INLINE);
+
         vkCmdEndRenderPass(cmd_buffer);
 
         vk_res = vkEndCommandBuffer(cmd_buffer);
