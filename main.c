@@ -332,9 +332,9 @@ int main(int argc, char* argv[argc])
     }
 
 
-    u32 n_points, n_materials, n_profiles, n_elements;
+    u32 n_materials, n_profiles, n_elements;
     jio_memory_file file_points, file_materials, file_profiles, file_elements;
-    jtb_point* points;
+    jtb_point_list point_list;
     jtb_material* materials;
     jtb_profile* profiles;
     jtb_element* elements;
@@ -364,12 +364,12 @@ int main(int argc, char* argv[argc])
     lin_jfree(G_LIN_JALLOCATOR, mat_file_name);
     lin_jfree(G_LIN_JALLOCATOR, pts_file_name);
 //    jallocator_set_debug_trap(G_JALLOCATOR, 22);
-    jtb_result jtb_res = jtb_load_points(&file_points, &n_points, &points);
+    jtb_result jtb_res = jtb_load_points(&file_points, &point_list);
     if (jtb_res != JTB_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not load points");
     }
-    if (n_points < 2)
+    if (point_list.count < 2)
     {
         JDM_FATAL("At least two points should be defined");
     }
@@ -392,7 +392,7 @@ int main(int argc, char* argv[argc])
         JDM_FATAL("At least one profile should be defined");
     }
 
-    jtb_res = jtb_load_elements(&file_elements, n_points, points, n_materials, materials, n_profiles, profiles, &n_elements, &elements);
+    jtb_res = jtb_load_elements(&file_elements, &point_list, n_materials, materials, n_profiles, profiles, &n_elements, &elements);
     if (jtb_res != JTB_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not load elements");
@@ -405,7 +405,7 @@ int main(int argc, char* argv[argc])
     //  Find the bounding box of the geometry
     vec4 geo_base;
     f32 geo_radius;
-    gfx_find_bounding_sphere(n_points, points, &geo_base, &geo_radius);
+    gfx_find_bounding_sphere(&point_list, &geo_base, &geo_radius);
 
 
 
@@ -454,9 +454,10 @@ int main(int argc, char* argv[argc])
         goto cleanup;
     }
 
-    jtb_truss_mesh mesh;
+    jtb_mesh mesh;
     vulkan_state.mesh = &mesh;
-    if ((gfx_res = truss_mesh_init(&mesh, 1 << 12)) != GFX_RESULT_SUCCESS)
+    vulkan_state.point_list = &point_list;
+    if ((gfx_res = mesh_init_truss(&mesh, 1 << 4)) != GFX_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
         goto cleanup;
@@ -487,7 +488,7 @@ int main(int argc, char* argv[argc])
     for (u32 i = 0; i < n_elements; ++i)
     {
         const jtb_element element = elements[i];
-        if ((gfx_res = truss_mesh_add_between_pts(&mesh, (jfw_color){.r = 0xD0, .g = 0xD0, .b = 0xD0, .a = 0xFF}, radius_factor * (f32)sqrt(profiles[element.i_profile].area * M_1_PI), VEC4(points[element.i_point0].x, points[element.i_point0].y, points[element.i_point0].z), VEC4(points[element.i_point1].x, points[element.i_point1].y, points[element.i_point1].z), 0.0f)))
+        if ((gfx_res = truss_mesh_add_between_pts(&mesh, (jfw_color){.r = 0xD0, .g = 0xD0, .b = 0xD0, .a = 0xFF}, radius_factor * (f32)sqrt(profiles[element.i_profile].area * M_1_PI), VEC4(point_list.p_x[element.i_point0], point_list.p_y[element.i_point0], point_list.p_z[element.i_point0]), VEC4(point_list.p_x[element.i_point1], point_list.p_y[element.i_point1], point_list.p_z[element.i_point1]), 0.0f)))
         {
             JDM_ERROR("Could not add element %"PRIu32" to the mesh, reason: %s", i, gfx_result_to_str(gfx_res));
             goto cleanup;
@@ -532,7 +533,7 @@ int main(int argc, char* argv[argc])
     vulkan_state.buffer_vtx_mod = vtx_buffer_allocation_model;
     vulkan_state.buffer_idx = idx_buffer_allocation;
 
-    gfx_convert_points_to_geometry_contents(n_points, points, &vulkan_state.geometry);
+    printf("Total of %"PRIu64" triangles in the mesh\n", mesh_polygon_count(&mesh));
 
     jfw_window_set_usr_ptr(jwnd, &vulkan_state);
     jfw_widget* jwidget;
@@ -560,9 +561,9 @@ int main(int argc, char* argv[argc])
             );
 #ifndef NDEBUG
     f32 min = +INFINITY, max = -INFINITY;
-    for (u32 i = 0; i < n_points; ++i)
+    for (u32 i = 0; i < point_list.count; ++i)
     {
-        vec4 p = VEC4(points[i].x, points[i].y, points[i].z);
+        vec4 p = VEC4(point_list.p_x[i], point_list.p_y[i], point_list.p_z[i]);
         p = vec4_sub(p, camera.position);
         f32 d = vec4_dot(p, camera.uz);
         if (d < min)
@@ -606,7 +607,11 @@ cleanup:
     jfree(G_JALLOCATOR, elements);
     jfree(G_JALLOCATOR, profiles);
     jfree(G_JALLOCATOR, materials);
-    jfree(G_JALLOCATOR, points);
+    jfree(G_JALLOCATOR, point_list.p_x);
+    jfree(G_JALLOCATOR, point_list.p_y);
+    jfree(G_JALLOCATOR, point_list.p_z);
+    jfree(G_JALLOCATOR, point_list.label);
+    jfree(G_JALLOCATOR, point_list.max_radius);
     jio_memory_file_destroy(&file_elements);
     jio_memory_file_destroy(&file_profiles);
     jio_memory_file_destroy(&file_materials);

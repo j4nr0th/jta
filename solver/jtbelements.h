@@ -24,6 +24,8 @@ struct jtb_element_struct
 };
 
 
-jtb_result jtb_load_elements(const jio_memory_file* mem_file, u32 n_pts, const jtb_point* points, u32 n_mat, const jtb_material* materials, u32 n_pro, const jtb_profile* profiles, u32* n_elm, jtb_element** pp_elements);
+jtb_result jtb_load_elements(
+        const jio_memory_file* mem_file, const jtb_point_list* points, u32 n_mat, const jtb_material* materials,
+        u32 n_pro, const jtb_profile* profiles, u32* n_elm, jtb_element** pp_elements);
 
 #endif //JTB_JTBELEMENTS_H

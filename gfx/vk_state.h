@@ -39,7 +39,7 @@ struct vk_state_struct
     VkFormat depth_format;
     void* mesh;
     mtx4 view;
-    geometry_contents geometry;
+    const jtb_point_list* point_list;
 };
 
 gfx_result vk_state_create(vk_state* p_state, const jfw_window_vk_resources* vk_resources);

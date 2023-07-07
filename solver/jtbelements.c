@@ -20,8 +20,7 @@ struct element_parse_data_struct
 {
     uint32_t count;
     jtb_element* elements;
-    const u32 n_pts;
-    const jtb_point* p_pts;
+    const jtb_point_list* p_pts;
     const u32 n_mat;
     const jtb_material* p_mat;
     const u32 n_pro;
@@ -86,9 +85,9 @@ static bool converter_point0_label_function(jio_string_segment* v, void* param)
 {
     JDM_ENTER_FUNCTION;
     element_parse_data* const data = (element_parse_data*)param;
-    for (uint32_t i = 0; i < data->n_pts; ++i)
+    for (uint32_t i = 0; i < data->p_pts->count; ++i)
     {
-        if (string_segment_equal(&data->p_pts[i].label, v))
+        if (string_segment_equal(data->p_pts->label + i, v))
         {
             data->elements[data->count++].i_point0 = i;
             JDM_LEAVE_FUNCTION;
@@ -104,9 +103,9 @@ static bool converter_point1_label_function(jio_string_segment* v, void* param)
 {
     JDM_ENTER_FUNCTION;
     element_parse_data* const data = (element_parse_data*)param;
-    for (uint32_t i = 0; i < data->n_pts; ++i)
+    for (uint32_t i = 0; i < data->p_pts->count; ++i)
     {
-        if (string_segment_equal(&data->p_pts[i].label, v))
+        if (string_segment_equal(data->p_pts->label + i, v))
         {
             data->elements[data->count++].i_point1 = i;
             JDM_LEAVE_FUNCTION;
@@ -128,7 +127,7 @@ static bool (*converter_functions[])(jio_string_segment* v, void* param) =
         };
 
 jtb_result jtb_load_elements(
-        const jio_memory_file* mem_file, u32 n_pts, const jtb_point* points, u32 n_mat, const jtb_material* materials,
+        const jio_memory_file* mem_file, const jtb_point_list* points, u32 n_mat, const jtb_material* materials,
         u32 n_pro, const jtb_profile* profiles, u32* n_elm, jtb_element** pp_elements)
 {
     JDM_ENTER_FUNCTION;
@@ -150,11 +149,11 @@ jtb_result jtb_load_elements(
     }
     element_parse_data parse_data[] =
             {
-                    {.elements = element_array, .count = 0, .n_pts = n_pts, .n_pro = n_pro, .n_mat = n_mat, .p_pts = points, .p_mat = materials, .p_pro = profiles},
-                    {.elements = element_array, .count = 0, .n_pts = n_pts, .n_pro = n_pro, .n_mat = n_mat, .p_pts = points, .p_mat = materials, .p_pro = profiles},
-                    {.elements = element_array, .count = 0, .n_pts = n_pts, .n_pro = n_pro, .n_mat = n_mat, .p_pts = points, .p_mat = materials, .p_pro = profiles},
-                    {.elements = element_array, .count = 0, .n_pts = n_pts, .n_pro = n_pro, .n_mat = n_mat, .p_pts = points, .p_mat = materials, .p_pro = profiles},
-                    {.elements = element_array, .count = 0, .n_pts = n_pts, .n_pro = n_pro, .n_mat = n_mat, .p_pts = points, .p_mat = materials, .p_pro = profiles},
+                    {.elements = element_array, .count = 0, .n_pro = n_pro, .n_mat = n_mat, .p_pts = points, .p_mat = materials, .p_pro = profiles},
+                    {.elements = element_array, .count = 0, .n_pro = n_pro, .n_mat = n_mat, .p_pts = points, .p_mat = materials, .p_pro = profiles},
+                    {.elements = element_array, .count = 0, .n_pro = n_pro, .n_mat = n_mat, .p_pts = points, .p_mat = materials, .p_pro = profiles},
+                    {.elements = element_array, .count = 0, .n_pro = n_pro, .n_mat = n_mat, .p_pts = points, .p_mat = materials, .p_pro = profiles},
+                    {.elements = element_array, .count = 0, .n_pro = n_pro, .n_mat = n_mat, .p_pts = points, .p_mat = materials, .p_pro = profiles},
             };
     void* param_array[] = {parse_data + 0, parse_data + 1, parse_data + 2, parse_data + 3, parse_data + 4};
     jio_res = jio_process_csv_exact(mem_file, ",", ELEMENT_FILE_HEADER_COUNT, ELEMENT_FILE_HEADERS, converter_functions, param_array, G_LIN_JALLOCATOR);

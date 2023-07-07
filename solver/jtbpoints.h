@@ -9,15 +9,17 @@
 #include "../common/common.h"
 #include "jtberr.h"
 
-typedef struct jtb_point_struct jtb_point;
-struct jtb_point_struct
+typedef struct jtb_point_list_struct jtb_point_list;
+struct jtb_point_list_struct
 {
-    f64 x;
-    f64 y;
-    f64 z;
-    jio_string_segment label;
+    uint32_t count;
+    f32* p_x;
+    f32* p_y;
+    f32* p_z;
+    f32* max_radius;
+    jio_string_segment* label;
 };
 
-jtb_result jtb_load_points(const jio_memory_file* mem_file, u32* n_pts, jtb_point** pp_points);
+jtb_result jtb_load_points(const jio_memory_file* mem_file, jtb_point_list* p_list);
 
 #endif //JTB_JTBPOINTS_H

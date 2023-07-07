@@ -563,7 +563,7 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
                 .rasterizerDiscardEnable = VK_FALSE,
                 .polygonMode = VK_POLYGON_MODE_FILL,
                 .lineWidth = 1.0f,
-                .cullMode = VK_CULL_MODE_NONE, //VK_CULL_MODE_BACK_BIT,
+                .cullMode = VK_CULL_MODE_BACK_BIT,
                 .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
                 .depthBiasEnable = VK_FALSE,
                 };
@@ -607,6 +607,8 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
                 .depthWriteEnable = VK_TRUE,
                 .depthCompareOp = VK_COMPARE_OP_LESS,
                 .depthBoundsTestEnable = VK_FALSE,
+                .maxDepthBounds = 1.0f,
+                .minDepthBounds = 0.001f,
                 .stencilTestEnable = VK_FALSE,
                 };
         VkGraphicsPipelineCreateInfo create_info =
