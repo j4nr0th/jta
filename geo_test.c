@@ -248,7 +248,7 @@ int main()
 
     jtb_truss_mesh mesh;
     mesh_init_truss(&mesh, 8);
-    truss_mesh_add_between_pts(&mesh, (jfw_color){}, 0.001f, VEC4(0, 0, 0), VEC4(0, 0, 0.01), 0.0f);
+    truss_mesh_add_between_pts(&mesh, (jfw_color) {}, 0.001f, VEC4(0, 0, 0), VEC4(0, 0, 0.01), 0.0f, NULL);
     print_matrix(mesh.model_matrices[0]);
     printf("\n");
     print_vec(mtx4_vector_mul(mesh.model_matrices[0], VEC4(0, 0, 1)));

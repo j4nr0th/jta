@@ -18,9 +18,9 @@
 
 
 
-gfx_result draw_3d_scene(
-        jfw_window* wnd, vk_state* state, jfw_window_vk_resources* vk_resources, vk_buffer_allocation* p_buffer_geo,
-        vk_buffer_allocation* p_buffer_mod, const jtb_mesh* mesh,
+gfx_result
+draw_frame(
+        vk_state* state, jfw_window_vk_resources* vk_resources, u32 n_meshes, jtb_mesh** meshes,
         const jtb_camera_3d* camera);
 
 

@@ -6,24 +6,36 @@
 #include <jdm.h>
 #include "drawing_3d.h"
 #include "camera.h"
+#include <inttypes.h>
 
-gfx_result draw_3d_scene(
-        jfw_window* wnd, vk_state* state, jfw_window_vk_resources* vk_resources, vk_buffer_allocation* p_buffer_geo,
-        vk_buffer_allocation* p_buffer_mod, const jtb_mesh* mesh, const jtb_camera_3d* camera)
+gfx_result
+draw_frame(
+        vk_state* state, jfw_window_vk_resources* vk_resources, u32 n_meshes, jtb_mesh** meshes,
+        const jtb_camera_3d* camera)
 {
-    assert(p_buffer_geo);
-    assert(p_buffer_mod);
-    assert(mesh);
-    const jfw_window_vk_resources* ctx = jfw_window_get_vk_resources(wnd);
+    assert(meshes);
+    for (u32 i = 0; i < n_meshes; ++i)
+    {
+        jtb_mesh* mesh = meshes[i];
+        if (mesh->up_to_date == 0)
+        {
+            gfx_result res = jtb_mesh_update_instance(mesh, vk_resources, state);
+            if (res != GFX_RESULT_SUCCESS)
+            {
+                JDM_ERROR("Could not update mesh %"PRIu32" instance data, reason: %s", i, gfx_result_to_str(res));
+            }
+        }
+    }
+
     u32 i_frame = state->frame_index;
-    VkResult vk_res =  vkWaitForFences(ctx->device, 1, ctx->swap_fences + i_frame, VK_TRUE, UINT64_MAX);
+    VkResult vk_res =  vkWaitForFences(vk_resources->device, 1, vk_resources->swap_fences + i_frame, VK_TRUE, UINT64_MAX);
     if (vk_res != VK_SUCCESS)
     {
         JDM_ERROR("Failed waiting for the fence for swapchain: %s", jfw_vk_error_msg(vk_res));
         return GFX_RESULT_BAD_SWAPCHAIN_WAIT;
     }
     u32 img_index;
-    vk_res = vkAcquireNextImageKHR(ctx->device, ctx->swapchain, UINT64_MAX, ctx->sem_img_available[i_frame], VK_NULL_HANDLE, &img_index);
+    vk_res = vkAcquireNextImageKHR(vk_resources->device, vk_resources->swapchain, UINT64_MAX, vk_resources->sem_img_available[i_frame], VK_NULL_HANDLE, &img_index);
     if (vk_res != VK_SUCCESS)
     {
         JDM_ERROR("Failed acquiring next image in the swapchain: %s", jfw_vk_error_msg(vk_res));
@@ -40,13 +52,13 @@ gfx_result draw_3d_scene(
     }
 
 
-    vk_res = vkResetFences(ctx->device, 1, ctx->swap_fences + i_frame);
+    vk_res = vkResetFences(vk_resources->device, 1, vk_resources->swap_fences + i_frame);
     if (vk_res != VK_SUCCESS)
     {
         JDM_ERROR("Failed resetting fence for swapchain: %s", jfw_vk_error_msg(vk_res));
         return GFX_RESULT_BAD_FENCE_RESET;
     }
-    vk_res = vkResetCommandBuffer(ctx->cmd_buffers[i_frame], 0);
+    vk_res = vkResetCommandBuffer(vk_resources->cmd_buffers[i_frame], 0);
     if (vk_res != VK_SUCCESS)
     {
         JDM_ERROR("Failed resetting command buffer for swapchain: %s", jfw_vk_error_msg(vk_res));
@@ -92,13 +104,17 @@ gfx_result draw_3d_scene(
         vkCmdSetViewport(cmd_buffer, 0, 1, &state->viewport);
         vkCmdSetScissor(cmd_buffer, 0, 1, &state->scissor);
         vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, state->gfx_pipeline_3D);
-        VkBuffer buffers[2] = {p_buffer_geo->buffer, p_buffer_mod->buffer};
-        VkDeviceSize offsets[2] = { p_buffer_geo->offset, p_buffer_mod->offset};
-        vkCmdBindVertexBuffers(cmd_buffer, 0, 2, buffers, offsets);
-        vkCmdBindIndexBuffer(cmd_buffer, state->buffer_idx.buffer, state->buffer_idx.offset, VK_INDEX_TYPE_UINT16);
-
-        vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, state->layout_3D, 0, 1, state->desc_set + i_frame, 0, NULL);
-        vkCmdDrawIndexed(cmd_buffer, mesh->model.idx_count, mesh->count, 0, 0, 0);
+        for (u32 i = 0; i < n_meshes; ++i)
+        {
+            const jtb_mesh* mesh = meshes[i];
+            if (mesh->count == 0) continue;
+            VkBuffer buffers[2] = { mesh->common_geometry_vtx.buffer, mesh->instance_memory.buffer};
+            VkDeviceSize offsets[2] = { mesh->common_geometry_vtx.offset, mesh->instance_memory.offset};
+            vkCmdBindVertexBuffers(cmd_buffer, 0, 2, buffers, offsets);
+            vkCmdBindIndexBuffer(cmd_buffer, mesh->common_geometry_idx.buffer, mesh->common_geometry_idx.offset, VK_INDEX_TYPE_UINT16);
+            vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, state->layout_3D, 0, 1, state->desc_set + i_frame, 0, NULL);
+            vkCmdDrawIndexed(cmd_buffer, mesh->model.idx_count, mesh->count, 0, 0, 0);
+        }
         vkCmdEndRenderPass(cmd_buffer);
 
         //  Drawing the coordinate frame
@@ -162,14 +178,14 @@ gfx_result draw_3d_scene(
             {
                     .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
                     .commandBufferCount = 1,
-                    .pCommandBuffers = ctx->cmd_buffers + i_frame,
+                    .pCommandBuffers = vk_resources->cmd_buffers + i_frame,
                     .signalSemaphoreCount = 1,
-                    .pSignalSemaphores = ctx->sem_present + i_frame,
+                    .pSignalSemaphores = vk_resources->sem_present + i_frame,
                     .waitSemaphoreCount = 1,
-                    .pWaitSemaphores = ctx->sem_img_available + i_frame,
+                    .pWaitSemaphores = vk_resources->sem_img_available + i_frame,
                     .pWaitDstStageMask = stage_flags,
             };
-    vk_res = vkQueueSubmit(ctx->queue_gfx, 1, &submit_info, ctx->swap_fences[i_frame]);
+    vk_res = vkQueueSubmit(vk_resources->queue_gfx, 1, &submit_info, vk_resources->swap_fences[i_frame]);
 //    assert(vk_res == VK_SUCCESS);
     if (vk_res != VK_SUCCESS)
     {
@@ -180,13 +196,13 @@ gfx_result draw_3d_scene(
             {
                     .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
                     .swapchainCount = 1,
-                    .pSwapchains = &ctx->swapchain,
+                    .pSwapchains = &vk_resources->swapchain,
                     .pImageIndices = &img_index,
                     .waitSemaphoreCount = 1,
-                    .pWaitSemaphores = ctx->sem_present + i_frame,
+                    .pWaitSemaphores = vk_resources->sem_present + i_frame,
             };
-    vk_res = vkQueuePresentKHR(ctx->queue_present, &present_info);
-    state->frame_index = (i_frame + 1) % ctx->n_frames_in_flight;
+    vk_res = vkQueuePresentKHR(vk_resources->queue_present, &present_info);
+    state->frame_index = (i_frame + 1) % vk_resources->n_frames_in_flight;
     switch (vk_res)
     {
     case VK_SUCCESS:

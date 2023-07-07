@@ -28,9 +28,8 @@ static jfw_res widget_draw(jfw_widget* this)
 {
     jtb_draw_state* const draw_state = jfw_widget_get_user_pointer(this);
     vk_state* const state = draw_state->vulkan_state;
-    return draw_3d_scene(
-            this->window, state, jfw_window_get_vk_resources(this->window), &state->buffer_vtx_geo,
-            &state->buffer_vtx_mod, state->mesh, &draw_state->camera) == GFX_RESULT_SUCCESS ? jfw_res_success : jfw_res_error;
+    return draw_frame(
+            state, jfw_window_get_vk_resources(this->window), state->mesh_count, state->mesh_array, &draw_state->camera) == GFX_RESULT_SUCCESS ? jfw_res_success : jfw_res_error;
 }
 
 static jfw_res widget_dtor(jfw_widget* this)
@@ -432,6 +431,7 @@ int main(int argc, char* argv[argc])
                                            );
     if (!jfw_success(jfw_result))
     {
+        JDM_ERROR("Could not create jfw context, reason: %s", jfw_error_message(jfw_result));
         goto cleanup;
     }
     jfw_result = jfw_window_create(
@@ -454,86 +454,89 @@ int main(int argc, char* argv[argc])
         goto cleanup;
     }
 
-    jtb_mesh mesh;
-    vulkan_state.mesh = &mesh;
+    jtb_mesh truss_mesh;
+//    jtb_mesh sphere_mesh;
+//    vulkan_state.mesh_count = 1;
+//    vulkan_state.mesh_array = &truss_mesh;
     vulkan_state.point_list = &point_list;
-    if ((gfx_res = mesh_init_truss(&mesh, 1 << 4)) != GFX_RESULT_SUCCESS)
+    if ((gfx_res = mesh_init_truss(&truss_mesh, 1 << 4, &vulkan_state, vk_res)) != GFX_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
         goto cleanup;
     }
-    
-    //  These are the coordinate axis
-    //  Can take these values from the config later
-    f32 axis_length_fraction = 0.1f;    //  fraction of geo_radius
-    f32 axis_radius_fraction = 0.001f;  //  fraction of length
-    if ((gfx_res = truss_mesh_add_between_pts(&mesh, (jfw_color){.r = 0xFF, .a = 0xFF}, axis_radius_fraction * axis_length_fraction * geo_radius, VEC4(0, 0, 0), VEC4(axis_length_fraction * geo_radius, 0, 0), 0.0f)) != GFX_RESULT_SUCCESS)
-    {
-        JDM_ERROR("Could not add a new truss to the mesh: %s", gfx_result_to_str(gfx_res));
-        goto cleanup;
-    }
-    if ((gfx_res = truss_mesh_add_between_pts(&mesh, (jfw_color){.g = 0xFF, .a = 0xFF}, axis_radius_fraction * axis_length_fraction * geo_radius, VEC4(0, 0, 0), VEC4(0, axis_length_fraction * geo_radius, 0), 0.0f)) != GFX_RESULT_SUCCESS)
-    {
-        JDM_ERROR("Could not add a new truss to the mesh: %s", gfx_result_to_str(gfx_res));
-        goto cleanup;
-    }
-    if ((gfx_res = truss_mesh_add_between_pts(&mesh, (jfw_color){.b = 0xFF, .a = 0xFF}, axis_radius_fraction * axis_length_fraction * geo_radius, VEC4(0, 0, 0), VEC4(0, 0, axis_length_fraction * geo_radius), 0.0f)) != GFX_RESULT_SUCCESS)
-    {
-        JDM_ERROR("Could not add a new truss to the mesh: %s", gfx_result_to_str(gfx_res));
-        goto cleanup;
-    }
-    
+//    if ((gfx_res = mesh_init_sphere(&sphere_mesh, 1 << 4, 1 << 4, &vulkan_state, vk_res)) != GFX_RESULT_SUCCESS)
+//    {
+//        JDM_ERROR("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
+//        goto cleanup;
+//    }
+
+
     //  This is the truss mesh :)
     f32 radius_factor = 1.0f;  //  This could be a config option
     for (u32 i = 0; i < n_elements; ++i)
     {
         const jtb_element element = elements[i];
-        if ((gfx_res = truss_mesh_add_between_pts(&mesh, (jfw_color){.r = 0xD0, .g = 0xD0, .b = 0xD0, .a = 0xFF}, radius_factor * profile_list.equivalent_radius[element.i_profile], VEC4(point_list.p_x[element.i_point0], point_list.p_y[element.i_point0], point_list.p_z[element.i_point0]), VEC4(point_list.p_x[element.i_point1], point_list.p_y[element.i_point1], point_list.p_z[element.i_point1]), 0.0f)))
+        if ((gfx_res = truss_mesh_add_between_pts(
+                &truss_mesh, (jfw_color) { .r = 0xD0, .g = 0xD0, .b = 0xD0, .a = 0xFF },
+                radius_factor * profile_list.equivalent_radius[element.i_profile],
+                VEC4(point_list.p_x[element.i_point0], point_list.p_y[element.i_point0],
+                     point_list.p_z[element.i_point0]), VEC4(point_list.p_x[element.i_point1],
+                                                             point_list.p_y[element.i_point1],
+                                                             point_list.p_z[element.i_point1]), 0.0f, &vulkan_state)) != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not add element %"PRIu32" to the mesh, reason: %s", i, gfx_result_to_str(gfx_res));
             goto cleanup;
         }
     }
+
+//    for (u32 i = 0; i < point_list.count; ++i)
+//    {
+//        if ((gfx_res = sphere_mesh_add(&sphere_mesh, (jfw_color){.r = 0x80, .g = 0x80, .b = 0x80, .a = 0xFF}, point_list.max_radius[i], VEC4(point_list.p_x[i], point_list.p_y[i], point_list.p_z[i]), &vulkan_state)) != GFX_RESULT_SUCCESS)
+//        {
+//            JDM_ERROR("Could not add node %"PRIu32" to the mesh, reason: %s", i, gfx_result_to_str(gfx_res));
+//            goto cleanup;
+//        }
+//    }
+    jtb_mesh* meshes[] = {
+            &truss_mesh,
+//            &sphere_mesh
+    };
+    vulkan_state.mesh_count = 1;
+    vulkan_state.mesh_array = meshes;
     
 
-    vk_buffer_allocation vtx_buffer_allocation_geometry, vtx_buffer_allocation_model, idx_buffer_allocation;
-    i32 res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(jtb_vertex) * mesh.model.vtx_count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &vtx_buffer_allocation_geometry);
-    if (res_v < 0)
-    {
-        JDM_ERROR("Could not allocate geometry vertex buffer memory");
-        goto cleanup;
-    }
-    vk_transfer_memory_to_buffer(vk_res, &vulkan_state, &vtx_buffer_allocation_geometry, sizeof(jtb_vertex) * mesh.model.vtx_count, mesh.model.vtx_array);
+//    vk_buffer_allocation vtx_buffer_allocation_geometry, vtx_buffer_allocation_model, idx_buffer_allocation;
+//    i32 res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(jtb_vertex) * mesh.model.vtx_count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &vtx_buffer_allocation_geometry);
+//    if (res_v < 0)
+//    {
+//        JDM_ERROR("Could not allocate geometry vertex buffer memory");
+//        goto cleanup;
+//    }
+//    vk_transfer_memory_to_buffer(vk_res, &vulkan_state, &vtx_buffer_allocation_geometry, sizeof(jtb_vertex) * mesh.model.vtx_count, mesh.model.vtx_array);
+//
+//    res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(*mesh.model.idx_array) * mesh.model.idx_count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &idx_buffer_allocation);
+//    if (res_v < 0)
+//    {
+//        JDM_ERROR("Could not allocate index buffer memory");
+//        goto cleanup;
+//    }
+//    vk_transfer_memory_to_buffer(vk_res, &vulkan_state, &idx_buffer_allocation, sizeof(*mesh.model.idx_array) * mesh.model.idx_count, mesh.model.idx_array);
+//
+//    res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(jtb_model_data) * mesh.count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &vtx_buffer_allocation_model);
+//    if (res_v < 0)
+//    {
+//        JDM_ERROR("Could not allocate instance buffer memory");
+//        goto cleanup;
+//    }
+//
+//    vk_transfer_memory_to_buffer(vk_res, &vulkan_state, &vtx_buffer_allocation_model, sizeof(jtb_model_data) * mesh.count, mesh.model_data);
+//    vkWaitForFences(vk_res->device, 1, &vulkan_state.fence_transfer_free, VK_TRUE, UINT64_MAX);
 
-    res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(*mesh.model.idx_array) * mesh.model.idx_count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &idx_buffer_allocation);
-    if (res_v < 0)
-    {
-        JDM_ERROR("Could not allocate index buffer memory");
-        goto cleanup;
-    }
-    vk_transfer_memory_to_buffer(vk_res, &vulkan_state, &idx_buffer_allocation, sizeof(*mesh.model.idx_array) * mesh.model.idx_count, mesh.model.idx_array);
+//    vulkan_state.buffer_vtx_geo = vtx_buffer_allocation_geometry;
+//    vulkan_state.buffer_vtx_mod = vtx_buffer_allocation_model;
+//    vulkan_state.buffer_idx = idx_buffer_allocation;
 
-    res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(jtb_model_data) * mesh.count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &vtx_buffer_allocation_model);
-    if (res_v < 0)
-    {
-        JDM_ERROR("Could not allocate index buffer memory");
-        goto cleanup;
-    }
-    jtb_model_data* model_data = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*model_data) * mesh.count);
-    for (u32 i = 0; i < mesh.count; ++i)
-    {
-        model_data[i] = jtb_truss_convert_model_data(mesh.model_matrices[i], mesh.normal_matrices[i], mesh.colors[i]);
-    }
-    vk_transfer_memory_to_buffer(vk_res, &vulkan_state, &vtx_buffer_allocation_model, sizeof(jtb_model_data) * mesh.count, model_data);
-    lin_jfree(G_LIN_JALLOCATOR, model_data);
-
-    vkWaitForFences(vk_res->device, 1, &vulkan_state.fence_transfer_free, VK_TRUE, UINT64_MAX);
-
-    vulkan_state.buffer_vtx_geo = vtx_buffer_allocation_geometry;
-    vulkan_state.buffer_vtx_mod = vtx_buffer_allocation_model;
-    vulkan_state.buffer_idx = idx_buffer_allocation;
-
-    printf("Total of %"PRIu64" triangles in the mesh\n", mesh_polygon_count(&mesh));
+    printf("Total of %"PRIu64" triangles in the mesh\n", mesh_polygon_count(&truss_mesh));
 
     jfw_window_set_usr_ptr(jwnd, &vulkan_state);
     jfw_widget* jwidget;

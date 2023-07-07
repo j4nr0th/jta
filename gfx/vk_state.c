@@ -898,13 +898,21 @@ after_depth:
 gfx_result vk_transfer_memory_to_buffer(
         jfw_window_vk_resources* vk_resources, vk_state* p_state, vk_buffer_allocation* buffer, size_t size, void* data)
 {
+    JDM_ENTER_FUNCTION;
     assert(size <= p_state->buffer_transfer.size);
-    vkWaitForFences(vk_resources->device, 1, &p_state->fence_transfer_free, VK_TRUE, UINT64_MAX);
+    VkResult vk_res = vkWaitForFences(vk_resources->device, 1, &p_state->fence_transfer_free, VK_TRUE, UINT64_MAX);
     vkResetFences(vk_resources->device, 1, &p_state->fence_transfer_free);
+    if (vk_res != VK_SUCCESS)
+    {
+        JDM_ERROR("Could not wait for transfer buffer fence, reason: %s", jfw_vk_error_msg(vk_res));
+        JDM_LEAVE_FUNCTION;
+        return GFX_RESULT_BAD_FENCE_WAIT;
+    }
     void* mapped_memory = vk_map_allocation(&p_state->buffer_transfer);
     if (!mapped_memory)
     {
         JDM_ERROR("Could not map buffer to memory");
+        JDM_LEAVE_FUNCTION;
         return GFX_RESULT_MAP_FAILED;
     }
     memcpy(mapped_memory, data, size);
@@ -915,16 +923,18 @@ gfx_result vk_transfer_memory_to_buffer(
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
             .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
             };
-    VkResult vk_res = vkResetCommandBuffer(cmd_buffer, 0);
+    vk_res = vkResetCommandBuffer(cmd_buffer, 0);
     if (vk_res != VK_SUCCESS)
     {
         JDM_ERROR("Could not begin reset the command buffer, reason: %s", jfw_vk_error_msg(vk_res));
+        JDM_LEAVE_FUNCTION;
         return GFX_RESULT_BAD_CMDBUF_RESET;
     }
     vk_res = vkBeginCommandBuffer(cmd_buffer, &begin_info);
     if (vk_res != VK_SUCCESS)
     {
         JDM_ERROR("Could not begin recording of the command transfer buffer, reason: %s", jfw_vk_error_msg(vk_res));
+        JDM_LEAVE_FUNCTION;
         return GFX_RESULT_BAD_CMDBUF_RESET;
     }
     const VkBufferCopy buffer_copy_info =
@@ -942,6 +952,7 @@ gfx_result vk_transfer_memory_to_buffer(
             .pCommandBuffers = &cmd_buffer,
             };
     vkQueueSubmit(vk_resources->queue_transfer, 1, &submit_info, p_state->fence_transfer_free);
+    JDM_LEAVE_FUNCTION;
     return GFX_RESULT_SUCCESS;
 }
 

@@ -31,6 +31,7 @@ static const char* const jio_result_strings[GFX_RESULT_COUNT] =
                 [GFX_RESULT_NO_FENCE] = "Fence creation failed",
                 [GFX_RESULT_NO_DESC_POOL] = "Descriptor pool failed",
                 [GFX_RESULT_MAP_FAILED] = "Mapping the memory failed",
+                [GFX_RESULT_BAD_FENCE_WAIT] = "Could not wait for fence",
         };
 
 const char* gfx_result_to_str(gfx_result res)

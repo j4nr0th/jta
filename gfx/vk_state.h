@@ -27,7 +27,7 @@ struct vk_state_struct
     VkPipelineLayout layout_UI;
     VkPipeline gfx_pipeline_UI;
     vk_buffer_allocator* buffer_allocator;
-    vk_buffer_allocation buffer_vtx_geo, buffer_vtx_mod, buffer_idx, buffer_transfer, buffer_uniform;
+    vk_buffer_allocation buffer_transfer, buffer_uniform;
     VkFence fence_transfer_free;
     VkDescriptorSetLayout ubo_layout;
     ubo_3d** p_mapped_array;
@@ -37,7 +37,8 @@ struct vk_state_struct
     VkImage depth_img;
     VkDeviceMemory depth_mem;
     VkFormat depth_format;
-    void* mesh;
+    u32 mesh_count;
+    void* mesh_array;
     mtx4 view;
     const jtb_point_list* point_list;
 };

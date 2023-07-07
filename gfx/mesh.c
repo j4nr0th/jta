@@ -3,8 +3,55 @@
 //
 
 #include "mesh.h"
+#include "vk_state.h"
 #include <jdm.h>
 
+static gfx_result mesh_allocate_vulkan_memory(vk_state* state, jtb_mesh* mesh, jfw_window_vk_resources* resources)
+{
+    vk_buffer_allocation vtx_allocation, idx_allocation, mod_allocation;
+    const jtb_model* const model = &mesh->model;
+    i32 res = vk_buffer_allocate(state->buffer_allocator, 1, model->vtx_count * sizeof(*model->vtx_array), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &vtx_allocation);
+    if (res < 0)
+    {
+        JDM_ERROR("Could not allocate buffer memory for mesh vertex buffer");
+        return GFX_RESULT_BAD_ALLOC;
+    }
+    gfx_result gfx_res;
+    if ((gfx_res = vk_transfer_memory_to_buffer(resources, state, &vtx_allocation, sizeof(jtb_vertex) * mesh->model.vtx_count, mesh->model.vtx_array)) != GFX_RESULT_SUCCESS)
+    {
+        vk_buffer_deallocate(state->buffer_allocator, &vtx_allocation);
+        JDM_ERROR("Could not transfer model vertex data, reason: %s", gfx_result_to_str(gfx_res));
+        return gfx_res;
+    }
+    res = vk_buffer_allocate(state->buffer_allocator, 1, model->idx_count * sizeof(*model->idx_array), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                                     VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &idx_allocation);
+    if (res < 0)
+    {
+        vk_buffer_deallocate(state->buffer_allocator, &vtx_allocation);
+        JDM_ERROR("Could not allocate buffer memory for mesh vertex buffer");
+        return GFX_RESULT_BAD_ALLOC;
+    }
+    if ((gfx_res = vk_transfer_memory_to_buffer(resources, state, &idx_allocation, model->idx_count * sizeof(*model->idx_array), model->idx_array)) != GFX_RESULT_SUCCESS)
+    {
+        vk_buffer_deallocate(state->buffer_allocator, &idx_allocation);
+        vk_buffer_deallocate(state->buffer_allocator, &vtx_allocation);
+        JDM_ERROR("Could not transfer model index data, reason: %s", gfx_result_to_str(gfx_res));
+        return gfx_res;
+    }
+    res = vk_buffer_allocate(state->buffer_allocator, 1, mesh->capacity * sizeof(*mesh->model_data), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                             VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &mod_allocation);
+    if (res < 0)
+    {
+        vk_buffer_deallocate(state->buffer_allocator, &vtx_allocation);
+        vk_buffer_deallocate(state->buffer_allocator, &idx_allocation);
+        JDM_ERROR("Could not allocate buffer memory for model data buffer");
+        return GFX_RESULT_BAD_ALLOC;
+    }
+    mesh->instance_memory = mod_allocation;
+    mesh->common_geometry_idx = idx_allocation;
+    mesh->common_geometry_vtx = vtx_allocation;
+    return GFX_RESULT_SUCCESS;
+}
 
 static gfx_result clean_mesh_model(jtb_model* model)
 {
@@ -74,86 +121,93 @@ static gfx_result generate_truss_model(jtb_model* const p_out, const u16 pts_per
 
 const u64 DEFAULT_MESH_CAPACITY = 64;
 
-gfx_result mesh_init_truss(jtb_mesh* mesh, u16 pts_per_side)
+gfx_result mesh_init_truss(jtb_mesh* mesh, u16 pts_per_side, vk_state* state, jfw_window_vk_resources* resources)
 {
+    JDM_ENTER_FUNCTION;
     jfw_res res;
+    mesh->name = "truss";
+    mesh->up_to_date = false;
     gfx_result gfx_res;
     if ((gfx_res = generate_truss_model(&mesh->model, pts_per_side)) != GFX_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not generate a truss model for a mesh");
+        JDM_LEAVE_FUNCTION;
         return gfx_res;
     }
     mesh->count = 0;
     mesh->capacity = DEFAULT_MESH_CAPACITY;
-    if (!jfw_success(res = jfw_calloc(mesh->capacity, sizeof(*mesh->colors), &mesh->colors)))
+
+    if (!jfw_success(res = jfw_calloc(mesh->capacity, sizeof(*mesh->model_data), &mesh->model_data)))
     {
-        JDM_ERROR("Could not allocate memory for mesh color array, reason: %s", jfw_error_message(res));
+        JDM_ERROR("Could not allocate memory for mesh model array, reason: %s", jfw_error_message(res));
         clean_mesh_model(&mesh->model);
         return GFX_RESULT_BAD_ALLOC;
     }
 
-    if (!jfw_success(res = jfw_calloc(mesh->capacity, sizeof(*mesh->model_matrices), &mesh->model_matrices)))
+
+    if ((gfx_res = mesh_allocate_vulkan_memory(state, mesh, resources)) != GFX_RESULT_SUCCESS)
     {
-        JDM_ERROR("Could not allocate memory for mesh model matrix array, reason: %s", jfw_error_message(res));
-        jfw_free(&mesh->colors);
         clean_mesh_model(&mesh->model);
-        return GFX_RESULT_BAD_ALLOC;
+        jfw_free(&mesh->model_data);
+        JDM_ERROR("Could not allocate vulkan memory for the truss mesh");
+        JDM_LEAVE_FUNCTION;
+        return gfx_res;
     }
 
-    if (!jfw_success(res = jfw_calloc(mesh->capacity, sizeof(*mesh->normal_matrices), &mesh->normal_matrices)))
-    {
-        JDM_ERROR("Could not allocate memory for mesh normal matrix array, reason: %s", jfw_error_message(res));
-        jfw_free(&mesh->colors);
-        jfw_free(&mesh->model_matrices);
-        clean_mesh_model(&mesh->model);
-        return GFX_RESULT_BAD_ALLOC;
-    }
-
+    JDM_LEAVE_FUNCTION;
     return GFX_RESULT_SUCCESS;
 }
 
 gfx_result mesh_uninit(jtb_mesh* mesh)
 {
-    jfw_free(&mesh->model_matrices);
-    jfw_free(&mesh->colors);
+    jfw_free(&mesh->model_data);
     clean_mesh_model(&mesh->model);
     return GFX_RESULT_SUCCESS;
 }
 
-static gfx_result truss_mesh_add_new(jtb_mesh* mesh, mtx4 model_transform, mtx4 normal_transform, jfw_color color)
+static gfx_result mesh_add_new(jtb_mesh* mesh, mtx4 model_transform, mtx4 normal_transform, jfw_color color, vk_state* state)
 {
-    jfw_res res;
+    mesh->up_to_date = 0;
+
     if (mesh->count == mesh->capacity)
     {
+        //  Reallocate memory for data on host side
         const u32 new_capacity = mesh->capacity + 64;
-        if (!jfw_success(res = jfw_realloc(new_capacity * sizeof(*mesh->colors), &mesh->colors)))
+        if (!jfw_success(jfw_realloc(new_capacity * sizeof(*mesh->model_data), &mesh->model_data)))
         {
             JDM_ERROR("Could not reallocate memory for mesh color array");
             return GFX_RESULT_BAD_ALLOC;
         }
-        if (!jfw_success(res = jfw_realloc(new_capacity * sizeof(*mesh->model_matrices), &mesh->model_matrices)))
+        //  Reallocate memory on the GPU
+        vk_buffer_allocation new_alloc;
+        vk_buffer_deallocate(state->buffer_allocator, &mesh->instance_memory);
+        i32 res = vk_buffer_allocate(state->buffer_allocator, 1, sizeof(*mesh->model_data) * new_capacity, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &new_alloc);
+        if (res < 0)
         {
-            JDM_ERROR("Could not reallocate memory for mesh model matrix array");
-            return GFX_RESULT_BAD_ALLOC;
+            JDM_ERROR("Could not reallocate vulkan memory for the instance data");
+            res = vk_buffer_allocate(state->buffer_allocator, 1, sizeof(*mesh->model_data) * mesh->capacity, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &new_alloc);
+            if (res < 0)
+            {
+                JDM_FATAL("Could not restore the mesh memory!");
+            }
         }
-        if (!jfw_success(res = jfw_realloc(new_capacity * sizeof(*mesh->normal_matrices), &mesh->normal_matrices)))
-        {
-            JDM_ERROR("Could not reallocate memory for mesh normal matrix array");
-            return GFX_RESULT_BAD_ALLOC;
-        }
+        mesh->instance_memory = new_alloc;
+
         mesh->capacity = new_capacity;
     }
 
-    mesh->colors[mesh->count] = color;
-    mesh->model_matrices[mesh->count] = model_transform;
-    mesh->normal_matrices[mesh->count] = normal_transform;
+    memcpy(mesh->model_data[mesh->count].model_data, model_transform.data, sizeof(mesh->model_data[mesh->count].model_data));
+    memcpy(mesh->model_data[mesh->count].normal_data, normal_transform.data, sizeof(mesh->model_data[mesh->count].normal_data));
+    mesh->model_data[mesh->count].color = color;
     mesh->count += 1;
 
     return GFX_RESULT_SUCCESS;
 }
 
-gfx_result truss_mesh_add_between_pts(jtb_mesh* mesh, jfw_color color, f32 radius, vec4 pt1, vec4 pt2, f32 roll)
+gfx_result
+truss_mesh_add_between_pts(jtb_mesh* mesh, jfw_color color, f32 radius, vec4 pt1, vec4 pt2, f32 roll, vk_state* state)
 {
+    assert(state);
     assert(pt2.w == 1.0f);
     assert(pt1.w == 1.0f);
     vec4 d = vec4_sub(pt2, pt1);
@@ -168,18 +222,17 @@ gfx_result truss_mesh_add_between_pts(jtb_mesh* mesh, jfw_color color, f32 radiu
     mtx4 model = mtx4_enlarge(radius, radius, len);
     // roll the model
     mtx4 normal_transform = mtx4_rotation_z(roll);
-//    model = mtx4_multiply(mtx4_rotation_z(roll), model);
     //  rotate about y-axis
     normal_transform = mtx4_multiply(mtx4_rotation_y(-rotation_y), normal_transform);
-    //    model = mtx4_multiply(mtx4_rotation_y(-rotation_y), model);
     //  rotate about z-axis again
     normal_transform = mtx4_multiply(mtx4_rotation_z(-rotation_z), normal_transform);
-    //    model = mtx4_multiply(mtx4_rotation_z(-rotation_z), model);
     model = mtx4_multiply(normal_transform, model);
     //  move the model to the point pt1
     model = mtx4_translate(model, (pt1));
+    //  Take the sheer of the model into account for the normal transformation as well
+    normal_transform = mtx4_multiply(normal_transform, mtx4_enlarge(1/radius, 1/radius, 1/len));
 
-    return truss_mesh_add_new(mesh, model, normal_transform, color);
+    return mesh_add_new(mesh, model, normal_transform, color, state);
 }
 
 
@@ -190,9 +243,10 @@ static jfw_res clean_sphere_model(jtb_model* model)
     memset(model, 0, sizeof*model);
     return jfw_res_success;
 }
-
+//  TODO: fix this one >:(
 static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 nw, const u16 nh)
 {
+    JDM_ENTER_FUNCTION;
     assert(nw >= 3);
     assert(nh >= 1);
     jfw_res res;
@@ -201,6 +255,7 @@ static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 nw, const
     if (!jfw_success(res = (jfw_calloc(vertex_count, sizeof*vertices, &vertices))))
     {
         JDM_ERROR("Could not allocate memory for sphere model");
+        JDM_LEAVE_FUNCTION;
         return res;
     }
 
@@ -210,6 +265,7 @@ static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 nw, const
     {
         JDM_ERROR("Could not allocate memory for sphere model");
         jfw_free(&vertices);
+        JDM_LEAVE_FUNCTION;
         return res;
     }
 
@@ -301,66 +357,79 @@ static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 nw, const
     p_out->vtx_array = vertices;
     p_out->idx_array = indices;
 
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }
 
-gfx_result mesh_init_sphere(jtb_mesh* mesh, u16 nw, u16 nh)
+gfx_result mesh_init_sphere(jtb_mesh* mesh, u16 nw, u16 nh, vk_state* state, jfw_window_vk_resources* resources)
 {
+    JDM_ENTER_FUNCTION;
     jfw_res res;
+    mesh->name = "sphere";
     if (!jfw_success(generate_sphere_model(&mesh->model, nw, nh)))
     {
         JDM_ERROR("Could not generate a sphere model for a mesh");
+        JDM_LEAVE_FUNCTION;
         return GFX_RESULT_BAD_ALLOC;
     }
     mesh->count = 0;
     mesh->capacity = DEFAULT_MESH_CAPACITY;
-    if (!jfw_success(res = jfw_calloc(mesh->capacity, sizeof(*mesh->colors), &mesh->colors)))
+
+    if (!jfw_success(res = jfw_calloc(mesh->capacity, sizeof(*mesh->model_data), &mesh->model_data)))
     {
-        JDM_ERROR("Could not allocate memory for mesh color array");
-        clean_sphere_model(&mesh->model);
+        JDM_ERROR("Could not allocate memory for mesh model array, reason: %s", jfw_error_message(res));
+        clean_mesh_model(&mesh->model);
         return GFX_RESULT_BAD_ALLOC;
     }
 
-    if (!jfw_success(res = jfw_calloc(mesh->capacity, sizeof(*mesh->model_matrices), &mesh->model_matrices)))
+    gfx_result gfx_res;
+    if ((gfx_res = mesh_allocate_vulkan_memory(state, mesh, resources)) != GFX_RESULT_SUCCESS)
     {
-        JDM_ERROR("Could not allocate memory for mesh model matrix array");
-        jfw_free(&mesh->colors);
-        clean_sphere_model(&mesh->model);
-        return GFX_RESULT_BAD_ALLOC;
+        clean_mesh_model(&mesh->model);
+        jfw_free(&mesh->model_data);
+        JDM_ERROR("Could not allocate vulkan memory for the sphere mesh");
+        JDM_LEAVE_FUNCTION;
+        return gfx_res;
     }
 
+    JDM_LEAVE_FUNCTION;
     return GFX_RESULT_SUCCESS;
 }
 
-static gfx_result sphere_mesh_add_new(jtb_mesh* mesh, mtx4 model_transform, jfw_color color)
+gfx_result sphere_mesh_add(jtb_mesh* mesh, jfw_color color, f32 radius, vec4 pt, vk_state* state)
 {
-    if (mesh->count == mesh->capacity)
-    {
-        const u32 new_capacity = mesh->capacity + 64;
-        if (!jfw_success(jfw_realloc(new_capacity * sizeof(*mesh->colors), &mesh->colors)))
-        {
-            JDM_ERROR("Could not reallocate memory for mesh color array");
-            return GFX_RESULT_BAD_ALLOC;
-        }
-        if (!jfw_success(jfw_realloc(new_capacity * sizeof(*mesh->model_matrices), &mesh->model_matrices)))
-        {
-            JDM_ERROR("Could not reallocate memory for mesh model matrix array");
-            return GFX_RESULT_BAD_ALLOC;
-        }
-        mesh->capacity = new_capacity;
-    }
-
-    mesh->colors[mesh->count] = color;
-    mesh->model_matrices[mesh->count] = model_transform;
-    mesh->count += 1;
-
-    return GFX_RESULT_SUCCESS;
-}
-
-gfx_result sphere_mesh_add(jtb_mesh* mesh, jfw_color color, f32 radius, vec4 pt)
-{
+    JDM_ENTER_FUNCTION;
     mtx4 m = mtx4_enlarge(radius, radius, radius);
     m = mtx4_translate(m, pt);
-    return sphere_mesh_add_new(mesh, m, color);
+    JDM_LEAVE_FUNCTION;
+    return mesh_add_new(mesh, m, mtx4_identity, color, state);
+}
+
+gfx_result jtb_mesh_update_instance(jtb_mesh* mesh, jfw_window_vk_resources* resources, vk_state* state)
+{
+    JDM_ENTER_FUNCTION;
+
+    vk_transfer_memory_to_buffer(resources, state, &mesh->instance_memory, sizeof(jtb_model_data) * mesh->count, mesh->model_data);
+    mesh->up_to_date = 1;
+
+    JDM_LEAVE_FUNCTION;
+    return GFX_RESULT_SUCCESS;
+}
+
+gfx_result jtb_mesh_update_model(jtb_mesh* mesh, jfw_window_vk_resources* resources, vk_state* state)
+{
+    JDM_ENTER_FUNCTION;
+
+    vk_transfer_memory_to_buffer(resources, state, &mesh->common_geometry_vtx, sizeof(jtb_vertex) *
+                                                                               mesh->model.vtx_count,
+                                                                               mesh->model.vtx_array);
+
+    vk_transfer_memory_to_buffer(resources, state, &mesh->common_geometry_idx, sizeof(jtb_vertex) *
+                                                                               mesh->model.vtx_count,
+                                                                               mesh->model.vtx_array);
+
+    JDM_LEAVE_FUNCTION;
+    return GFX_RESULT_SUCCESS;
+
 }
 

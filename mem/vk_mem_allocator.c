@@ -322,9 +322,9 @@ void vk_buffer_deallocate(vk_buffer_allocator* allocator, vk_buffer_allocation* 
         JDM_ERROR("Could not find the allocation chunk in the pool's chunk list");
         return;
     }
-
+    chunk->used = 0;
     //  Merge with previous chunk if possible
-    if (i > 0 && pool->chunk_list[i].used == 0)
+    if (i > 0 && pool->chunk_list[i - 1].used == 0)
     {
         pool->chunk_list[i - 1].size += chunk->size;
         memmove(pool->chunk_list + i, pool->chunk_list + i + 1, sizeof(*pool->chunk_list) * (pool->chunk_count - i - 1));
@@ -332,7 +332,7 @@ void vk_buffer_deallocate(vk_buffer_allocator* allocator, vk_buffer_allocation* 
         pool->chunk_count -= 1;
     }
     //  Merge with next chunk if possible
-    if (i < pool->chunk_count - 1)
+    if (i < pool->chunk_count - 1 && pool->chunk_list[i + 1].used == 0)
     {
         chunk->size += pool->chunk_list[i + 1].size;
         memmove(pool->chunk_list + i + 1, pool->chunk_list + i + 2, sizeof(*pool->chunk_list) * (pool->chunk_count - i - 2));
