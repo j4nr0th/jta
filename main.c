@@ -332,11 +332,11 @@ int main(int argc, char* argv[argc])
     }
 
 
-    u32 n_materials, n_profiles, n_elements;
+    u32 n_materials, n_elements;
     jio_memory_file file_points, file_materials, file_profiles, file_elements;
     jtb_point_list point_list;
     jtb_material* materials;
-    jtb_profile* profiles;
+    jtb_profile_list profile_list;
     jtb_element* elements;
 
     jio_result jio_res = jio_memory_file_create(pts_file_name, &file_points, 0, 0, 0);
@@ -382,17 +382,17 @@ int main(int argc, char* argv[argc])
     {
         JDM_FATAL("At least one material should be defined");
     }
-    jtb_res = jtb_load_profiles(&file_profiles, &n_profiles, &profiles);
+    jtb_res = jtb_load_profiles(&file_profiles, &profile_list);
     if (jtb_res != JTB_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not load profiles");
     }
-    if (n_profiles < 1)
+    if (profile_list.count < 1)
     {
         JDM_FATAL("At least one profile should be defined");
     }
 
-    jtb_res = jtb_load_elements(&file_elements, &point_list, n_materials, materials, n_profiles, profiles, &n_elements, &elements);
+    jtb_res = jtb_load_elements(&file_elements, &point_list, n_materials, materials, &profile_list, &n_elements, &elements);
     if (jtb_res != JTB_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not load elements");
@@ -484,11 +484,11 @@ int main(int argc, char* argv[argc])
     }
     
     //  This is the truss mesh :)
-    f32 radius_factor = 10.0f;  //  This could be a config option
+    f32 radius_factor = 1.0f;  //  This could be a config option
     for (u32 i = 0; i < n_elements; ++i)
     {
         const jtb_element element = elements[i];
-        if ((gfx_res = truss_mesh_add_between_pts(&mesh, (jfw_color){.r = 0xD0, .g = 0xD0, .b = 0xD0, .a = 0xFF}, radius_factor * (f32)sqrt(profiles[element.i_profile].area * M_1_PI), VEC4(point_list.p_x[element.i_point0], point_list.p_y[element.i_point0], point_list.p_z[element.i_point0]), VEC4(point_list.p_x[element.i_point1], point_list.p_y[element.i_point1], point_list.p_z[element.i_point1]), 0.0f)))
+        if ((gfx_res = truss_mesh_add_between_pts(&mesh, (jfw_color){.r = 0xD0, .g = 0xD0, .b = 0xD0, .a = 0xFF}, radius_factor * profile_list.equivalent_radius[element.i_profile], VEC4(point_list.p_x[element.i_point0], point_list.p_y[element.i_point0], point_list.p_z[element.i_point0]), VEC4(point_list.p_x[element.i_point1], point_list.p_y[element.i_point1], point_list.p_z[element.i_point1]), 0.0f)))
         {
             JDM_ERROR("Could not add element %"PRIu32" to the mesh, reason: %s", i, gfx_result_to_str(gfx_res));
             goto cleanup;
@@ -605,7 +605,10 @@ int main(int argc, char* argv[argc])
 
 cleanup:
     jfree(G_JALLOCATOR, elements);
-    jfree(G_JALLOCATOR, profiles);
+    jfree(G_JALLOCATOR, profile_list.equivalent_radius);
+    jfree(G_JALLOCATOR, profile_list.area);
+    jfree(G_JALLOCATOR, profile_list.second_moment_of_area);
+    jfree(G_JALLOCATOR, profile_list.labels);
     jfree(G_JALLOCATOR, materials);
     jfree(G_JALLOCATOR, point_list.p_x);
     jfree(G_JALLOCATOR, point_list.p_y);

@@ -4,7 +4,7 @@ include(CTest)
 
 set(CMAKE_C_STANDARD 23)
 
-#add_compile_options("-march=native")
+add_compile_options("-march=native")
 
 list(APPEND JFW_SOURCE_FILES gfx/gfx_math.c jfw/jfw_common.c jfw/unicode_block_lookup_table.c jfw/widget-base.c
         jfw/window.c jfw/error_system/error_codes.c jfw/vk/platform.c)

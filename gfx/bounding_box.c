@@ -211,7 +211,7 @@ gfx_result gfx_find_bounding_planes(const jtb_point_list* point_list, vec4 origi
 {
     JDM_ENTER_FUNCTION;
 
-    f32 min = +INFINITY, max = -INFINITY;
+    f32 min = +INFINITY, max = 0.0f;
     u32 i;
     __m128 ox = _mm_set1_ps(origin.x);
     __m128 oy = _mm_set1_ps(origin.y);
@@ -237,14 +237,15 @@ gfx_result gfx_find_bounding_planes(const jtb_point_list* point_list, vec4 origi
         _mm_store_ps(array, d);
         for (u32 j = 0; j < 4; ++j)
         {
-            const f32 v = d[j] > 0.0f ? d[j] : 0.0f;
-            if (v < min)
+            f32 v_min = d[j] - point_list->max_radius[i];
+            f32 v_max = d[j] + point_list->max_radius[i];
+            if (v_min < min)
             {
-                min = v;
+                min = v_min;
             }
-            if (v > max)
+            if (v_max > max)
             {
-                max = v;
+                max = v_max;
             }
         }
     }
@@ -254,17 +255,16 @@ gfx_result gfx_find_bounding_planes(const jtb_point_list* point_list, vec4 origi
         f32 dy = point_list->p_y[i] - origin.y;
         f32 dz = point_list->p_z[i] - origin.z;
         f32 d = dx * unit_view_dir.x + dy * unit_view_dir.y + dz * unit_view_dir.z;
-        if (d < 0.0f)
+
+        f32 v_min = d - point_list->max_radius[i];
+        f32 v_max = d + point_list->max_radius[i];
+        if (v_min < min)
         {
-            d = 0.0f;
+            min = v_min;
         }
-        if (d < min)
+        if (v_max > max)
         {
-            min = d;
-        }
-        if (d > max)
-        {
-            max = d;
+            max = v_max;
         }
     }
 
@@ -279,7 +279,6 @@ gfx_result gfx_find_bounding_planes(const jtb_point_list* point_list, vec4 origi
 
     *p_far = max;
     *p_near = min;
-
     JDM_LEAVE_FUNCTION;
     return GFX_RESULT_SUCCESS;
 }

@@ -23,7 +23,7 @@ void main()
 {
     vec4 p = view * model_transform * vec4(position, 1.0f);
     gl_Position = proj * p;
-    gl_Position /= p.z;
+//    gl_Position /= p.w;   //  This is commented out because it is done by hardware anyway
 
     vtx_color = color_in;
     vtx_normal = normalize(normal_transform * vec4(normal_in, 1.0f));

@@ -23,8 +23,7 @@ struct element_parse_data_struct
     const jtb_point_list* p_pts;
     const u32 n_mat;
     const jtb_material* p_mat;
-    const u32 n_pro;
-    const jtb_profile* p_pro;
+    const jtb_profile_list* p_pro;
 };
 
 static bool converter_element_label_function(jio_string_segment* v, void* param)
@@ -67,9 +66,9 @@ static bool converter_profile_label_function(jio_string_segment* v, void* param)
 {
     JDM_ENTER_FUNCTION;
     element_parse_data* const data = (element_parse_data*)param;
-    for (uint32_t i = 0; i < data->n_pro; ++i)
+    for (uint32_t i = 0; i < data->p_pro->count; ++i)
     {
-        if (string_segment_equal(&data->p_pro[i].label, v))
+        if (string_segment_equal(data->p_pro->labels + i, v))
         {
             data->elements[data->count++].i_profile = i;
             JDM_LEAVE_FUNCTION;
@@ -128,7 +127,7 @@ static bool (*converter_functions[])(jio_string_segment* v, void* param) =
 
 jtb_result jtb_load_elements(
         const jio_memory_file* mem_file, const jtb_point_list* points, u32 n_mat, const jtb_material* materials,
-        u32 n_pro, const jtb_profile* profiles, u32* n_elm, jtb_element** pp_elements)
+        const jtb_profile_list* profiles, u32* n_elm, jtb_element** pp_elements)
 {
     JDM_ENTER_FUNCTION;
     jtb_result res;
@@ -149,11 +148,11 @@ jtb_result jtb_load_elements(
     }
     element_parse_data parse_data[] =
             {
-                    {.elements = element_array, .count = 0, .n_pro = n_pro, .n_mat = n_mat, .p_pts = points, .p_mat = materials, .p_pro = profiles},
-                    {.elements = element_array, .count = 0, .n_pro = n_pro, .n_mat = n_mat, .p_pts = points, .p_mat = materials, .p_pro = profiles},
-                    {.elements = element_array, .count = 0, .n_pro = n_pro, .n_mat = n_mat, .p_pts = points, .p_mat = materials, .p_pro = profiles},
-                    {.elements = element_array, .count = 0, .n_pro = n_pro, .n_mat = n_mat, .p_pts = points, .p_mat = materials, .p_pro = profiles},
-                    {.elements = element_array, .count = 0, .n_pro = n_pro, .n_mat = n_mat, .p_pts = points, .p_mat = materials, .p_pro = profiles},
+                    {.elements = element_array, .count = 0, .n_mat = n_mat, .p_pts = points, .p_mat = materials, .p_pro = profiles},
+                    {.elements = element_array, .count = 0, .n_mat = n_mat, .p_pts = points, .p_mat = materials, .p_pro = profiles},
+                    {.elements = element_array, .count = 0, .n_mat = n_mat, .p_pts = points, .p_mat = materials, .p_pro = profiles},
+                    {.elements = element_array, .count = 0, .n_mat = n_mat, .p_pts = points, .p_mat = materials, .p_pro = profiles},
+                    {.elements = element_array, .count = 0, .n_mat = n_mat, .p_pts = points, .p_mat = materials, .p_pro = profiles},
             };
     void* param_array[] = {parse_data + 0, parse_data + 1, parse_data + 2, parse_data + 3, parse_data + 4};
     jio_res = jio_process_csv_exact(mem_file, ",", ELEMENT_FILE_HEADER_COUNT, ELEMENT_FILE_HEADERS, converter_functions, param_array, G_LIN_JALLOCATOR);
@@ -182,6 +181,22 @@ jtb_result jtb_load_elements(
         else
         {
             element_array = new_ptr;
+        }
+    }
+
+    //  Determine maximum radius of elements connected to each point
+    for (u32 i = 0; i < count; ++i)
+    {
+        const f32 eq_radius = profiles->equivalent_radius[element_array[i].i_profile];
+        const f32 current_radius0 = points->max_radius[element_array[i].i_point0];
+        if (eq_radius > current_radius0)
+        {
+            points->max_radius[element_array[i].i_point0] = eq_radius;
+        }
+        const f32 current_radius1 = points->max_radius[element_array[i].i_point1];
+        if (eq_radius > current_radius1)
+        {
+            points->max_radius[element_array[i].i_point1] = eq_radius;
         }
     }
 
