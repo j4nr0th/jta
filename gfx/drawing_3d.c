@@ -164,7 +164,9 @@ draw_frame(
         f32 near, far;
 //        jtb_camera_find_depth_planes(camera, &near, &far);
         gfx_find_bounding_planes(state->point_list, camera->position, camera->uz, &near, &far);
-//        printf("Near %g, far %g\n", near, far);
+        far *= 2;
+        near *= 0.5f;
+        //        printf("Near %g, far %g\n", near, far);
         ubo_3d ubo =
                 {
                         .proj = mtx4_projection(M_PI_2, ((f32)vk_resources->extent.width)/((f32)vk_resources->extent.height), 1.0f, near, far),

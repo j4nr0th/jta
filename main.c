@@ -535,7 +535,7 @@ int main(int argc, char* argv[argc])
     {
         JDM_FATAL("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
     }
-    if ((gfx_res = mesh_init_cone(&cone_mesh, 3, &vulkan_state, vk_res)) != GFX_RESULT_SUCCESS)
+    if ((gfx_res = mesh_init_cone(&cone_mesh, 1 << 4, &vulkan_state, vk_res)) != GFX_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not create cone mesh: %s", gfx_result_to_str(gfx_res));
     }
@@ -557,7 +557,7 @@ int main(int argc, char* argv[argc])
             goto cleanup;
         }
     }
-
+    //  These are the joints
     for (u32 i = 0; i < point_list.count; ++i)
     {
         if ((gfx_res = sphere_mesh_add(&sphere_mesh, (jfw_color){.r = 0x80, .g = 0x80, .b = 0x80, .a = 0xFF}, point_list.max_radius[i], VEC4(point_list.p_x[i], point_list.p_y[i], point_list.p_z[i]), &vulkan_state)) != GFX_RESULT_SUCCESS)
@@ -566,12 +566,42 @@ int main(int argc, char* argv[argc])
             goto cleanup;
         }
     }
+    //  These are the force vectors
+    const f32 max_radius_scale = 0.3f;    //  This could be a config option
+    const f32 arrow_cone_ratio = 0.5f;    //  This could be a config option
+    const f32 max_length_scale = 0.3f;    //  This could be a config option
+    for (u32 i = 0; i < natural_boundary_conditions.count; ++i)
+    {
+        vec4 base = VEC4(point_list.p_x[natural_boundary_conditions.i_point[i]],
+                         point_list.p_y[natural_boundary_conditions.i_point[i]],
+                         point_list.p_z[natural_boundary_conditions.i_point[i]]);
+        float mag = hypotf(
+                hypotf(natural_boundary_conditions.x[i], natural_boundary_conditions.y[i]),
+                natural_boundary_conditions.z[i]);
+        const f32 real_length = mag / natural_boundary_conditions.max_mag * elements.max_len * max_length_scale;
+        vec4 direction = vec4_div_one(VEC4(natural_boundary_conditions.x[i], natural_boundary_conditions.y[i], natural_boundary_conditions.z[i]), mag);
+        vec4 second = vec4_add(base, vec4_mul_one(direction, real_length * (1 - arrow_cone_ratio)));
+        vec4 third = vec4_add(base, vec4_mul_one(direction, real_length));
+        if ((gfx_res = cone_mesh_add_between_pts(&cone_mesh, (jfw_color){.b = 0xD0, .a = 0xFF}, 2 * max_radius_scale * profile_list.max_equivalent_radius,
+                                                 second, third, &vulkan_state)) != GFX_RESULT_SUCCESS)
+        {
+            JDM_ERROR("Could not add force %"PRIu32" to the mesh, reason: %s", i, gfx_result_to_str(gfx_res));
+            goto cleanup;
+        }
+        if ((gfx_res = truss_mesh_add_between_pts(&truss_mesh, (jfw_color){.b = 0xD0, .a = 0xFF}, max_radius_scale * profile_list.max_equivalent_radius,
+                                                 base, second, 0.0f, &vulkan_state)) != GFX_RESULT_SUCCESS)
+        {
+            JDM_ERROR("Could not add force %"PRIu32" to the mesh, reason: %s", i, gfx_result_to_str(gfx_res));
+            goto cleanup;
+        }
+    }
     jtb_mesh* meshes[] = {
             &truss_mesh,
             &sphere_mesh,
             &cone_mesh
     };
-    vulkan_state.mesh_count = 2;
+
+    vulkan_state.mesh_count = 3;
     vulkan_state.mesh_array = meshes + 0;
 
 
@@ -602,7 +632,6 @@ int main(int argc, char* argv[argc])
             4.0f,                                       //  Turn sensitivity
             1.0f                                        //  Move sensitivity
             );
-
 #ifndef NDEBUG
     f32 min = +INFINITY, max = -INFINITY;
     for (u32 i = 0; i < point_list.count; ++i)

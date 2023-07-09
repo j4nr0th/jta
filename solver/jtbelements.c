@@ -322,20 +322,10 @@ jtb_result jtb_load_elements(
     //  Determine the maximum/minimum lengths of elements
     f32 l_min = +INFINITY, l_max = -INFINITY;
     u32 i = 0;
-    for (i = 0; i < (count >> 2); ++i)
-    {
-        __m128 vx = _mm_loadu_ps(points->p_x + (i << 2));
-        __m128 vy = _mm_loadu_ps(points->p_y + (i << 2));
-        __m128 vz = _mm_loadu_ps(points->p_z + (i << 2));
-        __m128 hyp = _mm_mul_ps(vx, vx);
-        hyp = _mm_fmadd_ps(vy, vy, hyp);
-        hyp = _mm_fmadd_ps(vz, vz, hyp);
-        _mm_sqrt_ps(hyp);
-    }
 
     for (i <<= 2; i < count; ++i)
     {
-        f32 v = hypotf(points->p_x[i], hypotf(points->p_y[i], points->p_z[i]));
+        f32 v = hypotf(points->p_x[i_point0[i]] - points->p_x[i_point1[i]], hypotf(points->p_y[i_point0[i]] - points->p_y[i_point1[i]], points->p_z[i_point0[i]] - points->p_z[i_point1[i]]));
         lengths[i] = v;
     }
     for (i = 0; i < count; ++i)

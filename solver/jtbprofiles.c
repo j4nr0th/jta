@@ -211,8 +211,21 @@ jtb_result jtb_load_profiles(const jio_memory_file* mem_file, jtb_profile_list* 
     {
         equivalent_radius[i] = sqrtf(2.0f * smoa[i] / area[i] + area[i] / (2.0f) * (f32)M_1_PI);
     }
+    f32 min_r = +INFINITY, max_r = -INFINITY;
+    for (i = 0; i < count; ++i)
+    {
+        const f32 r = equivalent_radius[i];
+        if (r < min_r)
+        {
+            min_r = r;
+        }
+        if (r > max_r)
+        {
+            max_r = r;
+        }
+    }
 
-    *profile_list = (jtb_profile_list){.count = count, .labels = ss, .area = area, .second_moment_of_area = smoa, .equivalent_radius = equivalent_radius};
+    *profile_list = (jtb_profile_list){.count = count, .labels = ss, .area = area, .second_moment_of_area = smoa, .equivalent_radius = equivalent_radius, .min_equivalent_radius = min_r, .max_equivalent_radius = max_r};
 
     JDM_LEAVE_FUNCTION;
     return JTB_RESULT_SUCCESS;

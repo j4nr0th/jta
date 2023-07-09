@@ -511,7 +511,7 @@ static gfx_result generate_cone_model(jtb_model* const model, const u16 order)
     }
 
 
-    const f32 d_omega = M_PI / order;
+    const f32 d_omega = 2.0f * (f32)M_PI / (f32)order;
     //  Generate bottom side
     //  Top and bottom are at the end of the list
     vertices[2 * order + 0] = (jtb_vertex) {.x = 0, .y = 0, .z = 1, .nx = 0, .ny = 0, .nz = 1};
@@ -520,17 +520,18 @@ static gfx_result generate_cone_model(jtb_model* const model, const u16 order)
     for (u32 i = 0; i < order; ++i)
     {
         //    Positions
-        (btm[i] = top[i] = (jtb_vertex) {.x = cosf(d_omega * (f32)i), .y = sinf(d_omega * (f32)i), .z = 0});
+        top[i] = (jtb_vertex) {.x = cosf(d_omega * (f32)i), .y = sinf(d_omega * (f32)i), .z = 0};
+        btm[i] = (jtb_vertex) {.x = cosf(d_omega * (f32)i), .y = sinf(d_omega * (f32)i), .z = 0};
         //    Normals
         top[i].nx = M_SQRT1_2 * top[i].x;
         top[i].ny = M_SQRT1_2 * top[i].y;
         top[i].nz = M_SQRT1_2;
         btm[i].nx = 0.0f;
         btm[i].ny = 0.0f;
-        btm[i].nz = 1.0f;
+        btm[i].nz = -1.0f;
         //  Top triangle connections
         indices[6 * i + 0] = i;
-        if (i == order)
+        if (i == order - 1)
         {
             indices[6 * i + 1] = 0;
         }
@@ -541,15 +542,15 @@ static gfx_result generate_cone_model(jtb_model* const model, const u16 order)
         indices[6 * i + 2] = 2 * order + 0;
         //  Bottom triangle connections
         indices[6 * i + 3] = i + order;
-        if (i == order)
+        indices[6 * i + 4] = 2 * order + 1;
+        if (i == order - 1)
         {
-            indices[6 * i + 4] = order;
+            indices[6 * i + 5] = order;
         }
         else
         {
-            indices[6 * i + 4] = i + order + 1;
+            indices[6 * i + 5] = i + order + 1;
         }
-        indices[6 * i + 5] = 2 * order + 1;
     }
 
     
@@ -614,7 +615,7 @@ gfx_result cone_mesh_add_between_pts(jtb_mesh* mesh, jfw_color color, f32 radius
     // first deform the model
     mtx4 model = mtx4_enlarge(radius, radius, len);
     //  rotate about y-axis
-    mtx4 normal_transform = mtx4_multiply(mtx4_rotation_y(-rotation_y), normal_transform);
+    mtx4 normal_transform = mtx4_rotation_y(-rotation_y);
     //  rotate about z-axis again
     normal_transform = mtx4_multiply(mtx4_rotation_z(-rotation_z), normal_transform);
     model = mtx4_multiply(normal_transform, model);
