@@ -22,6 +22,7 @@
 #include "gfx/bounding_box.h"
 #include "ui.h"
 #include "solver/jtbelements.h"
+#include "solver/jtbnaturalbcs.h"
 
 
 static jfw_res widget_draw(jfw_widget* this)
@@ -146,6 +147,11 @@ static void invalid_alloc(jallocator* allocator, void* param)
     JDM_LEAVE_FUNCTION;
 }
 
+static void jmem_trap(uint32_t idx, void* param)
+{
+    __builtin_trap();
+}
+
 int main(int argc, char* argv[argc])
 {
 
@@ -157,7 +163,7 @@ int main(int argc, char* argv[argc])
         fputs("Could not create aligned allocator\n", stderr);
         exit(EXIT_FAILURE);
     }
-    G_LIN_JALLOCATOR = lin_jallocator_create(1 << 16);
+    G_LIN_JALLOCATOR = lin_jallocator_create(1 << 20);
     if (!G_LIN_JALLOCATOR)
     {
         fputs("Could not create linear allocator\n", stderr);
@@ -204,6 +210,7 @@ int main(int argc, char* argv[argc])
     char* mat_file_name;
     char* pro_file_name;
     char* elm_file_name;
+    char* nat_file_name;
 
     {
         jio_memory_file cfg_file;
@@ -330,6 +337,26 @@ int main(int argc, char* argv[argc])
                     memcpy(elm_file_name, v.value_string.begin, v.value_string.len);
                     elm_file_name[v.value_string.len] = 0;
                 }
+                //  Get the natural boundary condition file
+                {
+                    jio_cfg_value v;
+                    jio_res = jio_cfg_get_value_by_key(input_section, "natural_bcs", &v);
+                    if (jio_res != JIO_RESULT_SUCCESS)
+                    {
+                        JDM_FATAL("Could not get the element of section \"problem setup.input files\" with key \"natural_bcs\", reason: %s", jio_result_to_str(jio_res));
+                    }
+                    if (v.type != JIO_CFG_TYPE_STRING)
+                    {
+                        JDM_FATAL("Element \"natural_bcs\" of section \"problem setup.input files\" was not a string");
+                    }
+                    nat_file_name = lin_jalloc(G_LIN_JALLOCATOR ,v.value_string.len + 1);
+                    if (!nat_file_name)
+                    {
+                        JDM_FATAL("Could not allocate %zu bytes for natural bc file string", (size_t)v.value_string.len + 1);
+                    }
+                    memcpy(nat_file_name, v.value_string.begin, v.value_string.len);
+                    nat_file_name[v.value_string.len] = 0;
+                }
             }
 
             {
@@ -359,13 +386,15 @@ int main(int argc, char* argv[argc])
         jio_memory_file_destroy(&cfg_file);
     }
 
+//    ill_jallocator_set_debug_trap(G_JALLOCATOR, 35, jmem_trap, NULL);
 
-    u32 n_materials, n_elements;
-    jio_memory_file file_points, file_materials, file_profiles, file_elements;
+    u32 n_materials;
+    jio_memory_file file_points, file_materials, file_profiles, file_elements, file_nat;
     jtb_point_list point_list;
     jtb_material* materials;
     jtb_profile_list profile_list;
-    jtb_element* elements;
+    jtb_element_list elements;
+    jtb_natural_boundary_condition_list natural_boundary_conditions;
 
     jio_result jio_res = jio_memory_file_create(pts_file_name, &file_points, 0, 0, 0);
     if (jio_res != JIO_RESULT_SUCCESS)
@@ -387,11 +416,17 @@ int main(int argc, char* argv[argc])
     {
         JDM_FATAL("Could not open element file \"%s\"", elm_file_name);
     }
+    jio_res = jio_memory_file_create(nat_file_name, &file_nat, 0, 0, 0);
+    if (jio_res != JIO_RESULT_SUCCESS)
+    {
+        JDM_FATAL("Could not open element file \"%s\"", nat_file_name);
+    }
+    lin_jfree(G_LIN_JALLOCATOR, nat_file_name);
     lin_jfree(G_LIN_JALLOCATOR, elm_file_name);
     lin_jfree(G_LIN_JALLOCATOR, pro_file_name);
     lin_jfree(G_LIN_JALLOCATOR, mat_file_name);
     lin_jfree(G_LIN_JALLOCATOR, pts_file_name);
-//    jallocator_set_debug_trap(G_JALLOCATOR, 22);
+
     jtb_result jtb_res = jtb_load_points(&file_points, &point_list);
     if (jtb_res != JTB_RESULT_SUCCESS)
     {
@@ -420,14 +455,20 @@ int main(int argc, char* argv[argc])
         JDM_FATAL("At least one profile should be defined");
     }
 
-    jtb_res = jtb_load_elements(&file_elements, &point_list, n_materials, materials, &profile_list, &n_elements, &elements);
+    jtb_res = jtb_load_elements(&file_elements, &point_list, n_materials, materials, &profile_list, &elements);
     if (jtb_res != JTB_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not load elements");
     }
-    if (n_elements < 1)
+    if (elements.count < 1)
     {
         JDM_FATAL("At least one profile should be defined");
+    }
+
+    jtb_res = jtb_load_natural_boundary_conditions(&file_nat, &point_list, &natural_boundary_conditions);
+    if (jtb_res != JTB_RESULT_SUCCESS)
+    {
+        JDM_FATAL("Could not load natural boundary conditions");
     }
 
     //  Find the bounding box of the geometry
@@ -482,36 +523,35 @@ int main(int argc, char* argv[argc])
         JDM_ERROR("Could not create vulkan state");
         goto cleanup;
     }
-
     jtb_mesh truss_mesh;
     jtb_mesh sphere_mesh;
-    vulkan_state.mesh_count = 1;
-//    vulkan_state.mesh_array = &truss_mesh;
+    jtb_mesh cone_mesh;
     vulkan_state.point_list = &point_list;
-    if ((gfx_res = mesh_init_truss(&truss_mesh, 1 << 4, &vulkan_state, vk_res)) != GFX_RESULT_SUCCESS)
+    if ((gfx_res = mesh_init_truss(&truss_mesh, 1 << 12, &vulkan_state, vk_res)) != GFX_RESULT_SUCCESS)
     {
-        JDM_ERROR("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
-        goto cleanup;
+        JDM_FATAL("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
     }
-    if ((gfx_res = mesh_init_sphere(&sphere_mesh, 4, &vulkan_state, vk_res)) != GFX_RESULT_SUCCESS)
+    if ((gfx_res = mesh_init_sphere(&sphere_mesh, 7, &vulkan_state, vk_res)) != GFX_RESULT_SUCCESS)
     {
-        JDM_ERROR("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
-        goto cleanup;
+        JDM_FATAL("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
+    }
+    if ((gfx_res = mesh_init_cone(&cone_mesh, 3, &vulkan_state, vk_res)) != GFX_RESULT_SUCCESS)
+    {
+        JDM_FATAL("Could not create cone mesh: %s", gfx_result_to_str(gfx_res));
     }
 
 
     //  This is the truss mesh :)
     f32 radius_factor = 1.0f;  //  This could be a config option
-    for (u32 i = 0; i < n_elements; ++i)
+    for (u32 i = 0; i < elements.count; ++i)
     {
-        const jtb_element element = elements[i];
         if ((gfx_res = truss_mesh_add_between_pts(
                 &truss_mesh, (jfw_color) { .r = 0xD0, .g = 0xD0, .b = 0xD0, .a = 0xFF },
-                radius_factor * profile_list.equivalent_radius[element.i_profile],
-                VEC4(point_list.p_x[element.i_point0], point_list.p_y[element.i_point0],
-                     point_list.p_z[element.i_point0]), VEC4(point_list.p_x[element.i_point1],
-                                                             point_list.p_y[element.i_point1],
-                                                             point_list.p_z[element.i_point1]), 0.0f, &vulkan_state)) != GFX_RESULT_SUCCESS)
+                radius_factor * profile_list.equivalent_radius[elements.i_profile[i]],
+                VEC4(point_list.p_x[elements.i_point0[i]], point_list.p_y[elements.i_point0[i]],
+                     point_list.p_z[elements.i_point0[i]]), VEC4(point_list.p_x[elements.i_point1[i]],
+                                                             point_list.p_y[elements.i_point1[i]],
+                                                             point_list.p_z[elements.i_point1[i]]), 0.0f, &vulkan_state)) != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not add element %"PRIu32" to the mesh, reason: %s", i, gfx_result_to_str(gfx_res));
             goto cleanup;
@@ -528,13 +568,14 @@ int main(int argc, char* argv[argc])
     }
     jtb_mesh* meshes[] = {
             &truss_mesh,
-            &sphere_mesh
+            &sphere_mesh,
+            &cone_mesh
     };
     vulkan_state.mesh_count = 2;
     vulkan_state.mesh_array = meshes + 0;
 
 
-    printf("Total of %"PRIu64" triangles in the mesh\n", mesh_polygon_count(&truss_mesh));
+    printf("Total of %"PRIu64" triangles in the mesh\n", mesh_polygon_count(&truss_mesh) + mesh_polygon_count(&sphere_mesh) + mesh_polygon_count(&cone_mesh));
 
     jfw_window_set_usr_ptr(jwnd, &vulkan_state);
     jfw_widget* jwidget;
@@ -607,7 +648,19 @@ int main(int argc, char* argv[argc])
     jwnd = NULL;
 
 cleanup:
-    ill_jfree(G_JALLOCATOR, elements);
+    mesh_uninit(&truss_mesh);
+    mesh_uninit(&sphere_mesh);
+    mesh_uninit(&cone_mesh);
+    ill_jfree(G_JALLOCATOR, natural_boundary_conditions.i_point);
+    ill_jfree(G_JALLOCATOR, natural_boundary_conditions.x);
+    ill_jfree(G_JALLOCATOR, natural_boundary_conditions.y);
+    ill_jfree(G_JALLOCATOR, natural_boundary_conditions.z);
+    ill_jfree(G_JALLOCATOR, elements.lengths);
+    ill_jfree(G_JALLOCATOR, elements.labels);
+    ill_jfree(G_JALLOCATOR, elements.i_material);
+    ill_jfree(G_JALLOCATOR, elements.i_profile);
+    ill_jfree(G_JALLOCATOR, elements.i_point0);
+    ill_jfree(G_JALLOCATOR, elements.i_point1);
     ill_jfree(G_JALLOCATOR, profile_list.equivalent_radius);
     ill_jfree(G_JALLOCATOR, profile_list.area);
     ill_jfree(G_JALLOCATOR, profile_list.second_moment_of_area);

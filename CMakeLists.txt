@@ -35,7 +35,10 @@ add_executable(jtb main.c
         ${GFX_SOURCE_FILES} ${GFX_HEADER_FILES}
         ${PARSING_SOURCE_FILES} ${PARSING_HEADER_FILES}
         ${UTILITY_SOURCE_FILES} ${UTILITY_HEADER_FILES}
-        ${JTB_SOLVER_SOURCE_FILES} ${JTB_SOLVER_HEADER_FILES} gfx/bounding_box.h gfx/bounding_box.c gfx/mesh.c gfx/mesh.h)
+        ${JTB_SOLVER_SOURCE_FILES} ${JTB_SOLVER_HEADER_FILES} gfx/bounding_box.h gfx/bounding_box.c gfx/mesh.c gfx/mesh.h solver/jtbnaturalbcs.c solver/jtbnaturalbcs.h)
+
+add_compile_definitions(JALLOC_TRAP_COUNT=128)
+add_compile_definitions(JALLOC_TRACKING=1)
 
 configure_file(test_configuration.cfg "${CMAKE_BINARY_DIR}/test_configuration.cfg" COPYONLY)
 

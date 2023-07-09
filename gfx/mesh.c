@@ -274,6 +274,12 @@ static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 order)
         vec4 p1, p2, p3;
     };
     triangle* triangle_list = lin_jalloc(G_LIN_JALLOCATOR, sizeof(triangle) * (1 << (order * 2)));
+    if (!triangle_list)
+    {
+        JDM_ERROR("Could not allocate buffer for sphere triangle generation");
+        JDM_LEAVE_FUNCTION;
+        return jfw_res_bad_malloc;
+    }
     //  Initial mesh
     triangle_list[0] = (triangle)
             {
@@ -479,5 +485,144 @@ gfx_result jtb_mesh_update_model(jtb_mesh* mesh, jfw_window_vk_resources* resour
     JDM_LEAVE_FUNCTION;
     return GFX_RESULT_SUCCESS;
 
+}
+
+static gfx_result generate_cone_model(jtb_model* const model, const u16 order)
+{
+    assert(order >= 3);
+    gfx_result res;
+    jfw_res jfw_result;
+    jtb_vertex* vertices;
+    u32 vtx_count = 2 * order + 2;
+    if (!jfw_success(jfw_result = (jfw_calloc(vtx_count, sizeof*vertices, &vertices))))
+    {
+        JDM_ERROR("Could not allocate memory for truss model, reason: %s", jfw_error_message(jfw_result));
+        return GFX_RESULT_BAD_ALLOC;
+    }
+    jtb_vertex*const  top = vertices + 0;
+    jtb_vertex*const  btm = vertices + order;
+    u16* indices;
+    u32 idx_count = 3 * 2 * order;
+    if (!jfw_success(jfw_result = (jfw_calloc(idx_count, sizeof*indices, &indices))))
+    {
+        JDM_ERROR("Could not allocate memory for truss model, reason: %s", jfw_error_message(jfw_result));
+        jfw_free(&vertices);
+        return res;
+    }
+
+
+    const f32 d_omega = M_PI / order;
+    //  Generate bottom side
+    //  Top and bottom are at the end of the list
+    vertices[2 * order + 0] = (jtb_vertex) {.x = 0, .y = 0, .z = 1, .nx = 0, .ny = 0, .nz = 1};
+    vertices[2 * order + 1] = (jtb_vertex) {.x = 0, .y = 0, .z = 0, .nx = 0, .ny = 0, .nz =-1};
+    u32 j = 0;
+    for (u32 i = 0; i < order; ++i)
+    {
+        //    Positions
+        (btm[i] = top[i] = (jtb_vertex) {.x = cosf(d_omega * (f32)i), .y = sinf(d_omega * (f32)i), .z = 0});
+        //    Normals
+        top[i].nx = M_SQRT1_2 * top[i].x;
+        top[i].ny = M_SQRT1_2 * top[i].y;
+        top[i].nz = M_SQRT1_2;
+        btm[i].nx = 0.0f;
+        btm[i].ny = 0.0f;
+        btm[i].nz = 1.0f;
+        //  Top triangle connections
+        indices[6 * i + 0] = i;
+        if (i == order)
+        {
+            indices[6 * i + 1] = 0;
+        }
+        else
+        {
+            indices[6 * i + 1] = i + 1;
+        }
+        indices[6 * i + 2] = 2 * order + 0;
+        //  Bottom triangle connections
+        indices[6 * i + 3] = i + order;
+        if (i == order)
+        {
+            indices[6 * i + 4] = order;
+        }
+        else
+        {
+            indices[6 * i + 4] = i + order + 1;
+        }
+        indices[6 * i + 5] = 2 * order + 1;
+    }
+
+    
+    model->vtx_count = vtx_count;
+    model->idx_count = idx_count;
+    model->vtx_array = vertices;
+    model->idx_array = indices;
+
+    return GFX_RESULT_SUCCESS;
+}
+
+gfx_result mesh_init_cone(jtb_mesh* mesh, u16 order, vk_state* state, jfw_window_vk_resources* resources)
+{
+    JDM_ENTER_FUNCTION;
+    jfw_res res;
+    mesh->name = "cone";
+    mesh->up_to_date = false;
+    gfx_result gfx_res;
+    if ((gfx_res = generate_cone_model(&mesh->model, order)) != GFX_RESULT_SUCCESS)
+    {
+        JDM_ERROR("Could not generate a truss model for a mesh");
+        JDM_LEAVE_FUNCTION;
+        return gfx_res;
+    }
+    mesh->count = 0;
+    mesh->capacity = DEFAULT_MESH_CAPACITY;
+
+    if (!jfw_success(res = jfw_calloc(mesh->capacity, sizeof(*mesh->model_data), &mesh->model_data)))
+    {
+        JDM_ERROR("Could not allocate memory for mesh model array, reason: %s", jfw_error_message(res));
+        clean_mesh_model(&mesh->model);
+        return GFX_RESULT_BAD_ALLOC;
+    }
+
+
+    if ((gfx_res = mesh_allocate_vulkan_memory(state, mesh, resources)) != GFX_RESULT_SUCCESS)
+    {
+        clean_mesh_model(&mesh->model);
+        jfw_free(&mesh->model_data);
+        JDM_ERROR("Could not allocate vulkan memory for the cone mesh");
+        JDM_LEAVE_FUNCTION;
+        return gfx_res;
+    }
+
+    JDM_LEAVE_FUNCTION;
+    return GFX_RESULT_SUCCESS;
+}
+
+gfx_result cone_mesh_add_between_pts(jtb_mesh* mesh, jfw_color color, f32 radius, vec4 pt1, vec4 pt2, vk_state* state)
+{
+    assert(state);
+    assert(pt2.w == 1.0f);
+    assert(pt1.w == 1.0f);
+    vec4 d = vec4_sub(pt2, pt1);
+    const f32 len2 = vec4_dot(d, d);
+    const f32 len = sqrtf(len2);
+    const f32 rotation_y = acosf(d.z / len);
+    const f32 rotation_z = atan2f(d.y, d.x);
+
+    //  Grouped all the matrix operations together in an effort to make them easier to optimize by the compiler
+
+    // first deform the model
+    mtx4 model = mtx4_enlarge(radius, radius, len);
+    //  rotate about y-axis
+    mtx4 normal_transform = mtx4_multiply(mtx4_rotation_y(-rotation_y), normal_transform);
+    //  rotate about z-axis again
+    normal_transform = mtx4_multiply(mtx4_rotation_z(-rotation_z), normal_transform);
+    model = mtx4_multiply(normal_transform, model);
+    //  move the model to the point pt1
+    model = mtx4_translate(model, (pt1));
+    //  Take the sheer of the model into account for the normal transformation as well
+    normal_transform = mtx4_multiply(normal_transform, mtx4_enlarge(1/radius, 1/radius, 1/len));
+
+    return mesh_add_new(mesh, model, normal_transform, color, state);
 }
 

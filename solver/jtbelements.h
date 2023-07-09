@@ -13,19 +13,23 @@
 #include "jtbprofiles.h"
 
 
-typedef struct jtb_element_struct jtb_element;
-struct jtb_element_struct
+typedef struct jtb_element_list_struct jtb_element_list;
+struct jtb_element_list_struct
 {
-    u32 i_point0;
-    u32 i_point1;
-    u32 i_material;
-    u32 i_profile;
-    jio_string_segment label;
+    uint32_t count;
+    uint32_t* i_point0;
+    uint32_t* i_point1;
+    uint32_t* i_material;
+    uint32_t* i_profile;
+    jio_string_segment* labels;
+    f32* lengths;
+    f32 min_len;
+    f32 max_len;
 };
 
 
 jtb_result jtb_load_elements(
         const jio_memory_file* mem_file, const jtb_point_list* points, u32 n_mat, const jtb_material* materials,
-        const jtb_profile_list* profiles, u32* n_elm, jtb_element** pp_elements);
+        const jtb_profile_list* profiles, jtb_element_list* element_list);
 
 #endif //JTB_JTBELEMENTS_H

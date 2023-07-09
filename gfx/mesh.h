@@ -64,13 +64,15 @@ truss_mesh_add_between_pts(jtb_mesh* mesh, jfw_color color, f32 radius, vec4 pt1
 
 gfx_result mesh_uninit(jtb_mesh* mesh);
 
-
-
 gfx_result mesh_init_sphere(jtb_mesh* mesh, u16 order, vk_state* state, jfw_window_vk_resources* resources);
 
 gfx_result sphere_mesh_add(jtb_mesh* mesh, jfw_color color, f32 radius, vec4 pt, vk_state* state);
 
-gfx_result sphere_mesh_add_deformed(jtb_mesh* mesh, jfw_color color, f32 radius_x, f32 radius_y, f32 radius_z, vec4 pt);
+gfx_result sphere_mesh_add_deformed(
+        jtb_mesh* mesh, jfw_color color, f32 radius_x, f32 radius_y, f32 radius_z, vec4 pt, vk_state* state);
 
+gfx_result mesh_init_cone(jtb_mesh* mesh, u16 order, vk_state* state, jfw_window_vk_resources* resources);
+
+gfx_result cone_mesh_add_between_pts(jtb_mesh* mesh, jfw_color color, f32 radius, vec4 pt1, vec4 pt2, vk_state* state);
 
 #endif //JTB_MESH_H
