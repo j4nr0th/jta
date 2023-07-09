@@ -493,7 +493,7 @@ int main(int argc, char* argv[argc])
         JDM_ERROR("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
         goto cleanup;
     }
-    if ((gfx_res = mesh_init_sphere(&sphere_mesh, 5, &vulkan_state, vk_res)) != GFX_RESULT_SUCCESS)
+    if ((gfx_res = mesh_init_sphere(&sphere_mesh, 4, &vulkan_state, vk_res)) != GFX_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
         goto cleanup;

@@ -608,7 +608,7 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
                 .depthCompareOp = VK_COMPARE_OP_LESS,
                 .depthBoundsTestEnable = VK_FALSE,
                 .maxDepthBounds = 1.0f,
-                .minDepthBounds = 0.001f,
+                .minDepthBounds = 0.01f,
                 .stencilTestEnable = VK_FALSE,
                 };
         VkGraphicsPipelineCreateInfo create_info =

@@ -272,9 +272,9 @@ gfx_result gfx_find_bounding_planes(const jtb_point_list* point_list, vec4 origi
     {
         max += 1.0f;
     }
-    if (min < 1e-4f)
+    if (min < 1e-2f)
     {
-        min = 1e-4f;
+        min = 1e-2f;
     }
 
     *p_far = max;

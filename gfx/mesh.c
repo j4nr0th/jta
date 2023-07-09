@@ -243,30 +243,30 @@ static jfw_res clean_sphere_model(jtb_model* model)
     memset(model, 0, sizeof*model);
     return jfw_res_success;
 }
-//  TODO: fix this one >:(
+
 static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 order)
 {
     JDM_ENTER_FUNCTION;
     assert(order >= 1);
     jfw_res res;
-    jtb_vertex* vertices;
-    const u32 vertex_count = 3 * ((1 << (2 * order)));  //  This is an upper bound
-    if (!jfw_success(res = (jfw_calloc(vertex_count, sizeof*vertices, &vertices))))
+    u16* indices;
+    const u32 max_index_count = 3 * ((1 << (2 * order)));  //  3 per triangle, increases by a factor of 4 for each level of refinement
+    if (!jfw_success(res = (jfw_calloc(max_index_count, sizeof*indices, &indices))))
     {
         JDM_ERROR("Could not allocate memory for sphere model");
+        JDM_LEAVE_FUNCTION;
+        return res;
+    }
+    jtb_vertex* vertices;
+    const u32 max_vertex_count = 3 * ((1 << (2 * order)));  //  This is an upper bound
+    if (!jfw_success(res = (jfw_calloc(max_vertex_count, sizeof*vertices, &vertices))))
+    {
+        JDM_ERROR("Could not allocate memory for sphere model");
+        jfw_free(&indices);
         JDM_LEAVE_FUNCTION;
         return res;
     }
 
-    u16* indices;
-    const u32 index_count = 3 * ((1 << (2 * order)));  //  3 per triangle, increases by a factor of 4 for each level of refinement
-    if (!jfw_success(res = (jfw_calloc(index_count, sizeof*indices, &indices))))
-    {
-        JDM_ERROR("Could not allocate memory for sphere model");
-        jfw_free(&vertices);
-        JDM_LEAVE_FUNCTION;
-        return res;
-    }
 
     typedef struct triangle_struct triangle;
     struct triangle_struct
@@ -334,45 +334,74 @@ static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 order)
         triangle_list[i].p3 = vec4_unit(triangle_list[i].p3);
     }
 
+    //  Remove duplicated values
+    u32 vertex_count = 0, index_count = 0;
     for (u32 i = 0; i < triangle_count; ++i)
     {
-        vertices[3 * i + 0].x = triangle_list[i].p1.x;
-        vertices[3 * i + 0].y = triangle_list[i].p1.y;
-        vertices[3 * i + 0].z = triangle_list[i].p1.z;
-
-        vertices[3 * i + 0].nx = triangle_list[i].p1.x;
-        vertices[3 * i + 0].ny = triangle_list[i].p1.y;
-        vertices[3 * i + 0].nz = triangle_list[i].p1.z;
-
-
-        vertices[3 * i + 1].x = triangle_list[i].p2.x;
-        vertices[3 * i + 1].y = triangle_list[i].p2.y;
-        vertices[3 * i + 1].z = triangle_list[i].p2.z;
-
-        vertices[3 * i + 1].nx = triangle_list[i].p2.x;
-        vertices[3 * i + 1].ny = triangle_list[i].p2.y;
-        vertices[3 * i + 1].nz = triangle_list[i].p2.z;
-
-
-        vertices[3 * i + 2].x = triangle_list[i].p3.x;
-        vertices[3 * i + 2].y = triangle_list[i].p3.y;
-        vertices[3 * i + 2].z = triangle_list[i].p3.z;
-
-        vertices[3 * i + 2].nx = triangle_list[i].p3.x;
-        vertices[3 * i + 2].ny = triangle_list[i].p3.y;
-        vertices[3 * i + 2].nz = triangle_list[i].p3.z;
-
-
-        indices[3 * i + 0] = 3 * i + 0;
-        indices[3 * i + 1] = 3 * i + 1;
-        indices[3 * i + 2] = 3 * i + 2;
+        const triangle t = triangle_list[i];
+        u32 j;
+        for (j = 0; j < vertex_count; ++j)
+        {
+            if (t.p1.x == vertices[j].x
+             && t.p1.y == vertices[j].y
+             && t.p1.z == vertices[j].z)
+            {
+                break;
+            }
+        }
+        if (j == vertex_count)
+        {
+            vertices[vertex_count].x = (vertices[vertex_count].nx = t.p1.x);
+            vertices[vertex_count].y = (vertices[vertex_count].ny = t.p1.y);
+            vertices[vertex_count].z = (vertices[vertex_count].nz = t.p1.z);
+            vertex_count += 1;
+        }
+        indices[index_count++] = j;
+        
+        for (j = 0; j < vertex_count; ++j)
+        {
+            if (t.p2.x == vertices[j].x
+                && t.p2.y == vertices[j].y
+                && t.p2.z == vertices[j].z)
+            {
+                break;
+            }
+        }
+        if (j == vertex_count)
+        {
+            vertices[vertex_count].x = (vertices[vertex_count].nx = t.p2.x);
+            vertices[vertex_count].y = (vertices[vertex_count].ny = t.p2.y);
+            vertices[vertex_count].z = (vertices[vertex_count].nz = t.p2.z);
+            vertex_count += 1;
+        }
+        indices[index_count++] = j;
+        
+        for (j = 0; j < vertex_count; ++j)
+        {
+            if (t.p3.x == vertices[j].x
+                && t.p3.y == vertices[j].y
+                && t.p3.z == vertices[j].z)
+            {
+                break;
+            }
+        }
+        if (j == vertex_count)
+        {
+            vertices[vertex_count].x = (vertices[vertex_count].nx = t.p3.x);
+            vertices[vertex_count].y = (vertices[vertex_count].ny = t.p3.y);
+            vertices[vertex_count].z = (vertices[vertex_count].nz = t.p3.z);
+            vertex_count += 1;
+        }
+        indices[index_count++] = j;
     }
-    p_out->vtx_count = triangle_count * 3;
-    p_out->idx_count = triangle_count * 3;
     lin_jfree(G_LIN_JALLOCATOR, triangle_list);
+    if ((res = jfw_realloc(vertex_count * sizeof(*vertices), &vertices)) != jfw_res_success)
+    {
+        JDM_WARN("Could not shrink memory used by vertex list");
+    }
 
-//    p_out->vtx_count = vertex_count;
-//    p_out->idx_count = index_count;
+    p_out->vtx_count = vertex_count;
+    p_out->idx_count = index_count;
     p_out->vtx_array = vertices;
     p_out->idx_array = indices;
 
