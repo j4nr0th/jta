@@ -76,9 +76,9 @@ void jtb_camera_rotate(jtb_camera_3d* camera, vec4 axis_of_rotation, f32 angle)
     assert(vec4_close(vec4_unit(camera->uz), vec4_unit(vec4_negative(relative))));
     relative = mtx4_vector_mul(transformation, relative);
     camera->position = vec4_add(relative, camera->target);
-    camera->ux = mtx4_vector_mul(transformation, camera->ux);
-    camera->uy = mtx4_vector_mul(transformation, camera->uy);
-    camera->uz = mtx4_vector_mul(transformation, camera->uz);
+    camera->ux = vec4_unit(mtx4_vector_mul(transformation, camera->ux));
+    camera->uy = vec4_unit(mtx4_vector_mul(transformation, camera->uy));
+    camera->uz = vec4_unit(mtx4_vector_mul(transformation, camera->uz));
     assert(vec4_close(vec4_unit(camera->uz), vec4_unit(vec4_negative(relative))));
 
 }

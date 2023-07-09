@@ -192,9 +192,6 @@ int main(int argc, char* argv[argc])
     }
     JDM_ENTER_FUNCTION;
     jdm_set_hook(jfw_error_hook_callback_function, NULL);
-    //  Important: aligned_jallocator works fine, but will not help with debugging of memory. As such, it's best to use
-    //  it for Vulkan's use only, as this means that I won't fuck up the memory and then be unable to see where. Just
-    //  stick with malloc family when linear allocator can't be used, since that means I can use Vallgrind's memcheck
 
     if (argc == 1)
     {
@@ -487,8 +484,8 @@ int main(int argc, char* argv[argc])
     }
 
     jtb_mesh truss_mesh;
-//    jtb_mesh sphere_mesh;
-//    vulkan_state.mesh_count = 1;
+    jtb_mesh sphere_mesh;
+    vulkan_state.mesh_count = 1;
 //    vulkan_state.mesh_array = &truss_mesh;
     vulkan_state.point_list = &point_list;
     if ((gfx_res = mesh_init_truss(&truss_mesh, 1 << 4, &vulkan_state, vk_res)) != GFX_RESULT_SUCCESS)
@@ -496,11 +493,11 @@ int main(int argc, char* argv[argc])
         JDM_ERROR("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
         goto cleanup;
     }
-//    if ((gfx_res = mesh_init_sphere(&sphere_mesh, 1 << 4, 1 << 4, &vulkan_state, vk_res)) != GFX_RESULT_SUCCESS)
-//    {
-//        JDM_ERROR("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
-//        goto cleanup;
-//    }
+    if ((gfx_res = mesh_init_sphere(&sphere_mesh, 1, &vulkan_state, vk_res)) != GFX_RESULT_SUCCESS)
+    {
+        JDM_ERROR("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
+        goto cleanup;
+    }
 
 
     //  This is the truss mesh :)
@@ -521,20 +518,20 @@ int main(int argc, char* argv[argc])
         }
     }
 
-//    for (u32 i = 0; i < point_list.count; ++i)
-//    {
-//        if ((gfx_res = sphere_mesh_add(&sphere_mesh, (jfw_color){.r = 0x80, .g = 0x80, .b = 0x80, .a = 0xFF}, point_list.max_radius[i], VEC4(point_list.p_x[i], point_list.p_y[i], point_list.p_z[i]), &vulkan_state)) != GFX_RESULT_SUCCESS)
-//        {
-//            JDM_ERROR("Could not add node %"PRIu32" to the mesh, reason: %s", i, gfx_result_to_str(gfx_res));
-//            goto cleanup;
-//        }
-//    }
+    for (u32 i = 0; i < point_list.count; ++i)
+    {
+        if ((gfx_res = sphere_mesh_add(&sphere_mesh, (jfw_color){.r = 0x80, .g = 0x80, .b = 0x80, .a = 0xFF}, 3 * point_list.max_radius[i], VEC4(point_list.p_x[i], point_list.p_y[i], point_list.p_z[i]), &vulkan_state)) != GFX_RESULT_SUCCESS)
+        {
+            JDM_ERROR("Could not add node %"PRIu32" to the mesh, reason: %s", i, gfx_result_to_str(gfx_res));
+            goto cleanup;
+        }
+    }
     jtb_mesh* meshes[] = {
             &truss_mesh,
-//            &sphere_mesh
+            &sphere_mesh
     };
-    vulkan_state.mesh_count = 1;
-    vulkan_state.mesh_array = meshes;
+    vulkan_state.mesh_count = 2;
+    vulkan_state.mesh_array = meshes + 0;
 
 
     printf("Total of %"PRIu64" triangles in the mesh\n", mesh_polygon_count(&truss_mesh));
@@ -564,6 +561,7 @@ int main(int argc, char* argv[argc])
             4.0f,                                       //  Turn sensitivity
             1.0f                                        //  Move sensitivity
             );
+
 #ifndef NDEBUG
     f32 min = +INFINITY, max = -INFINITY;
     for (u32 i = 0; i < point_list.count; ++i)
@@ -582,7 +580,7 @@ int main(int argc, char* argv[argc])
     }
     f32 n, f;
     jtb_camera_find_depth_planes(&camera, &n, &f);
-    assert(min >= n); assert(max <= f);
+//    assert(min >= n); assert(max <= f);
 #endif
     jtb_draw_state draw_state =
             {

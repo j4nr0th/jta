@@ -244,14 +244,13 @@ static jfw_res clean_sphere_model(jtb_model* model)
     return jfw_res_success;
 }
 //  TODO: fix this one >:(
-static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 nw, const u16 nh)
+static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 order)
 {
     JDM_ENTER_FUNCTION;
-    assert(nw >= 3);
-    assert(nh >= 1);
+    assert(order >= 1);
     jfw_res res;
     jtb_vertex* vertices;
-    const u32 vertex_count = 2 + nw * nh;
+    const u32 vertex_count = 3 * ((1 << (2 * order)));  //  This is an upper bound
     if (!jfw_success(res = (jfw_calloc(vertex_count, sizeof*vertices, &vertices))))
     {
         JDM_ERROR("Could not allocate memory for sphere model");
@@ -260,7 +259,7 @@ static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 nw, const
     }
 
     u16* indices;
-    const u32 index_count = 3 * 2 * nw * (nh + 1);
+    const u32 index_count = 3 * ((1 << (2 * order)));  //  3 per triangle, increases by a factor of 4 for each level of refinement
     if (!jfw_success(res = (jfw_calloc(index_count, sizeof*indices, &indices))))
     {
         JDM_ERROR("Could not allocate memory for sphere model");
@@ -269,91 +268,83 @@ static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 nw, const
         return res;
     }
 
-
-    const f32 d_theta = M_2_PI / nw;
-    const f32 d_phi = M_PI / (nh - 2);
-    u32 i_vtx = 0, i_idx = 0;
-    //  Generate the vertices
-    for (u32 i_ring = 0; i_ring < nh; ++i_ring)
+    typedef struct point_struct point;
+    struct point_struct
     {
-        const f32 phi = d_phi * ((f32) i_ring + 1.0f);
-        const f32 z = cosf(phi);
-        const f32 sp = sinf(phi);
-        for (u32 i_column = 0; i_column < nw; ++i_column)
-        {
-            const f32 theta = (f32)i_column * d_theta;
-            vertices[i_vtx++] = (jtb_vertex)
-                    {
-                            .x = cosf(theta) * sp,
-                            .y = sinf(theta) * sp,
-                            .z = z,
-                    };
-        }
-    }
-    assert(i_vtx == nw * nh);
-    //  Add top and bottom indices
-    const u32 i_top = i_vtx++;
-    const u32 i_btm = i_vtx++;
-    vertices[i_top] = (jtb_vertex){.x=0.0f, .y=0.0f, .z=+1.0f};
-    vertices[i_btm] = (jtb_vertex){.x=0.0f, .y=0.0f, .z=-1.0f};
-    assert(i_vtx == vertex_count);
-
-    //  Now generate the triangles for the bottom part of the ring connections
-    for (u32 i_ring = 0; i_ring < nh - 1; ++i_ring)
+        f32 x, y, z;
+    };
+    typedef struct triangle_struct triangle;
+    struct triangle_struct
     {
-        for (u32 i_column = 0; i_column < nw; ++i_column)
-        {
-            const u32 i_pt = i_column + i_ring * nw;
-            indices[i_idx++] = i_pt;
-            assert(i_idx < index_count);
-            indices[i_idx++] = i_pt + nw;
-            assert(i_idx < index_count);
-            indices[i_idx++] = (i_pt + 1) % nw;
-            assert(i_idx < index_count);
-        }
-    }
+        point p1, p2, p3;
+    };
+    triangle* triangle_list = lin_jalloc(G_LIN_JALLOCATOR, sizeof(triangle) * (1 << (order * 2)));
+    //  Initial mesh
+    triangle_list[0] = (triangle)
+            {
+                    .p1 = {.x = 0.0f,                    .y = 0.0f,                             .z = 1.0f},       //  Top
+                    .p2 = {.x = 2 * sqrtf(2) / 3 * 0.5f, .y = 2 * sqrtf(2) / 3 * -sqrtf(3) / 2, .z = -1.0f/3.0f}, //  Bottom left
+                    .p3 = {.x = 2 * sqrtf(2) / 3 * 0.5f, .y = 2 * sqrtf(2) / 3 * +sqrtf(3) / 2, .z = -1.0f/3.0f}, //  Bottom right
+            };
+    triangle_list[1] = (triangle)
+            {
+                    .p1 = {.x = 0.0f,                    .y = 0.0f,                             .z = 1.0f},       //  Top
+                    .p2 = {.x = 2 * sqrtf(2) / 3 * 0.5f, .y = 2 * sqrtf(2) / 3 * +sqrtf(3) / 2, .z = -1.0f/3.0f}, //  Bottom left
+                    .p3 = {.x =-2 * sqrtf(2) / 3,        .y = 0.0f,                             .z = -1.0f/3.0f}, //  Bottom right
+            };
+    triangle_list[2] = (triangle)
+            {
+                    .p1 = {.x = 0.0f,                    .y = 0.0f,                             .z = 1.0f},       //  Top
+                    .p2 = {.x =-2 * sqrtf(2) / 3,        .y = 0.0f,                             .z = -1.0f/3.0f}, //  Bottom left
+                    .p3 = {.x = 2 * sqrtf(2) / 3 * 0.5f, .y = 2 * sqrtf(2) / 3 * -sqrtf(3) / 2, .z = -1.0f/3.0f}, //  Bottom right
+            };
+    triangle_list[3] = (triangle)
+            {
+                    .p1 = {.x = 2 * sqrtf(2) / 3 * 0.5f, .y = 2 * sqrtf(2) / 3 * -sqrtf(3) / 2, .z = -1.0f/3.0f}, //  Bottom left
+                    .p2 = {.x =-2 * sqrtf(2) / 3,        .y = 0.0f,                             .z = -1.0f/3.0f}, //  Bottom left
+                    .p3 = {.x = 2 * sqrtf(2) / 3 * 0.5f, .y = 2 * sqrtf(2) / 3 * +sqrtf(3) / 2, .z = -1.0f/3.0f}, //  Bottom left
+            };
+    u32 triangle_count = 4;
 
-    //  Generate the triangles for the top part of the ring connections
-    for (u32 i_ring = 1; i_ring < nh; ++i_ring)
+    for (u32 i = 0; i < triangle_count; ++i)
     {
-        for (u32 i_column = 0; i_column < nw; ++i_column)
-        {
-            const u32 i_pt = i_column + i_ring * nw;
-            indices[i_idx++] = i_pt;
-            assert(i_idx < index_count);
-            indices[i_idx++] = (i_pt + 1) % nw;
-            assert(i_idx < index_count);
-            indices[i_idx++] = i_pt - nw;
-            assert(i_idx < index_count);
-        }
+        vertices[3 * i + 0].x = triangle_list[i].p1.x;
+        vertices[3 * i + 0].y = triangle_list[i].p1.y;
+        vertices[3 * i + 0].z = triangle_list[i].p1.z;
+
+        vertices[3 * i + 0].nx = triangle_list[i].p1.x;
+        vertices[3 * i + 0].ny = triangle_list[i].p1.y;
+        vertices[3 * i + 0].nz = triangle_list[i].p1.z;
+
+
+        vertices[3 * i + 1].x = triangle_list[i].p2.x;
+        vertices[3 * i + 1].y = triangle_list[i].p2.y;
+        vertices[3 * i + 1].z = triangle_list[i].p2.z;
+
+        vertices[3 * i + 1].nx = triangle_list[i].p2.x;
+        vertices[3 * i + 1].ny = triangle_list[i].p2.y;
+        vertices[3 * i + 1].nz = triangle_list[i].p2.z;
+
+
+        vertices[3 * i + 2].x = triangle_list[i].p3.x;
+        vertices[3 * i + 2].y = triangle_list[i].p3.y;
+        vertices[3 * i + 2].z = triangle_list[i].p3.z;
+
+        vertices[3 * i + 2].nx = triangle_list[i].p3.x;
+        vertices[3 * i + 2].ny = triangle_list[i].p3.y;
+        vertices[3 * i + 2].nz = triangle_list[i].p3.z;
+
+
+        indices[3 * i + 0] = 3 * i + 0;
+        indices[3 * i + 1] = 3 * i + 1;
+        indices[3 * i + 2] = 3 * i + 2;
     }
+    p_out->vtx_count = 12;
+    p_out->idx_count = 12;
+    lin_jfree(G_LIN_JALLOCATOR, triangle_list);
 
-    //  Generate the triangles for the very top of the sphere
-    for (u32 i_column = 0; i_column < nw; ++i_column)
-    {
-        indices[i_idx++] = i_top;
-        assert(i_idx < index_count);
-        indices[i_idx++] = i_column;
-        assert(i_idx < index_count);
-        indices[i_idx++] = (i_column + 1) % nw;
-        assert(i_idx < index_count);
-    }
-    //  Generate the triangles for the very bottom of the sphere
-    for (u32 i_column = 0; i_column < nw; ++i_column)
-    {
-        const u32 i_pt = i_column + nw * (nh - 1);
-        indices[i_idx++] = i_btm;
-        assert(i_idx < index_count);
-        indices[i_idx++] = (i_pt + 1) % nw;
-        assert(i_idx < index_count);
-        indices[i_idx++] = i_pt;
-    }
-
-    assert(i_idx == index_count);
-
-
-    p_out->vtx_count = vertex_count;
-    p_out->idx_count = index_count;
+//    p_out->vtx_count = vertex_count;
+//    p_out->idx_count = index_count;
     p_out->vtx_array = vertices;
     p_out->idx_array = indices;
 
@@ -361,12 +352,12 @@ static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 nw, const
     return jfw_res_success;
 }
 
-gfx_result mesh_init_sphere(jtb_mesh* mesh, u16 nw, u16 nh, vk_state* state, jfw_window_vk_resources* resources)
+gfx_result mesh_init_sphere(jtb_mesh* mesh, u16 order, vk_state* state, jfw_window_vk_resources* resources)
 {
     JDM_ENTER_FUNCTION;
     jfw_res res;
     mesh->name = "sphere";
-    if (!jfw_success(generate_sphere_model(&mesh->model, nw, nh)))
+    if (!jfw_success(generate_sphere_model(&mesh->model, order)))
     {
         JDM_ERROR("Could not generate a sphere model for a mesh");
         JDM_LEAVE_FUNCTION;

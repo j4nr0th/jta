@@ -66,7 +66,7 @@ gfx_result mesh_uninit(jtb_mesh* mesh);
 
 
 
-gfx_result mesh_init_sphere(jtb_mesh* mesh, u16 nw, u16 nh, vk_state* state, jfw_window_vk_resources* resources);
+gfx_result mesh_init_sphere(jtb_mesh* mesh, u16 order, vk_state* state, jfw_window_vk_resources* resources);
 
 gfx_result sphere_mesh_add(jtb_mesh* mesh, jfw_color color, f32 radius, vec4 pt, vk_state* state);
 

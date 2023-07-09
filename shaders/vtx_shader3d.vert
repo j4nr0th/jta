@@ -22,6 +22,10 @@ layout(binding = 0) uniform UBO_struct
 void main()
 {
     vec4 p = view * model_transform * vec4(position, 1.0f);
+    if (p.z < 0.0f)
+    {
+        p.z = 0.0f;
+    }
     gl_Position = proj * p;
 //    gl_Position /= p.w;   //  This is commented out because it is done by hardware anyway
 
