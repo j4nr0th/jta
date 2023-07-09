@@ -493,7 +493,7 @@ int main(int argc, char* argv[argc])
         JDM_ERROR("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
         goto cleanup;
     }
-    if ((gfx_res = mesh_init_sphere(&sphere_mesh, 1, &vulkan_state, vk_res)) != GFX_RESULT_SUCCESS)
+    if ((gfx_res = mesh_init_sphere(&sphere_mesh, 5, &vulkan_state, vk_res)) != GFX_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
         goto cleanup;
@@ -520,7 +520,7 @@ int main(int argc, char* argv[argc])
 
     for (u32 i = 0; i < point_list.count; ++i)
     {
-        if ((gfx_res = sphere_mesh_add(&sphere_mesh, (jfw_color){.r = 0x80, .g = 0x80, .b = 0x80, .a = 0xFF}, 3 * point_list.max_radius[i], VEC4(point_list.p_x[i], point_list.p_y[i], point_list.p_z[i]), &vulkan_state)) != GFX_RESULT_SUCCESS)
+        if ((gfx_res = sphere_mesh_add(&sphere_mesh, (jfw_color){.r = 0x80, .g = 0x80, .b = 0x80, .a = 0xFF}, point_list.max_radius[i], VEC4(point_list.p_x[i], point_list.p_y[i], point_list.p_z[i]), &vulkan_state)) != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not add node %"PRIu32" to the mesh, reason: %s", i, gfx_result_to_str(gfx_res));
             goto cleanup;

@@ -268,43 +268,71 @@ static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 order)
         return res;
     }
 
-    typedef struct point_struct point;
-    struct point_struct
-    {
-        f32 x, y, z;
-    };
     typedef struct triangle_struct triangle;
     struct triangle_struct
     {
-        point p1, p2, p3;
+        vec4 p1, p2, p3;
     };
     triangle* triangle_list = lin_jalloc(G_LIN_JALLOCATOR, sizeof(triangle) * (1 << (order * 2)));
     //  Initial mesh
     triangle_list[0] = (triangle)
             {
-                    .p1 = {.x = 0.0f,                    .y = 0.0f,                             .z = 1.0f},       //  Top
-                    .p2 = {.x = 2 * sqrtf(2) / 3 * 0.5f, .y = 2 * sqrtf(2) / 3 * -sqrtf(3) / 2, .z = -1.0f/3.0f}, //  Bottom left
-                    .p3 = {.x = 2 * sqrtf(2) / 3 * 0.5f, .y = 2 * sqrtf(2) / 3 * +sqrtf(3) / 2, .z = -1.0f/3.0f}, //  Bottom right
+                    .p1 = {.x = 0.0f,                    .y = 0.0f,                             .z = 1.0f      , .w = 1.0f}, //  Top
+                    .p2 = {.x = 2 * sqrtf(2) / 3 * 0.5f, .y = 2 * sqrtf(2) / 3 * -sqrtf(3) / 2, .z = -1.0f/3.0f, .w = 1.0f}, //  Bottom left
+                    .p3 = {.x = 2 * sqrtf(2) / 3 * 0.5f, .y = 2 * sqrtf(2) / 3 * +sqrtf(3) / 2, .z = -1.0f/3.0f, .w = 1.0f}, //  Bottom right
             };
     triangle_list[1] = (triangle)
             {
-                    .p1 = {.x = 0.0f,                    .y = 0.0f,                             .z = 1.0f},       //  Top
-                    .p2 = {.x = 2 * sqrtf(2) / 3 * 0.5f, .y = 2 * sqrtf(2) / 3 * +sqrtf(3) / 2, .z = -1.0f/3.0f}, //  Bottom left
-                    .p3 = {.x =-2 * sqrtf(2) / 3,        .y = 0.0f,                             .z = -1.0f/3.0f}, //  Bottom right
+                    .p1 = {.x = 0.0f,                    .y = 0.0f,                             .z = 1.0f      , .w = 1.0f}, //  Top
+                    .p2 = {.x = 2 * sqrtf(2) / 3 * 0.5f, .y = 2 * sqrtf(2) / 3 * +sqrtf(3) / 2, .z = -1.0f/3.0f, .w = 1.0f}, //  Bottom left
+                    .p3 = {.x =-2 * sqrtf(2) / 3,        .y = 0.0f,                             .z = -1.0f/3.0f, .w = 1.0f}, //  Bottom right
             };
     triangle_list[2] = (triangle)
             {
-                    .p1 = {.x = 0.0f,                    .y = 0.0f,                             .z = 1.0f},       //  Top
-                    .p2 = {.x =-2 * sqrtf(2) / 3,        .y = 0.0f,                             .z = -1.0f/3.0f}, //  Bottom left
-                    .p3 = {.x = 2 * sqrtf(2) / 3 * 0.5f, .y = 2 * sqrtf(2) / 3 * -sqrtf(3) / 2, .z = -1.0f/3.0f}, //  Bottom right
+                    .p1 = {.x = 0.0f,                    .y = 0.0f,                             .z = 1.0f      , .w = 1.0f}, //  Top
+                    .p2 = {.x =-2 * sqrtf(2) / 3,        .y = 0.0f,                             .z = -1.0f/3.0f, .w = 1.0f}, //  Bottom left
+                    .p3 = {.x = 2 * sqrtf(2) / 3 * 0.5f, .y = 2 * sqrtf(2) / 3 * -sqrtf(3) / 2, .z = -1.0f/3.0f, .w = 1.0f}, //  Bottom right
             };
     triangle_list[3] = (triangle)
             {
-                    .p1 = {.x = 2 * sqrtf(2) / 3 * 0.5f, .y = 2 * sqrtf(2) / 3 * -sqrtf(3) / 2, .z = -1.0f/3.0f}, //  Bottom left
-                    .p2 = {.x =-2 * sqrtf(2) / 3,        .y = 0.0f,                             .z = -1.0f/3.0f}, //  Bottom left
-                    .p3 = {.x = 2 * sqrtf(2) / 3 * 0.5f, .y = 2 * sqrtf(2) / 3 * +sqrtf(3) / 2, .z = -1.0f/3.0f}, //  Bottom left
+                    .p1 = {.x = 2 * sqrtf(2) / 3 * 0.5f, .y = 2 * sqrtf(2) / 3 * -sqrtf(3) / 2, .z = -1.0f/3.0f, .w = 1.0f}, //  Bottom left
+                    .p2 = {.x =-2 * sqrtf(2) / 3,        .y = 0.0f,                             .z = -1.0f/3.0f, .w = 1.0f}, //  Bottom left
+                    .p3 = {.x = 2 * sqrtf(2) / 3 * 0.5f, .y = 2 * sqrtf(2) / 3 * +sqrtf(3) / 2, .z = -1.0f/3.0f, .w = 1.0f}, //  Bottom left
             };
     u32 triangle_count = 4;
+
+    //  Refine the mesh
+    for (u32 i_order = 1; i_order < order; ++i_order)
+    {
+        //  Loop over every triangle and break it up into four smaller ones
+        for (u32 i = 0; i < triangle_count; ++i)
+        {
+            const triangle base_triangle = triangle_list[i];
+            triangle t1 = base_triangle;
+            t1.p2 = vec4_div_one(vec4_add(t1.p1, t1.p2), 2);
+            t1.p3 = vec4_div_one(vec4_add(t1.p1, t1.p3), 2);
+            triangle t2 = base_triangle;
+            t2.p3 = vec4_div_one(vec4_add(t2.p2, t2.p3), 2);
+            t2.p1 = vec4_div_one(vec4_add(t2.p2, t2.p1), 2);
+            triangle t3 = base_triangle;
+            t3.p1 = vec4_div_one(vec4_add(t3.p3, t3.p1), 2);
+            t3.p2 = vec4_div_one(vec4_add(t3.p3, t3.p2), 2);
+            triangle t4 = {.p1 = t1.p2, .p2 = t2.p3, .p3 = t3.p1};
+            triangle_list[i] = t4;
+            triangle_list[triangle_count + 3 * i + 0] = t1;
+            triangle_list[triangle_count + 3 * i + 1] = t2;
+            triangle_list[triangle_count + 3 * i + 2] = t3;
+        }
+        triangle_count *= 4;
+    }
+
+    //  Normalize the triangles (projecting them on to the unit sphere)
+    for (u32 i = 0; i < triangle_count; ++i)
+    {
+        triangle_list[i].p1 = vec4_unit(triangle_list[i].p1);
+        triangle_list[i].p2 = vec4_unit(triangle_list[i].p2);
+        triangle_list[i].p3 = vec4_unit(triangle_list[i].p3);
+    }
 
     for (u32 i = 0; i < triangle_count; ++i)
     {
@@ -339,8 +367,8 @@ static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 order)
         indices[3 * i + 1] = 3 * i + 1;
         indices[3 * i + 2] = 3 * i + 2;
     }
-    p_out->vtx_count = 12;
-    p_out->idx_count = 12;
+    p_out->vtx_count = triangle_count * 3;
+    p_out->idx_count = triangle_count * 3;
     lin_jfree(G_LIN_JALLOCATOR, triangle_list);
 
 //    p_out->vtx_count = vertex_count;
