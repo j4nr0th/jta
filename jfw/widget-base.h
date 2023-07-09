@@ -29,8 +29,8 @@ typedef struct jfw_widget_functions_struct
     jfw_res (*mouse_focus_get)(jfw_widget* this, jfw_widget* new_focus);
     jfw_res (*mouse_focus_lose)(jfw_widget* this, jfw_widget* old_focus);
     //  Related to keyboard input
-    jfw_res (*button_down)(jfw_widget* this, u32 key_code);
-    jfw_res (*button_up)(jfw_widget* this, u32 key_code);
+    jfw_res (*button_down)(jfw_widget* this, KeySym key_code);
+    jfw_res (*button_up)(jfw_widget* this, KeySym key_code);
     jfw_res (*char_input)(jfw_widget* this, const char* utf8);
     jfw_res (*keyboard_focus_get)(jfw_widget* this, jfw_widget* new_focus);
     jfw_res (*keyboard_focus_lose)(jfw_widget* this, jfw_widget* old_focus);

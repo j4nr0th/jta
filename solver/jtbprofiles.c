@@ -89,26 +89,26 @@ jtb_result jtb_load_profiles(const jio_memory_file* mem_file, jtb_profile_list* 
         res = JTB_RESULT_BAD_IO;
         goto end;
     }
-    f32* area = jalloc(G_JALLOCATOR, sizeof(*area) * (line_count - 1));
+    f32* area = ill_jalloc(G_JALLOCATOR, sizeof(*area) * (line_count - 1));
     if (!area)
     {
         JDM_ERROR("Could not allocate memory for point array");
         res = JTB_RESULT_BAD_ALLOC;
         goto end;
     }
-    f32* smoa = jalloc(G_JALLOCATOR, sizeof(*smoa) * (line_count - 1));
+    f32* smoa = ill_jalloc(G_JALLOCATOR, sizeof(*smoa) * (line_count - 1));
     if (!smoa)
     {
-        jfree(G_JALLOCATOR, area);
+        ill_jfree(G_JALLOCATOR, area);
         JDM_ERROR("Could not allocate memory for point array");
         res = JTB_RESULT_BAD_ALLOC;
         goto end;
     }
-    jio_string_segment* ss = jalloc(G_JALLOCATOR, sizeof(*ss) * (line_count - 1));
+    jio_string_segment* ss = ill_jalloc(G_JALLOCATOR, sizeof(*ss) * (line_count - 1));
     if (!ss)
     {
-        jfree(G_JALLOCATOR, area);
-        jfree(G_JALLOCATOR, smoa);
+        ill_jfree(G_JALLOCATOR, area);
+        ill_jfree(G_JALLOCATOR, smoa);
         JDM_ERROR("Could not allocate memory for point array");
         res = JTB_RESULT_BAD_ALLOC;
         goto end;
@@ -124,13 +124,23 @@ jtb_result jtb_load_profiles(const jio_memory_file* mem_file, jtb_profile_list* 
             .values = ss, .count = 0,
             };
     void* param_array[] = { &parse_ss_data, parse_float_data + 0, parse_float_data + 1};
-    jio_res = jio_process_csv_exact(mem_file, ",", PROFILE_FILE_HEADER_COUNT, PROFILE_FILE_HEADERS, converter_functions, param_array, G_LIN_JALLOCATOR);
+
+    jio_stack_allocator_callbacks jio_callbacks =
+            {
+                    .param = G_LIN_JALLOCATOR,
+                    .alloc = (void* (*)(void*, uint64_t)) lin_jalloc,
+                    .free = (void (*)(void*, void*)) lin_jfree,
+                    .realloc = (void* (*)(void*, void*, uint64_t)) lin_jrealloc,
+                    .restore = (void (*)(void*, void*)) lin_jallocator_restore_current,
+                    .save = (void* (*)(void*)) lin_jallocator_save_state,
+            };
+    jio_res = jio_process_csv_exact(mem_file, ",", PROFILE_FILE_HEADER_COUNT, PROFILE_FILE_HEADERS, converter_functions, param_array, &jio_callbacks);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Processing the profile input file failed, reason: %s", jio_result_to_str(jio_res));
-        jfree(G_JALLOCATOR, area);
-        jfree(G_JALLOCATOR, smoa);
-        jfree(G_JALLOCATOR, ss);
+        ill_jfree(G_JALLOCATOR, area);
+        ill_jfree(G_JALLOCATOR, smoa);
+        ill_jfree(G_JALLOCATOR, ss);
         res = JTB_RESULT_BAD_INPUT;
         goto end;
     }
@@ -140,19 +150,19 @@ jtb_result jtb_load_profiles(const jio_memory_file* mem_file, jtb_profile_list* 
 
     const uint32_t count = parse_float_data[0].count;
     assert(count <= line_count - 1);
-    f32* const equivalent_radius = jalloc(G_JALLOCATOR, sizeof(*equivalent_radius) * count);
+    f32* const equivalent_radius = ill_jalloc(G_JALLOCATOR, sizeof(*equivalent_radius) * count);
     if (!equivalent_radius)
     {
-        jfree(G_JALLOCATOR, area);
-        jfree(G_JALLOCATOR, smoa);
-        jfree(G_JALLOCATOR, ss);
+        ill_jfree(G_JALLOCATOR, area);
+        ill_jfree(G_JALLOCATOR, smoa);
+        ill_jfree(G_JALLOCATOR, ss);
         JDM_ERROR("Could not allocate memory for profile array");
         res = JTB_RESULT_BAD_ALLOC;
         goto end;
     }
     if (count != line_count - 1)
     {
-        f32* new_ptr = jrealloc(G_JALLOCATOR, area, sizeof(*new_ptr) * count);
+        f32* new_ptr = ill_jrealloc(G_JALLOCATOR, area, sizeof(*new_ptr) * count);
         if (!new_ptr)
         {
             JDM_WARN("Failed shrinking the profile array from %zu to %zu bytes", sizeof(*area) * (line_count - 1), sizeof(*new_ptr) * count);
@@ -161,7 +171,7 @@ jtb_result jtb_load_profiles(const jio_memory_file* mem_file, jtb_profile_list* 
         {
             area = new_ptr;
         }
-        new_ptr = jrealloc(G_JALLOCATOR, smoa, sizeof(*new_ptr) * count);
+        new_ptr = ill_jrealloc(G_JALLOCATOR, smoa, sizeof(*new_ptr) * count);
         if (!new_ptr)
         {
             JDM_WARN("Failed shrinking the profile array from %zu to %zu bytes", sizeof(*smoa) * (line_count - 1), sizeof(*new_ptr) * count);
@@ -170,7 +180,7 @@ jtb_result jtb_load_profiles(const jio_memory_file* mem_file, jtb_profile_list* 
         {
             smoa = new_ptr;
         }
-        jio_string_segment* const new_ptr1 = jrealloc(G_JALLOCATOR, ss, sizeof(*new_ptr1) * count);
+        jio_string_segment* const new_ptr1 = ill_jrealloc(G_JALLOCATOR, ss, sizeof(*new_ptr1) * count);
         if (!new_ptr1)
         {
             JDM_WARN("Failed shrinking the profile array from %zu to %zu bytes", sizeof(*ss) * (line_count - 1), sizeof(*new_ptr1) * count);
@@ -182,9 +192,9 @@ jtb_result jtb_load_profiles(const jio_memory_file* mem_file, jtb_profile_list* 
     }
     memset(equivalent_radius, 0, count * sizeof(*equivalent_radius));
     //  Compute equivalent radii
-    const __m128 two = _mm_set1_ps(2.0f);
-    __m128 one_over_two_pi = _mm_set1_ps((f32)(M_PI * 2.0));
-    one_over_two_pi = _mm_rcp_ps(one_over_two_pi);
+//    const __m128 two = _mm_set1_ps(2.0f);
+//    __m128 one_over_two_pi = _mm_set1_ps((f32)(M_PI * 2.0));
+//    one_over_two_pi = _mm_rcp_ps(one_over_two_pi);
     u32 i = 0;
 //    for (i = 0; i < (count >> 4); ++i)
 //    {

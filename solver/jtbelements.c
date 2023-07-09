@@ -139,7 +139,7 @@ jtb_result jtb_load_elements(
         res = JTB_RESULT_BAD_IO;
         goto end;
     }
-    jtb_element* element_array = jalloc(G_JALLOCATOR, sizeof(*element_array) * (line_count - 1));
+    jtb_element* element_array = ill_jalloc(G_JALLOCATOR, sizeof(*element_array) * (line_count - 1));
     if (!element_array)
     {
         JDM_ERROR("Could not allocate memory for element array");
@@ -155,11 +155,20 @@ jtb_result jtb_load_elements(
                     {.elements = element_array, .count = 0, .n_mat = n_mat, .p_pts = points, .p_mat = materials, .p_pro = profiles},
             };
     void* param_array[] = {parse_data + 0, parse_data + 1, parse_data + 2, parse_data + 3, parse_data + 4};
-    jio_res = jio_process_csv_exact(mem_file, ",", ELEMENT_FILE_HEADER_COUNT, ELEMENT_FILE_HEADERS, converter_functions, param_array, G_LIN_JALLOCATOR);
+    jio_stack_allocator_callbacks jio_callbacks =
+            {
+                    .param = G_LIN_JALLOCATOR,
+                    .alloc = (void* (*)(void*, uint64_t)) lin_jalloc,
+                    .free = (void (*)(void*, void*)) lin_jfree,
+                    .realloc = (void* (*)(void*, void*, uint64_t)) lin_jrealloc,
+                    .restore = (void (*)(void*, void*)) lin_jallocator_restore_current,
+                    .save = (void* (*)(void*)) lin_jallocator_save_state,
+            };
+    jio_res = jio_process_csv_exact(mem_file, ",", ELEMENT_FILE_HEADER_COUNT, ELEMENT_FILE_HEADERS, converter_functions, param_array, &jio_callbacks);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Processing the element input file failed, reason: %s", jio_result_to_str(jio_res));
-        jfree(G_JALLOCATOR, element_array);
+        ill_jfree(G_JALLOCATOR, element_array);
         res = JTB_RESULT_BAD_INPUT;
         goto end;
     }
@@ -173,7 +182,7 @@ jtb_result jtb_load_elements(
     assert(count <= line_count - 1);
     if (count != line_count - 1)
     {
-        jtb_element* const new_ptr = jrealloc(G_JALLOCATOR, element_array, sizeof(*new_ptr) * count);
+        jtb_element* const new_ptr = ill_jrealloc(G_JALLOCATOR, element_array, sizeof(*new_ptr) * count);
         if (!new_ptr)
         {
             JDM_WARN("Failed shrinking the element array from %zu to %zu bytes", sizeof(*element_array) * (line_count - 1), sizeof(*new_ptr) * count);

@@ -1,3 +1,9 @@
 [submodule "jio"]
 	path = jio
 	url = git@github.com:j4nr0th/jio.git
+[submodule "jdm"]
+	path = jdm
+	url = git@github.com:j4nr0th/jdm.git
+[submodule "jmem"]
+	path = jmem
+	url = git@github.com:j4nr0th/jmem.git

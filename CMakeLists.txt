@@ -24,6 +24,8 @@ list(APPEND JTB_SOLVER_SOURCE_FILES solver/jtberr.c solver/jtbpoints.c solver/jt
 list(APPEND JTB_SOLVER_HEADER_FILES solver/jtberr.h solver/jtbpoints.h solver/jtbmaterials.h solver/jtbprofiles.h solver/jtbelements.h)
 
 add_subdirectory(jio)
+add_subdirectory(jmem)
+add_subdirectory(jdm)
 
 add_executable(jtb main.c
         ${JFW_SOURCE_FILES} ${JFW_HEADER_FILES}
@@ -37,7 +39,7 @@ add_executable(jtb main.c
 
 configure_file(test_configuration.cfg "${CMAKE_BINARY_DIR}/test_configuration.cfg" COPYONLY)
 
-target_include_directories(jtb PRIVATE jio/include)
+target_include_directories(jtb PRIVATE jio/include jdm/include jmem/source/include)
 target_link_libraries(jtb PRIVATE vulkan X11 m jmem jfmt jdm jio)
 
 add_executable(jfw_test ${JFW_SOURCE_FILES} ${JFW_HEADER_FILES} jfw/main.c)

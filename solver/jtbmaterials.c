@@ -134,7 +134,7 @@ jtb_result jtb_load_materials(const jio_memory_file* mem_file, u32* n_mat, jtb_m
         res = JTB_RESULT_BAD_IO;
         goto end;
     }
-    jtb_material* material_array = jalloc(G_JALLOCATOR, sizeof(*material_array) * (line_count - 1));
+    jtb_material* material_array = ill_jalloc(G_JALLOCATOR, sizeof(*material_array) * (line_count - 1));
     if (!material_array)
     {
         JDM_ERROR("Could not allocate memory for material array");
@@ -150,11 +150,21 @@ jtb_result jtb_load_materials(const jio_memory_file* mem_file, u32* n_mat, jtb_m
                     {.materials = material_array, .count = 0},
             };
     void* param_array[] = {parse_data + 0, parse_data + 1, parse_data + 2, parse_data + 3, parse_data + 4};
-    jio_res = jio_process_csv_exact(mem_file, ",", MATERIAL_FILE_HEADER_COUNT, MATERIAL_FILE_HEADERS, converter_functions, param_array, G_LIN_JALLOCATOR);
+
+    jio_stack_allocator_callbacks jio_callbacks =
+            {
+                    .param = G_LIN_JALLOCATOR,
+                    .alloc = (void* (*)(void*, uint64_t)) lin_jalloc,
+                    .free = (void (*)(void*, void*)) lin_jfree,
+                    .realloc = (void* (*)(void*, void*, uint64_t)) lin_jrealloc,
+                    .restore = (void (*)(void*, void*)) lin_jallocator_restore_current,
+                    .save = (void* (*)(void*)) lin_jallocator_save_state,
+            };
+    jio_res = jio_process_csv_exact(mem_file, ",", MATERIAL_FILE_HEADER_COUNT, MATERIAL_FILE_HEADERS, converter_functions, param_array, &jio_callbacks);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Processing the material input file failed, reason: %s", jio_result_to_str(jio_res));
-        jfree(G_JALLOCATOR, material_array);
+        ill_jfree(G_JALLOCATOR, material_array);
         res = JTB_RESULT_BAD_INPUT;
         goto end;
     }
@@ -168,7 +178,7 @@ jtb_result jtb_load_materials(const jio_memory_file* mem_file, u32* n_mat, jtb_m
     assert(count <= line_count - 1);
     if (count != line_count - 1)
     {
-        jtb_material* const new_ptr = jrealloc(G_JALLOCATOR, material_array, sizeof(*new_ptr) * count);
+        jtb_material* const new_ptr = ill_jrealloc(G_JALLOCATOR, material_array, sizeof(*new_ptr) * count);
         if (!new_ptr)
         {
             JDM_WARN("Failed shrinking the material array from %zu to %zu bytes", sizeof(*material_array) * (line_count - 1), sizeof(*new_ptr) * count);

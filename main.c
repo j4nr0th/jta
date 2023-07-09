@@ -132,6 +132,19 @@ static i32 jfw_error_hook_callback_function(const char* thread_name, u32 stack_t
     return 0;
 }
 
+static void double_free_hook(jallocator* allocator, void* param)
+{
+    JDM_ENTER_FUNCTION;
+    JDM_ERROR("Double free detected by allocator %s (%p)", allocator->type, allocator);
+    JDM_LEAVE_FUNCTION;
+}
+
+static void invalid_alloc(jallocator* allocator, void* param)
+{
+    JDM_ENTER_FUNCTION;
+    JDM_ERROR("Bad allocation detected by allocator %s (%p)", allocator->type, allocator);
+    JDM_LEAVE_FUNCTION;
+}
 
 int main(int argc, char* argv[argc])
 {
@@ -150,23 +163,33 @@ int main(int argc, char* argv[argc])
         fputs("Could not create linear allocator\n", stderr);
         exit(EXIT_FAILURE);
     }
-    G_JALLOCATOR = jallocator_create(1 << 20, 1);
+    G_JALLOCATOR = ill_jallocator_create(1 << 20, 1);
     if (!G_JALLOCATOR)
     {
         fputs("Could not create base jallocator\n", stderr);
         exit(EXIT_FAILURE);
     }
+    G_JALLOCATOR->double_free_callback = double_free_hook;
+    G_JALLOCATOR->bad_alloc_callback = invalid_alloc;
 
-
-    jdm_init_thread("master",
+    {
+        jdm_allocator_callbacks jdm_callbacks =
+                {
+                .param = G_JALLOCATOR,
+                .alloc = (void* (*)(void*, uint64_t)) ill_jalloc,
+                .free = (void (*)(void*, void*)) ill_jfree,
+                };
+        jdm_init_thread(
+                "master",
 #ifndef NEBUG
-                            JDM_MESSAGE_LEVEL_NONE,
+                JDM_MESSAGE_LEVEL_NONE,
 #else
-                            JDM_MESSAGE_LEVEL_WARN,
+                JDM_MESSAGE_LEVEL_WARN,
 #endif
-                          64,
-                          64,
-                          G_JALLOCATOR);
+                64,
+                64,
+                &jdm_callbacks);
+    }
     JDM_ENTER_FUNCTION;
     jdm_set_hook(jfw_error_hook_callback_function, NULL);
     //  Important: aligned_jallocator works fine, but will not help with debugging of memory. As such, it's best to use
@@ -194,10 +217,19 @@ int main(int argc, char* argv[argc])
         }
 
         jio_cfg_section* cfg_root;
-        jio_res = jio_cfg_parse(&cfg_file, &cfg_root, G_JALLOCATOR);
-        if (jio_res != JIO_RESULT_SUCCESS)
         {
-            JDM_FATAL("Could not parse configuration file \"%s\", reason: %s", argv[1], jio_result_to_str(jio_res));
+            jio_allocator_callbacks cfg_callbacks =
+                    {
+                    .param = G_JALLOCATOR,
+                    .free = (void (*)(void*, void*)) ill_jfree,
+                    .realloc = (void* (*)(void*, void*, uint64_t)) ill_jrealloc,
+                    .alloc = (void* (*)(void*, uint64_t)) ill_jalloc,
+                    };
+            jio_res = jio_cfg_parse(&cfg_file, &cfg_root, &cfg_callbacks);
+            if (jio_res != JIO_RESULT_SUCCESS)
+            {
+                JDM_FATAL("Could not parse configuration file \"%s\", reason: %s", argv[1], jio_result_to_str(jio_res));
+            }
         }
 
 
@@ -503,38 +535,7 @@ int main(int argc, char* argv[argc])
     };
     vulkan_state.mesh_count = 1;
     vulkan_state.mesh_array = meshes;
-    
 
-//    vk_buffer_allocation vtx_buffer_allocation_geometry, vtx_buffer_allocation_model, idx_buffer_allocation;
-//    i32 res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(jtb_vertex) * mesh.model.vtx_count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &vtx_buffer_allocation_geometry);
-//    if (res_v < 0)
-//    {
-//        JDM_ERROR("Could not allocate geometry vertex buffer memory");
-//        goto cleanup;
-//    }
-//    vk_transfer_memory_to_buffer(vk_res, &vulkan_state, &vtx_buffer_allocation_geometry, sizeof(jtb_vertex) * mesh.model.vtx_count, mesh.model.vtx_array);
-//
-//    res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(*mesh.model.idx_array) * mesh.model.idx_count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &idx_buffer_allocation);
-//    if (res_v < 0)
-//    {
-//        JDM_ERROR("Could not allocate index buffer memory");
-//        goto cleanup;
-//    }
-//    vk_transfer_memory_to_buffer(vk_res, &vulkan_state, &idx_buffer_allocation, sizeof(*mesh.model.idx_array) * mesh.model.idx_count, mesh.model.idx_array);
-//
-//    res_v = vk_buffer_allocate(vulkan_state.buffer_allocator, 1, sizeof(jtb_model_data) * mesh.count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &vtx_buffer_allocation_model);
-//    if (res_v < 0)
-//    {
-//        JDM_ERROR("Could not allocate instance buffer memory");
-//        goto cleanup;
-//    }
-//
-//    vk_transfer_memory_to_buffer(vk_res, &vulkan_state, &vtx_buffer_allocation_model, sizeof(jtb_model_data) * mesh.count, mesh.model_data);
-//    vkWaitForFences(vk_res->device, 1, &vulkan_state.fence_transfer_free, VK_TRUE, UINT64_MAX);
-
-//    vulkan_state.buffer_vtx_geo = vtx_buffer_allocation_geometry;
-//    vulkan_state.buffer_vtx_mod = vtx_buffer_allocation_model;
-//    vulkan_state.buffer_idx = idx_buffer_allocation;
 
     printf("Total of %"PRIu64" triangles in the mesh\n", mesh_polygon_count(&truss_mesh));
 
@@ -551,6 +552,7 @@ int main(int argc, char* argv[argc])
     jwidget->functions.mouse_button_press = truss_mouse_button_press;
     jwidget->functions.mouse_button_release = truss_mouse_button_release;
     jwidget->functions.mouse_motion = truss_mouse_motion;
+    jwidget->functions.button_up = truss_key_press;
     jtb_camera_3d camera;
     jtb_camera_set(
             &camera,                                    //  Camera
@@ -607,17 +609,17 @@ int main(int argc, char* argv[argc])
     jwnd = NULL;
 
 cleanup:
-    jfree(G_JALLOCATOR, elements);
-    jfree(G_JALLOCATOR, profile_list.equivalent_radius);
-    jfree(G_JALLOCATOR, profile_list.area);
-    jfree(G_JALLOCATOR, profile_list.second_moment_of_area);
-    jfree(G_JALLOCATOR, profile_list.labels);
-    jfree(G_JALLOCATOR, materials);
-    jfree(G_JALLOCATOR, point_list.p_x);
-    jfree(G_JALLOCATOR, point_list.p_y);
-    jfree(G_JALLOCATOR, point_list.p_z);
-    jfree(G_JALLOCATOR, point_list.label);
-    jfree(G_JALLOCATOR, point_list.max_radius);
+    ill_jfree(G_JALLOCATOR, elements);
+    ill_jfree(G_JALLOCATOR, profile_list.equivalent_radius);
+    ill_jfree(G_JALLOCATOR, profile_list.area);
+    ill_jfree(G_JALLOCATOR, profile_list.second_moment_of_area);
+    ill_jfree(G_JALLOCATOR, profile_list.labels);
+    ill_jfree(G_JALLOCATOR, materials);
+    ill_jfree(G_JALLOCATOR, point_list.p_x);
+    ill_jfree(G_JALLOCATOR, point_list.p_y);
+    ill_jfree(G_JALLOCATOR, point_list.p_z);
+    ill_jfree(G_JALLOCATOR, point_list.label);
+    ill_jfree(G_JALLOCATOR, point_list.max_radius);
     jio_memory_file_destroy(&file_elements);
     jio_memory_file_destroy(&file_profiles);
     jio_memory_file_destroy(&file_materials);
@@ -635,16 +637,16 @@ cleanup:
         G_JALLOCATOR = NULL;
 #ifndef NDEBUG
         uint_fast32_t leaked_block_indices[256];
-        uint_fast32_t leaked_block_count = jallocator_count_used_blocks(allocator, sizeof(leaked_block_indices) / sizeof(*leaked_block_indices), leaked_block_indices);
+        uint_fast32_t leaked_block_count = ill_jallocator_count_used_blocks(allocator, sizeof(leaked_block_indices) / sizeof(*leaked_block_indices), leaked_block_indices);
         for (u32 i = 0; i < leaked_block_count; ++i)
         {
             fprintf(stderr, "G_JALLOCATOR did not free block %"PRIuFAST32"\n", leaked_block_indices[i]);
         }
 #endif
-        jallocator_destroy(allocator);
+        ill_jallocator_destroy(allocator);
     }
     {
-        linear_jallocator* const allocator = G_LIN_JALLOCATOR;
+        jallocator* const allocator = G_LIN_JALLOCATOR;
         G_LIN_JALLOCATOR = NULL;
         lin_jallocator_destroy(allocator);
     }

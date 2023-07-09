@@ -49,7 +49,7 @@ typedef uint_least32_t c32;
 #include "../mem/aligned_jalloc.h"
 
 
-extern linear_jallocator* G_LIN_JALLOCATOR;
+extern jallocator* G_LIN_JALLOCATOR;
 extern aligned_jallocator* G_ALIGN_JALLOCATOR;
 extern jallocator* G_JALLOCATOR;
 
@@ -66,22 +66,5 @@ struct ubo_3d_struct
     vec4 view_direction;
 };
 
-
-//  My custom memory allocation functions
-#include <jmem/jmem.h>
-
-
-//#ifndef NDEBUG
-////  When in debug mode, jallocator is not used, so that malloc can be used for debugging instead
-//#define jalloc(a, size) malloc(size)
-//#define jfree(a, ptr) free(ptr)
-//#define jrealloc(a, ptr, new_size) realloc(ptr, new_size)
-////#define lin_jalloc(a, p, sz) malloc(sz)
-////#define lin_jfree(a, p, p1) free(p1)
-//#else
-//#define jalloc(a, size) jalloc((a), (size))
-//#define jfree(a, ptr) jfree((a), (ptr))
-//#define jrealloc(a, ptr, new_size) jrealloc((a), (ptr), (new_size))
-//#endif
 
 #endif //JTB_COMMON_H

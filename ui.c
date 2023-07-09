@@ -2,6 +2,7 @@
 // Created by jan on 21.5.2023.
 //
 
+#include <X11/keysym.h>
 #include "ui.h"
 
 jfw_res truss_mouse_button_press(jfw_widget* this, i32 x, i32 y, u32 button, u32 mods)
@@ -185,5 +186,19 @@ jfw_res truss_mouse_motion(jfw_widget* const this, i32 x, i32 y, const u32 mods)
     state->mv_x = x;
     state->mv_y = y;
 end:
+    return jfw_res_success;
+}
+
+jfw_res truss_key_press(jfw_widget* this, KeySym key_sym)
+{
+    JDM_ENTER_FUNCTION;
+
+    if (key_sym == XK_space)
+    {
+        static u32 i = 0;
+        printf("Hi %u\n", i++);
+    }
+
+    JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }

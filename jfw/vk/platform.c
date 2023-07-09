@@ -1382,6 +1382,18 @@ check_children:
             goto check_children;
         }
     }
+    if (this->keyboard_focus != widget)
+    {
+        if (this->keyboard_focus && this->keyboard_focus->functions.keyboard_focus_lose)
+        {
+            this->keyboard_focus->functions.keyboard_focus_lose(this->keyboard_focus, widget);
+        }
+        if (widget->functions.keyboard_focus_get)
+        {
+            widget->functions.keyboard_focus_get(widget, this->keyboard_focus);
+        }
+        this->keyboard_focus = widget;
+    }
     if (widget->functions.mouse_button_press)
     {
         jfw_res res = widget->functions.mouse_button_press(widget, x, y, e->button, e->state);
@@ -1533,9 +1545,9 @@ static jfw_res handle_keyboard_button_down(jfw_ctx* ctx, XEvent* ptr, jfw_window
     const int len = Xutf8LookupString(ctx->input_ctx, e, buffer, sizeof(buffer), &ks, &stat);
     if (wnd->keyboard_focus)
     {
-        if (wnd->keyboard_focus->functions.button_down)
+        if (wnd->keyboard_focus->functions.button_down && (stat == XLookupBoth || stat == XLookupKeySym))
         {
-            jfw_res res = wnd->keyboard_focus->functions.button_down(wnd->keyboard_focus, e->keycode);
+            jfw_res res = wnd->keyboard_focus->functions.button_down(wnd->keyboard_focus, ks);
             JDM_LEAVE_FUNCTION;
             return res;
         }
@@ -1557,8 +1569,11 @@ static jfw_res handle_keyboard_button_up(jfw_ctx* ctx, XEvent* ptr, jfw_window* 
     XKeyReleasedEvent* const e = &ptr->xkey;
     if (wnd->keyboard_focus && wnd->keyboard_focus->functions.button_up)
     {
+        KeySym ks = XLookupKeysym(e, 0);
+        if (ks != NoSymbol)
         {
-            jfw_res res = wnd->keyboard_focus->functions.button_up(wnd->keyboard_focus, e->keycode);
+
+            jfw_res res = wnd->keyboard_focus->functions.button_up(wnd->keyboard_focus, ks);
             JDM_LEAVE_FUNCTION;
             return res;
         }
@@ -1627,10 +1642,10 @@ static jfw_res(*XEVENT_HANDLERS[LASTEvent])(jfw_ctx* ctx, XEvent* e, jfw_window*
         [ButtonRelease] = handle_mouse_button_release,
         [ClientMessage] = handle_client_message,
         [MotionNotify] = handle_motion_notify,
-//        [FocusIn] = handle_focus_in,
-//        [FocusOut] = handle_focus_out,
-//        [KeyPress] = handle_keyboard_button_down,
-//        [KeyRelease] = handle_keyboard_button_up,
+        [FocusIn] = handle_focus_in,
+        [FocusOut] = handle_focus_out,
+        [KeyPress] = handle_keyboard_button_down,
+        [KeyRelease] = handle_keyboard_button_up,
         [MappingNotify] = handle_kbd_mapping_change,
         [ConfigureNotify] = handle_config_notify,
         [MapNotify] = handle_map_notify,

@@ -7,7 +7,7 @@
 #include <jmem/jmem.h>
 #include <vulkan/vulkan.h>
 
-//  Based on jalloc allocator
+//  Based on ill_jalloc allocator
 
 typedef struct aligned_jallocator_struct aligned_jallocator;
 

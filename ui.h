@@ -26,4 +26,6 @@ jfw_res truss_mouse_button_release(jfw_widget* this, i32 x, i32 y, u32 button, u
 
 jfw_res truss_mouse_motion(jfw_widget* this, i32 x, i32 y, u32 mods);
 
+jfw_res truss_key_press(jfw_widget* this, KeySym key_sym);
+
 #endif //JTB_UI_H
