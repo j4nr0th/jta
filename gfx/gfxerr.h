@@ -10,7 +10,7 @@ enum gfx_result_enum : unsigned
 {
     GFX_RESULT_SUCCESS = 0,
     GFX_RESULT_BAD_SWAPCHAIN_WAIT,
-    GFX_RESULT_BAD_SWAPCHAIN_IMG,
+    GFX_RESULT_BAD_IMG,
     GFX_RESULT_SWAPCHAIN_OUT_OF_DATE,
     GFX_RESULT_UNEXPECTED,
     GFX_RESULT_BAD_FENCE_RESET,
@@ -34,6 +34,7 @@ enum gfx_result_enum : unsigned
     GFX_RESULT_NO_DESC_POOL,
     GFX_RESULT_MAP_FAILED,
     GFX_RESULT_BAD_FENCE_WAIT,
+    GFX_RESULT_BAD_IO,
     GFX_RESULT_COUNT,
 };
 typedef enum gfx_result_enum gfx_result;

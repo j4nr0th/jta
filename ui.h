@@ -17,6 +17,7 @@ struct jta_draw_state_struct
     u32 track_turn;
     i32 track_move;
     i32 mv_x, mv_y;
+    int screenshot;
 };
 
 

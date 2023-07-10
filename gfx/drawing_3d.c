@@ -39,8 +39,9 @@ draw_frame(
     if (vk_res != VK_SUCCESS)
     {
         JDM_ERROR("Failed acquiring next image in the swapchain: %s", jfw_vk_error_msg(vk_res));
-        return GFX_RESULT_BAD_SWAPCHAIN_IMG;
+        return GFX_RESULT_BAD_IMG;
     }
+    state->last_img_idx = img_index;
     switch (vk_res)
     {
     case VK_NOT_READY: return GFX_RESULT_SUCCESS;

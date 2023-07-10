@@ -82,6 +82,18 @@ void vk_buffer_allocator_destroy(vk_buffer_allocator* allocator)
     free(allocator);
 }
 
+u32 find_device_memory_type(const VkPhysicalDeviceMemoryProperties* mem_props, VkMemoryPropertyFlags props)
+{
+    for (u32 mem_index = 0; mem_index < mem_props->memoryTypeCount; ++mem_index)
+    {
+        if ((mem_props->memoryTypes[mem_index].propertyFlags & props))
+        {
+            return mem_index;
+        }
+    }
+    return (u32)-1;
+}
+
 i32 vk_buffer_allocate(
         vk_buffer_allocator* allocator, VkDeviceSize element_count, VkDeviceSize element_size,
         VkMemoryPropertyFlags props, VkBufferUsageFlags usage, VkSharingMode sharing_mode,
@@ -96,15 +108,9 @@ i32 vk_buffer_allocate(
         element_size = 256;
     }
     const VkDeviceSize size = element_size * element_count;
-    for (mem_index = 0; mem_index < mem_props->memoryTypeCount; ++mem_index)
-    {
-        if ((mem_props->memoryTypes[mem_index].propertyFlags & props))
-        {
-            break;
-        }
-    }
+    mem_index = find_device_memory_type(mem_props, props);
     //  None were found, return error
-    if (mem_index == mem_props->memoryTypeCount)
+    if (mem_index == (u32)-1)
     {
         assert(0);
         return -1;
@@ -129,25 +135,6 @@ i32 vk_buffer_allocate(
             continue;
         }
 
-//        u32 queue_index_matches = 0;
-//        //  Check the queue family indices
-//        for (u32 k = 0; k < n_queue_family_indices && queue_index_matches < n_queue_family_indices; ++k)
-//        {
-//            for (u32 l = 0; l < pool->n_qfi; ++l)
-//            {
-//                if (p_queue_family_indices[k] == pool->v_qfi[l])
-//                {
-//                    queue_index_matches += 1;
-//                    break;
-//                }
-//            }
-//        }
-//        //  Check that the number of indices match
-//        if (queue_index_matches != n_queue_family_indices)
-//        {
-//            continue;
-//        }
-
         allocation_chunk* chunk;
         //  Try and find a chunk with proper size to fit the allocation into
         for (u32 k = 0; k < pool->chunk_count; ++k)
@@ -162,7 +149,6 @@ i32 vk_buffer_allocate(
             if (remainder && pool->chunk_count < POOL_CHUNK_MAX)
             {
                 //  Insert a new empty chunk in the list
-                //  Todo: test this works (namely the memset part)
                 memmove(
                         pool->chunk_list + k + 1, pool->chunk_list + k + 2,
                         sizeof(*pool->chunk_list) * (pool->chunk_count - k - 1));

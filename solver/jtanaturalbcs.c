@@ -19,8 +19,6 @@ typedef struct natural_bc_parse_float_data_struct natural_bc_parse_float_data;
 struct natural_bc_parse_float_data_struct
 {
     uint32_t count;
-    f32 max;
-    f32 min;
     f32* values;
 };
 

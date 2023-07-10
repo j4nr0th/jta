@@ -8,7 +8,7 @@ static const char* const jio_result_strings[GFX_RESULT_COUNT] =
         {
                 [GFX_RESULT_SUCCESS] = "Success",
                 [GFX_RESULT_BAD_SWAPCHAIN_WAIT] = "Waiting on swapchain failed",
-                [GFX_RESULT_BAD_SWAPCHAIN_IMG] = "Could not get next swapchain image",
+                [GFX_RESULT_BAD_IMG] = "Could not get image",
                 [GFX_RESULT_SWAPCHAIN_OUT_OF_DATE] = "Swapchain was outdated",
                 [GFX_RESULT_UNEXPECTED] = "Unexpected error occurred",
                 [GFX_RESULT_BAD_FENCE_RESET] = "Fence could not be reset",
@@ -32,6 +32,7 @@ static const char* const jio_result_strings[GFX_RESULT_COUNT] =
                 [GFX_RESULT_NO_DESC_POOL] = "Descriptor pool failed",
                 [GFX_RESULT_MAP_FAILED] = "Mapping the memory failed",
                 [GFX_RESULT_BAD_FENCE_WAIT] = "Could not wait for fence",
+                [GFX_RESULT_BAD_IO] = "IO operation failed",
         };
 
 const char* gfx_result_to_str(gfx_result res)

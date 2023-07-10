@@ -193,7 +193,14 @@ jfw_res truss_key_press(jfw_widget* this, KeySym key_sym)
 {
     JDM_ENTER_FUNCTION;
 
-    if (key_sym == XK_space)
+    if (key_sym == XK_F12)
+    {
+        //  Take a screenshot
+        jfw_widget_ask_for_redraw(this);
+        jta_draw_state* const state = jfw_widget_get_user_pointer(this);
+        state->screenshot = 1;
+    }
+    else if (key_sym == XK_space)
     {
         static u32 i = 0;
         printf("Hi %u\n", i++);

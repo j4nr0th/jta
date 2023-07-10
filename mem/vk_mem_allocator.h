@@ -38,6 +38,8 @@ i32 vk_buffer_reserve(
 
 const VkPhysicalDeviceMemoryProperties* vk_allocator_mem_props(vk_buffer_allocator* allocator);
 
+u32 find_device_memory_type(const VkPhysicalDeviceMemoryProperties* mem_props, VkMemoryPropertyFlags props);
+
 void* vk_map_allocation(const vk_buffer_allocation* allocation);
 
 void vk_unmap_allocation(void* ptr_mapped, const vk_buffer_allocation* allocation);

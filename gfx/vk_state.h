@@ -41,6 +41,7 @@ struct vk_state_struct
     void* mesh_array;
     mtx4 view;
     const jta_point_list* point_list;
+    uint32_t last_img_idx;
 };
 
 gfx_result vk_state_create(vk_state* p_state, const jfw_window_vk_resources* vk_resources);
