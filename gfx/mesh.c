@@ -6,10 +6,10 @@
 #include "vk_state.h"
 #include <jdm.h>
 
-static gfx_result mesh_allocate_vulkan_memory(vk_state* state, jtb_mesh* mesh, jfw_window_vk_resources* resources)
+static gfx_result mesh_allocate_vulkan_memory(vk_state* state, jta_mesh* mesh, jfw_window_vk_resources* resources)
 {
     vk_buffer_allocation vtx_allocation, idx_allocation, mod_allocation;
-    const jtb_model* const model = &mesh->model;
+    const jta_model* const model = &mesh->model;
     i32 res = vk_buffer_allocate(state->buffer_allocator, 1, model->vtx_count * sizeof(*model->vtx_array), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &vtx_allocation);
     if (res < 0)
     {
@@ -17,7 +17,7 @@ static gfx_result mesh_allocate_vulkan_memory(vk_state* state, jtb_mesh* mesh, j
         return GFX_RESULT_BAD_ALLOC;
     }
     gfx_result gfx_res;
-    if ((gfx_res = vk_transfer_memory_to_buffer(resources, state, &vtx_allocation, sizeof(jtb_vertex) * mesh->model.vtx_count, mesh->model.vtx_array)) != GFX_RESULT_SUCCESS)
+    if ((gfx_res = vk_transfer_memory_to_buffer(resources, state, &vtx_allocation, sizeof(jta_vertex) * mesh->model.vtx_count, mesh->model.vtx_array)) != GFX_RESULT_SUCCESS)
     {
         vk_buffer_deallocate(state->buffer_allocator, &vtx_allocation);
         JDM_ERROR("Could not transfer model vertex data, reason: %s", gfx_result_to_str(gfx_res));
@@ -53,7 +53,7 @@ static gfx_result mesh_allocate_vulkan_memory(vk_state* state, jtb_mesh* mesh, j
     return GFX_RESULT_SUCCESS;
 }
 
-static gfx_result clean_mesh_model(jtb_model* model)
+static gfx_result clean_mesh_model(jta_model* model)
 {
     jfw_free(&model->vtx_array);
     jfw_free(&model->idx_array);
@@ -61,18 +61,18 @@ static gfx_result clean_mesh_model(jtb_model* model)
     return GFX_RESULT_SUCCESS;
 }
 
-static gfx_result generate_truss_model(jtb_model* const p_out, const u16 pts_per_side)
+static gfx_result generate_truss_model(jta_model* const p_out, const u16 pts_per_side)
 {
     gfx_result res;
     jfw_res jfw_result;
-    jtb_vertex* vertices;
+    jta_vertex* vertices;
     if (!jfw_success(jfw_result = (jfw_calloc(2 * pts_per_side, sizeof*vertices, &vertices))))
     {
         JDM_ERROR("Could not allocate memory for truss model, reason: %s", jfw_error_message(jfw_result));
         return GFX_RESULT_BAD_ALLOC;
     }
-    jtb_vertex* const btm = vertices;
-    jtb_vertex* const top = vertices + pts_per_side;
+    jta_vertex* const btm = vertices;
+    jta_vertex* const top = vertices + pts_per_side;
     u16* indices;
     if (!jfw_success(jfw_result = (jfw_calloc(3 * 2 * pts_per_side, sizeof*indices, &indices))))
     {
@@ -121,7 +121,7 @@ static gfx_result generate_truss_model(jtb_model* const p_out, const u16 pts_per
 
 const u64 DEFAULT_MESH_CAPACITY = 64;
 
-gfx_result mesh_init_truss(jtb_mesh* mesh, u16 pts_per_side, vk_state* state, jfw_window_vk_resources* resources)
+gfx_result mesh_init_truss(jta_mesh* mesh, u16 pts_per_side, vk_state* state, jfw_window_vk_resources* resources)
 {
     JDM_ENTER_FUNCTION;
     jfw_res res;
@@ -158,14 +158,14 @@ gfx_result mesh_init_truss(jtb_mesh* mesh, u16 pts_per_side, vk_state* state, jf
     return GFX_RESULT_SUCCESS;
 }
 
-gfx_result mesh_uninit(jtb_mesh* mesh)
+gfx_result mesh_uninit(jta_mesh* mesh)
 {
     jfw_free(&mesh->model_data);
     clean_mesh_model(&mesh->model);
     return GFX_RESULT_SUCCESS;
 }
 
-static gfx_result mesh_add_new(jtb_mesh* mesh, mtx4 model_transform, mtx4 normal_transform, jfw_color color, vk_state* state)
+static gfx_result mesh_add_new(jta_mesh* mesh, mtx4 model_transform, mtx4 normal_transform, jfw_color color, vk_state* state)
 {
     mesh->up_to_date = 0;
 
@@ -205,7 +205,7 @@ static gfx_result mesh_add_new(jtb_mesh* mesh, mtx4 model_transform, mtx4 normal
 }
 
 gfx_result
-truss_mesh_add_between_pts(jtb_mesh* mesh, jfw_color color, f32 radius, vec4 pt1, vec4 pt2, f32 roll, vk_state* state)
+truss_mesh_add_between_pts(jta_mesh* mesh, jfw_color color, f32 radius, vec4 pt1, vec4 pt2, f32 roll, vk_state* state)
 {
     assert(state);
     assert(pt2.w == 1.0f);
@@ -236,7 +236,7 @@ truss_mesh_add_between_pts(jtb_mesh* mesh, jfw_color color, f32 radius, vec4 pt1
 }
 
 
-static jfw_res clean_sphere_model(jtb_model* model)
+static jfw_res clean_sphere_model(jta_model* model)
 {
     jfw_free(&model->vtx_array);
     jfw_free(&model->idx_array);
@@ -244,7 +244,7 @@ static jfw_res clean_sphere_model(jtb_model* model)
     return jfw_res_success;
 }
 
-static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 order)
+static jfw_res generate_sphere_model(jta_model* const p_out, const u16 order)
 {
     JDM_ENTER_FUNCTION;
     assert(order >= 1);
@@ -257,7 +257,7 @@ static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 order)
         JDM_LEAVE_FUNCTION;
         return res;
     }
-    jtb_vertex* vertices;
+    jta_vertex* vertices;
     const u32 max_vertex_count = 3 * ((1 << (2 * order)));  //  This is an upper bound
     if (!jfw_success(res = (jfw_calloc(max_vertex_count, sizeof*vertices, &vertices))))
     {
@@ -415,7 +415,7 @@ static jfw_res generate_sphere_model(jtb_model* const p_out, const u16 order)
     return jfw_res_success;
 }
 
-gfx_result mesh_init_sphere(jtb_mesh* mesh, u16 order, vk_state* state, jfw_window_vk_resources* resources)
+gfx_result mesh_init_sphere(jta_mesh* mesh, u16 order, vk_state* state, jfw_window_vk_resources* resources)
 {
     JDM_ENTER_FUNCTION;
     jfw_res res;
@@ -450,7 +450,7 @@ gfx_result mesh_init_sphere(jtb_mesh* mesh, u16 order, vk_state* state, jfw_wind
     return GFX_RESULT_SUCCESS;
 }
 
-gfx_result sphere_mesh_add(jtb_mesh* mesh, jfw_color color, f32 radius, vec4 pt, vk_state* state)
+gfx_result sphere_mesh_add(jta_mesh* mesh, jfw_color color, f32 radius, vec4 pt, vk_state* state)
 {
     JDM_ENTER_FUNCTION;
     mtx4 m = mtx4_enlarge(radius, radius, radius);
@@ -459,26 +459,26 @@ gfx_result sphere_mesh_add(jtb_mesh* mesh, jfw_color color, f32 radius, vec4 pt,
     return mesh_add_new(mesh, m, mtx4_identity, color, state);
 }
 
-gfx_result jtb_mesh_update_instance(jtb_mesh* mesh, jfw_window_vk_resources* resources, vk_state* state)
+gfx_result jta_mesh_update_instance(jta_mesh* mesh, jfw_window_vk_resources* resources, vk_state* state)
 {
     JDM_ENTER_FUNCTION;
 
-    vk_transfer_memory_to_buffer(resources, state, &mesh->instance_memory, sizeof(jtb_model_data) * mesh->count, mesh->model_data);
+    vk_transfer_memory_to_buffer(resources, state, &mesh->instance_memory, sizeof(jta_model_data) * mesh->count, mesh->model_data);
     mesh->up_to_date = 1;
 
     JDM_LEAVE_FUNCTION;
     return GFX_RESULT_SUCCESS;
 }
 
-gfx_result jtb_mesh_update_model(jtb_mesh* mesh, jfw_window_vk_resources* resources, vk_state* state)
+gfx_result jta_mesh_update_model(jta_mesh* mesh, jfw_window_vk_resources* resources, vk_state* state)
 {
     JDM_ENTER_FUNCTION;
 
-    vk_transfer_memory_to_buffer(resources, state, &mesh->common_geometry_vtx, sizeof(jtb_vertex) *
+    vk_transfer_memory_to_buffer(resources, state, &mesh->common_geometry_vtx, sizeof(jta_vertex) *
                                                                                mesh->model.vtx_count,
                                                                                mesh->model.vtx_array);
 
-    vk_transfer_memory_to_buffer(resources, state, &mesh->common_geometry_idx, sizeof(jtb_vertex) *
+    vk_transfer_memory_to_buffer(resources, state, &mesh->common_geometry_idx, sizeof(jta_vertex) *
                                                                                mesh->model.vtx_count,
                                                                                mesh->model.vtx_array);
 
@@ -487,20 +487,20 @@ gfx_result jtb_mesh_update_model(jtb_mesh* mesh, jfw_window_vk_resources* resour
 
 }
 
-static gfx_result generate_cone_model(jtb_model* const model, const u16 order)
+static gfx_result generate_cone_model(jta_model* const model, const u16 order)
 {
     assert(order >= 3);
     gfx_result res;
     jfw_res jfw_result;
-    jtb_vertex* vertices;
+    jta_vertex* vertices;
     u32 vtx_count = 2 * order + 2;
     if (!jfw_success(jfw_result = (jfw_calloc(vtx_count, sizeof*vertices, &vertices))))
     {
         JDM_ERROR("Could not allocate memory for truss model, reason: %s", jfw_error_message(jfw_result));
         return GFX_RESULT_BAD_ALLOC;
     }
-    jtb_vertex*const  top = vertices + 0;
-    jtb_vertex*const  btm = vertices + order;
+    jta_vertex*const  top = vertices + 0;
+    jta_vertex*const  btm = vertices + order;
     u16* indices;
     u32 idx_count = 3 * 2 * order;
     if (!jfw_success(jfw_result = (jfw_calloc(idx_count, sizeof*indices, &indices))))
@@ -514,14 +514,14 @@ static gfx_result generate_cone_model(jtb_model* const model, const u16 order)
     const f32 d_omega = 2.0f * (f32)M_PI / (f32)order;
     //  Generate bottom side
     //  Top and bottom are at the end of the list
-    vertices[2 * order + 0] = (jtb_vertex) {.x = 0, .y = 0, .z = 1, .nx = 0, .ny = 0, .nz = 1};
-    vertices[2 * order + 1] = (jtb_vertex) {.x = 0, .y = 0, .z = 0, .nx = 0, .ny = 0, .nz =-1};
+    vertices[2 * order + 0] = (jta_vertex) {.x = 0, .y = 0, .z = 1, .nx = 0, .ny = 0, .nz = 1};
+    vertices[2 * order + 1] = (jta_vertex) {.x = 0, .y = 0, .z = 0, .nx = 0, .ny = 0, .nz =-1};
     u32 j = 0;
     for (u32 i = 0; i < order; ++i)
     {
         //    Positions
-        top[i] = (jtb_vertex) {.x = cosf(d_omega * (f32)i), .y = sinf(d_omega * (f32)i), .z = 0};
-        btm[i] = (jtb_vertex) {.x = cosf(d_omega * (f32)i), .y = sinf(d_omega * (f32)i), .z = 0};
+        top[i] = (jta_vertex) {.x = cosf(d_omega * (f32)i), .y = sinf(d_omega * (f32)i), .z = 0};
+        btm[i] = (jta_vertex) {.x = cosf(d_omega * (f32)i), .y = sinf(d_omega * (f32)i), .z = 0};
         //    Normals
         top[i].nx = M_SQRT1_2 * top[i].x;
         top[i].ny = M_SQRT1_2 * top[i].y;
@@ -562,7 +562,7 @@ static gfx_result generate_cone_model(jtb_model* const model, const u16 order)
     return GFX_RESULT_SUCCESS;
 }
 
-gfx_result mesh_init_cone(jtb_mesh* mesh, u16 order, vk_state* state, jfw_window_vk_resources* resources)
+gfx_result mesh_init_cone(jta_mesh* mesh, u16 order, vk_state* state, jfw_window_vk_resources* resources)
 {
     JDM_ENTER_FUNCTION;
     jfw_res res;
@@ -599,7 +599,7 @@ gfx_result mesh_init_cone(jtb_mesh* mesh, u16 order, vk_state* state, jfw_window
     return GFX_RESULT_SUCCESS;
 }
 
-gfx_result cone_mesh_add_between_pts(jtb_mesh* mesh, jfw_color color, f32 radius, vec4 pt1, vec4 pt2, vk_state* state)
+gfx_result cone_mesh_add_between_pts(jta_mesh* mesh, jfw_color color, f32 radius, vec4 pt1, vec4 pt2, vk_state* state)
 {
     assert(state);
     assert(pt2.w == 1.0f);

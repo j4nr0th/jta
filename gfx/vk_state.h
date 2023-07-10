@@ -2,8 +2,8 @@
 // Created by jan on 14.5.2023.
 //
 
-#ifndef JTB_VK_STATE_H
-#define JTB_VK_STATE_H
+#ifndef JTA_VK_STATE_H
+#define JTA_VK_STATE_H
 #include "../common/common.h"
 #include "../jfw/window.h"
 #include "../mem/vk_mem_allocator.h"
@@ -40,7 +40,7 @@ struct vk_state_struct
     u32 mesh_count;
     void* mesh_array;
     mtx4 view;
-    const jtb_point_list* point_list;
+    const jta_point_list* point_list;
 };
 
 gfx_result vk_state_create(vk_state* p_state, const jfw_window_vk_resources* vk_resources);
@@ -49,4 +49,4 @@ void vk_state_destroy(vk_state* p_state, jfw_window_vk_resources* vk_resources);
 
 gfx_result vk_transfer_memory_to_buffer(jfw_window_vk_resources* vk_resources, vk_state* p_state, vk_buffer_allocation* buffer, size_t size, void* data);
 
-#endif //JTB_VK_STATE_H
+#endif //JTA_VK_STATE_H

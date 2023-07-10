@@ -2,7 +2,7 @@
 // Created by jan on 5.7.2023.
 //
 
-#include "jtbmaterials.h"
+#include "jtamaterials.h"
 
 static const jio_string_segment MATERIAL_FILE_HEADERS[] =
         {
@@ -19,7 +19,7 @@ typedef struct material_parse_data_struct material_parse_data;
 struct material_parse_data_struct
 {
     uint32_t count;
-    jtb_material* materials;
+    jta_material* materials;
 };
 
 static bool converter_material_label_function(jio_string_segment* v, void* param)
@@ -122,23 +122,23 @@ static bool (*converter_functions[])(jio_string_segment* v, void* param) =
                 converter_compressive_strength_function,
         };
 
-jtb_result jtb_load_materials(const jio_memory_file* mem_file, u32* n_mat, jtb_material** pp_materials)
+jta_result jta_load_materials(const jio_memory_file* mem_file, u32* n_mat, jta_material** pp_materials)
 {
     JDM_ENTER_FUNCTION;
-    jtb_result res;
+    jta_result res;
     uint32_t line_count = 0;
     jio_result jio_res = jio_memory_file_count_lines(mem_file, &line_count);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not count lines in material input file, reason: %s", jio_result_to_str(jio_res));
-        res = JTB_RESULT_BAD_IO;
+        res = JTA_RESULT_BAD_IO;
         goto end;
     }
-    jtb_material* material_array = ill_jalloc(G_JALLOCATOR, sizeof(*material_array) * (line_count - 1));
+    jta_material* material_array = ill_jalloc(G_JALLOCATOR, sizeof(*material_array) * (line_count - 1));
     if (!material_array)
     {
         JDM_ERROR("Could not allocate memory for material array");
-        res = JTB_RESULT_BAD_ALLOC;
+        res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
     material_parse_data parse_data[] =
@@ -165,7 +165,7 @@ jtb_result jtb_load_materials(const jio_memory_file* mem_file, u32* n_mat, jtb_m
     {
         JDM_ERROR("Processing the material input file failed, reason: %s", jio_result_to_str(jio_res));
         ill_jfree(G_JALLOCATOR, material_array);
-        res = JTB_RESULT_BAD_INPUT;
+        res = JTA_RESULT_BAD_INPUT;
         goto end;
     }
     assert(parse_data[0].count == parse_data[1].count);
@@ -178,7 +178,7 @@ jtb_result jtb_load_materials(const jio_memory_file* mem_file, u32* n_mat, jtb_m
     assert(count <= line_count - 1);
     if (count != line_count - 1)
     {
-        jtb_material* const new_ptr = ill_jrealloc(G_JALLOCATOR, material_array, sizeof(*new_ptr) * count);
+        jta_material* const new_ptr = ill_jrealloc(G_JALLOCATOR, material_array, sizeof(*new_ptr) * count);
         if (!new_ptr)
         {
             JDM_WARN("Failed shrinking the material array from %zu to %zu bytes", sizeof(*material_array) * (line_count - 1), sizeof(*new_ptr) * count);
@@ -192,7 +192,7 @@ jtb_result jtb_load_materials(const jio_memory_file* mem_file, u32* n_mat, jtb_m
     *pp_materials = material_array;
 
     JDM_LEAVE_FUNCTION;
-    return JTB_RESULT_SUCCESS;
+    return JTA_RESULT_SUCCESS;
 end:
     JDM_LEAVE_FUNCTION;
     return res;

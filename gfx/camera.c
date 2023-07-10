@@ -4,7 +4,7 @@
 
 #include "camera.h"
 
-void jtb_camera_find_depth_planes(const jtb_camera_3d* camera, f32* p_near, f32* p_far)
+void jta_camera_find_depth_planes(const jta_camera_3d* camera, f32* p_near, f32* p_far)
 {
     f32 geo_projection_distance = vec4_dot(vec4_sub(camera->geo_origin, camera->position), camera->uz);
     f32 near = geo_projection_distance - camera->geo_radius;
@@ -21,7 +21,7 @@ void jtb_camera_find_depth_planes(const jtb_camera_3d* camera, f32* p_near, f32*
     *p_far = far;
 }
 
-void jtb_camera_set(jtb_camera_3d* camera, vec4 target, vec4 geo_o, f32 geo_r, vec4 camera_pos, vec4 down, f32 turn_sensitivity, f32 move_sensitivity)
+void jta_camera_set(jta_camera_3d* camera, vec4 target, vec4 geo_o, f32 geo_r, vec4 camera_pos, vec4 down, f32 turn_sensitivity, f32 move_sensitivity)
 {
     camera->target = target;
     camera->position = camera_pos;
@@ -44,7 +44,7 @@ void jtb_camera_set(jtb_camera_3d* camera, vec4 target, vec4 geo_o, f32 geo_r, v
     camera->move_sensitivity = move_sensitivity;
 }
 
-mtx4 jtb_camera_to_view_matrix(const jtb_camera_3d* camera)
+mtx4 jta_camera_to_view_matrix(const jta_camera_3d* camera)
 {
     //  Position of camera must be transferred into camera's coordinate system
     mtx4 m = (mtx4)
@@ -61,14 +61,14 @@ mtx4 jtb_camera_to_view_matrix(const jtb_camera_3d* camera)
     return m;
 }
 
-void jtb_camera_zoom(jtb_camera_3d* camera, f32 fraction_change)
+void jta_camera_zoom(jta_camera_3d* camera, f32 fraction_change)
 {
     vec4 relative = vec4_sub(camera->position, camera->target);
     relative = vec4_mul_one(relative, 1.0f + fraction_change);
     camera->position = vec4_add(relative, camera->target);
 }
 
-void jtb_camera_rotate(jtb_camera_3d* camera, vec4 axis_of_rotation, f32 angle)
+void jta_camera_rotate(jta_camera_3d* camera, vec4 axis_of_rotation, f32 angle)
 {
     angle *= camera->turn_sensitivity;
     vec4 relative = vec4_sub(camera->position, camera->target);
@@ -83,17 +83,17 @@ void jtb_camera_rotate(jtb_camera_3d* camera, vec4 axis_of_rotation, f32 angle)
 
 }
 
-void jtb_camera_set_turn_sensitivity(jtb_camera_3d* camera, f32 turn_sensitivity)
+void jta_camera_set_turn_sensitivity(jta_camera_3d* camera, f32 turn_sensitivity)
 {
     camera->turn_sensitivity = turn_sensitivity;
 }
 
-void jtb_camera_set_move_sensitivity(jtb_camera_3d* camera, f32 move_sensitivity)
+void jta_camera_set_move_sensitivity(jta_camera_3d* camera, f32 move_sensitivity)
 {
     camera->move_sensitivity = move_sensitivity;
 }
 
-void jtb_camera_move(jtb_camera_3d* camera, vec4 direction)
+void jta_camera_move(jta_camera_3d* camera, vec4 direction)
 {
     vec4 m = vec4_mul_one(direction, camera->move_sensitivity);
     camera->position = vec4_add(camera->position, m);

@@ -2,8 +2,8 @@
 // Created by jan on 18.5.2023.
 //
 
-#ifndef JTB_DRAWING_3D_H
-#define JTB_DRAWING_3D_H
+#ifndef JTA_DRAWING_3D_H
+#define JTA_DRAWING_3D_H
 #include "../mem/aligned_jalloc.h"
 #include <jmem/jmem.h>
 
@@ -20,8 +20,8 @@
 
 gfx_result
 draw_frame(
-        vk_state* state, jfw_window_vk_resources* vk_resources, u32 n_meshes, jtb_mesh** meshes,
-        const jtb_camera_3d* camera);
+        vk_state* state, jfw_window_vk_resources* vk_resources, u32 n_meshes, jta_mesh** meshes,
+        const jta_camera_3d* camera);
 
 
-#endif //JTB_DRAWING_3D_H
+#endif //JTA_DRAWING_3D_H

@@ -2,7 +2,7 @@
 // Created by jan on 5.7.2023.
 //
 
-#include "jtbpoints.h"
+#include "jtapoints.h"
 
 static const jio_string_segment POINT_FILE_HEADERS[] =
         {
@@ -72,16 +72,16 @@ static bool (*converter_functions[])(jio_string_segment* v, void* param) =
                 converter_float_function,
         };
 
-jtb_result jtb_load_points(const jio_memory_file* mem_file, jtb_point_list* p_list)
+jta_result jta_load_points(const jio_memory_file* mem_file, jta_point_list* p_list)
 {
     JDM_ENTER_FUNCTION;
-    jtb_result res;
+    jta_result res;
     uint32_t line_count = 0;
     jio_result jio_res = jio_memory_file_count_lines(mem_file, &line_count);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not count lines in point input file, reason: %s", jio_result_to_str(jio_res));
-        res = JTB_RESULT_BAD_IO;
+        res = JTA_RESULT_BAD_IO;
         goto end;
     }
 
@@ -89,7 +89,7 @@ jtb_result jtb_load_points(const jio_memory_file* mem_file, jtb_point_list* p_li
     if (!x)
     {
         JDM_ERROR("Could not allocate memory for point array");
-        res = JTB_RESULT_BAD_ALLOC;
+        res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
     f32* y = ill_jalloc(G_JALLOCATOR, sizeof(*y) * (line_count - 1));
@@ -97,7 +97,7 @@ jtb_result jtb_load_points(const jio_memory_file* mem_file, jtb_point_list* p_li
     {
         ill_jfree(G_JALLOCATOR, x);
         JDM_ERROR("Could not allocate memory for point array");
-        res = JTB_RESULT_BAD_ALLOC;
+        res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
     f32* z = ill_jalloc(G_JALLOCATOR, sizeof(*z) * (line_count - 1));
@@ -106,7 +106,7 @@ jtb_result jtb_load_points(const jio_memory_file* mem_file, jtb_point_list* p_li
         ill_jfree(G_JALLOCATOR, x);
         ill_jfree(G_JALLOCATOR, y);
         JDM_ERROR("Could not allocate memory for point array");
-        res = JTB_RESULT_BAD_ALLOC;
+        res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
     jio_string_segment* ss = ill_jalloc(G_JALLOCATOR, sizeof(*ss) * (line_count - 1));
@@ -116,7 +116,7 @@ jtb_result jtb_load_points(const jio_memory_file* mem_file, jtb_point_list* p_li
         ill_jfree(G_JALLOCATOR, y);
         ill_jfree(G_JALLOCATOR, z);
         JDM_ERROR("Could not allocate memory for point array");
-        res = JTB_RESULT_BAD_ALLOC;
+        res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
     point_parse_data_float float_data[] =
@@ -144,7 +144,7 @@ jtb_result jtb_load_points(const jio_memory_file* mem_file, jtb_point_list* p_li
         ill_jfree(G_JALLOCATOR, x);
         ill_jfree(G_JALLOCATOR, y);
         ill_jfree(G_JALLOCATOR, z);
-        res = JTB_RESULT_BAD_INPUT;
+        res = JTA_RESULT_BAD_INPUT;
         goto end;
     }
     assert(float_data[0].count == float_data[1].count);
@@ -162,7 +162,7 @@ jtb_result jtb_load_points(const jio_memory_file* mem_file, jtb_point_list* p_li
         ill_jfree(G_JALLOCATOR, z);
         ill_jfree(G_JALLOCATOR, ss);
         JDM_ERROR("Could not allocate memory for point array");
-        res = JTB_RESULT_BAD_ALLOC;
+        res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
     if (count != line_count - 1)
@@ -205,10 +205,10 @@ jtb_result jtb_load_points(const jio_memory_file* mem_file, jtb_point_list* p_li
         }
     }
     memset(max_radius, 0, count * sizeof(*max_radius));
-    *p_list = (jtb_point_list){.count = count, .label = ss, .p_x = x, .p_y = y, .p_z = z, .max_radius = max_radius};
+    *p_list = (jta_point_list){.count = count, .label = ss, .p_x = x, .p_y = y, .p_z = z, .max_radius = max_radius};
 
     JDM_LEAVE_FUNCTION;
-    return JTB_RESULT_SUCCESS;
+    return JTA_RESULT_SUCCESS;
 end:
     JDM_LEAVE_FUNCTION;
     return res;

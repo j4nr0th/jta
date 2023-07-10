@@ -21,13 +21,13 @@
 #include "gfx/camera.h"
 #include "gfx/bounding_box.h"
 #include "ui.h"
-#include "solver/jtbelements.h"
-#include "solver/jtbnaturalbcs.h"
+#include "solver/jtaelements.h"
+#include "solver/jtanaturalbcs.h"
 
 
 static jfw_res widget_draw(jfw_widget* this)
 {
-    jtb_draw_state* const draw_state = jfw_widget_get_user_pointer(this);
+    jta_draw_state* const draw_state = jfw_widget_get_user_pointer(this);
     vk_state* const state = draw_state->vulkan_state;
     return draw_frame(
             state, jfw_window_get_vk_resources(this->window), state->mesh_count, state->mesh_array, &draw_state->camera) == GFX_RESULT_SUCCESS ? jfw_res_success : jfw_res_error;
@@ -390,11 +390,11 @@ int main(int argc, char* argv[argc])
 
     u32 n_materials;
     jio_memory_file file_points, file_materials, file_profiles, file_elements, file_nat;
-    jtb_point_list point_list;
-    jtb_material* materials;
-    jtb_profile_list profile_list;
-    jtb_element_list elements;
-    jtb_natural_boundary_condition_list natural_boundary_conditions;
+    jta_point_list point_list;
+    jta_material* materials;
+    jta_profile_list profile_list;
+    jta_element_list elements;
+    jta_natural_boundary_condition_list natural_boundary_conditions;
 
     jio_result jio_res = jio_memory_file_create(pts_file_name, &file_points, 0, 0, 0);
     if (jio_res != JIO_RESULT_SUCCESS)
@@ -427,8 +427,8 @@ int main(int argc, char* argv[argc])
     lin_jfree(G_LIN_JALLOCATOR, mat_file_name);
     lin_jfree(G_LIN_JALLOCATOR, pts_file_name);
 
-    jtb_result jtb_res = jtb_load_points(&file_points, &point_list);
-    if (jtb_res != JTB_RESULT_SUCCESS)
+    jta_result jta_res = jta_load_points(&file_points, &point_list);
+    if (jta_res != JTA_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not load points");
     }
@@ -436,8 +436,8 @@ int main(int argc, char* argv[argc])
     {
         JDM_FATAL("At least two points should be defined");
     }
-    jtb_res = jtb_load_materials(&file_materials, &n_materials, &materials);
-    if (jtb_res != JTB_RESULT_SUCCESS)
+    jta_res = jta_load_materials(&file_materials, &n_materials, &materials);
+    if (jta_res != JTA_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not load materials");
     }
@@ -445,8 +445,8 @@ int main(int argc, char* argv[argc])
     {
         JDM_FATAL("At least one material should be defined");
     }
-    jtb_res = jtb_load_profiles(&file_profiles, &profile_list);
-    if (jtb_res != JTB_RESULT_SUCCESS)
+    jta_res = jta_load_profiles(&file_profiles, &profile_list);
+    if (jta_res != JTA_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not load profiles");
     }
@@ -455,8 +455,8 @@ int main(int argc, char* argv[argc])
         JDM_FATAL("At least one profile should be defined");
     }
 
-    jtb_res = jtb_load_elements(&file_elements, &point_list, n_materials, materials, &profile_list, &elements);
-    if (jtb_res != JTB_RESULT_SUCCESS)
+    jta_res = jta_load_elements(&file_elements, &point_list, n_materials, materials, &profile_list, &elements);
+    if (jta_res != JTA_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not load elements");
     }
@@ -465,8 +465,8 @@ int main(int argc, char* argv[argc])
         JDM_FATAL("At least one profile should be defined");
     }
 
-    jtb_res = jtb_load_natural_boundary_conditions(&file_nat, &point_list, &natural_boundary_conditions);
-    if (jtb_res != JTB_RESULT_SUCCESS)
+    jta_res = jta_load_natural_boundary_conditions(&file_nat, &point_list, &natural_boundary_conditions);
+    if (jta_res != JTA_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not load natural boundary conditions");
     }
@@ -505,7 +505,7 @@ int main(int argc, char* argv[argc])
         goto cleanup;
     }
     jfw_result = jfw_window_create(
-            jctx, 1600, 900, "JANSYS - jtb - 0.0.1", (jfw_color) { .a = 0xFF, .r = 0x80, .g = 0x80, .b = 0x80 },
+            jctx, 1600, 900, "JANSYS - jta - 0.0.1", (jfw_color) { .a = 0xFF, .r = 0x80, .g = 0x80, .b = 0x80 },
             &jwnd, 0);
     if (!jfw_success(jfw_result))
     {
@@ -523,9 +523,9 @@ int main(int argc, char* argv[argc])
         JDM_ERROR("Could not create vulkan state");
         goto cleanup;
     }
-    jtb_mesh truss_mesh;
-    jtb_mesh sphere_mesh;
-    jtb_mesh cone_mesh;
+    jta_mesh truss_mesh;
+    jta_mesh sphere_mesh;
+    jta_mesh cone_mesh;
     vulkan_state.point_list = &point_list;
     if ((gfx_res = mesh_init_truss(&truss_mesh, 1 << 12, &vulkan_state, vk_res)) != GFX_RESULT_SUCCESS)
     {
@@ -595,7 +595,7 @@ int main(int argc, char* argv[argc])
             goto cleanup;
         }
     }
-    jtb_mesh* meshes[] = {
+    jta_mesh* meshes[] = {
             &truss_mesh,
             &sphere_mesh,
             &cone_mesh
@@ -621,8 +621,8 @@ int main(int argc, char* argv[argc])
     jwidget->functions.mouse_button_release = truss_mouse_button_release;
     jwidget->functions.mouse_motion = truss_mouse_motion;
     jwidget->functions.button_up = truss_key_press;
-    jtb_camera_3d camera;
-    jtb_camera_set(
+    jta_camera_3d camera;
+    jta_camera_set(
             &camera,                                    //  Camera
             geo_base,                                   //  View target
             geo_base,                                   //  Geometry center
@@ -649,17 +649,17 @@ int main(int argc, char* argv[argc])
         }
     }
     f32 n, f;
-    jtb_camera_find_depth_planes(&camera, &n, &f);
+    jta_camera_find_depth_planes(&camera, &n, &f);
 //    assert(min >= n); assert(max <= f);
 #endif
-    jtb_draw_state draw_state =
+    jta_draw_state draw_state =
             {
             .vulkan_state = &vulkan_state,
             .camera = camera,
             .vulkan_resources = vk_res,
             };
     jfw_widget_set_user_pointer(jwidget, &draw_state);
-    vulkan_state.view = jtb_camera_to_view_matrix(&camera);
+    vulkan_state.view = jta_camera_to_view_matrix(&camera);
 
     i32 close = 0;
     while (jfw_success(jfw_context_wait_for_events(jctx)) && !close)

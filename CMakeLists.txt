@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(jtb C)
+project(jta C)
 include(CTest)
 
 set(CMAKE_C_STANDARD 23)
@@ -20,14 +20,14 @@ list(APPEND UTILITY_HEADER_FILES common/common.h)
 list(APPEND GFX_SOURCE_FILES gfx/vk_state.c gfx/drawing_3d.c gfx/camera.c ui.c gfx/gfxerr.c)
 list(APPEND GFX_HEADER_FILES gfx/vk_state.h gfx/drawing_3d.h gfx/camera.h ui.h gfx/gfxerr.h)
 
-list(APPEND JTB_SOLVER_SOURCE_FILES solver/jtberr.c solver/jtbpoints.c solver/jtbmaterials.c solver/jtbprofiles.c solver/jtbelements.c)
-list(APPEND JTB_SOLVER_HEADER_FILES solver/jtberr.h solver/jtbpoints.h solver/jtbmaterials.h solver/jtbprofiles.h solver/jtbelements.h)
+list(APPEND JTA_SOLVER_SOURCE_FILES solver/jtaerr.c solver/jtapoints.c solver/jtamaterials.c solver/jtaprofiles.c solver/jtaelements.c)
+list(APPEND JTA_SOLVER_HEADER_FILES solver/jtaerr.h solver/jtapoints.h solver/jtamaterials.h solver/jtaprofiles.h solver/jtaelements.h)
 
 add_subdirectory(jio)
 add_subdirectory(jmem)
 add_subdirectory(jdm)
 
-add_executable(jtb main.c
+add_executable(jta main.c
         ${JFW_SOURCE_FILES} ${JFW_HEADER_FILES}
         ${ALLOCATORS_SOURCE_FILES} ${ALLOCATORS_HEADER_FILES}
         ${FORMATTED_IO_SOURCE_FILES} ${FORMATTED_IO_HEADER_FILES}
@@ -35,15 +35,15 @@ add_executable(jtb main.c
         ${GFX_SOURCE_FILES} ${GFX_HEADER_FILES}
         ${PARSING_SOURCE_FILES} ${PARSING_HEADER_FILES}
         ${UTILITY_SOURCE_FILES} ${UTILITY_HEADER_FILES}
-        ${JTB_SOLVER_SOURCE_FILES} ${JTB_SOLVER_HEADER_FILES} gfx/bounding_box.h gfx/bounding_box.c gfx/mesh.c gfx/mesh.h solver/jtbnaturalbcs.c solver/jtbnaturalbcs.h)
+        ${JTA_SOLVER_SOURCE_FILES} ${JTA_SOLVER_HEADER_FILES} gfx/bounding_box.h gfx/bounding_box.c gfx/mesh.c gfx/mesh.h solver/jtanaturalbcs.c solver/jtanaturalbcs.h solver/jtanumericalbcs.c solver/jtanumericalbcs.h)
 
 add_compile_definitions(JALLOC_TRAP_COUNT=128)
 add_compile_definitions(JALLOC_TRACKING=1)
 
 configure_file(test_configuration.cfg "${CMAKE_BINARY_DIR}/test_configuration.cfg" COPYONLY)
 
-target_include_directories(jtb PRIVATE jio/include jdm/include jmem/source/include)
-target_link_libraries(jtb PRIVATE vulkan X11 m jmem jfmt jdm jio)
+target_include_directories(jta PRIVATE jio/include jdm/include jmem/source/include)
+target_link_libraries(jta PRIVATE vulkan X11 m jmem jfmt jdm jio)
 
 add_executable(jfw_test ${JFW_SOURCE_FILES} ${JFW_HEADER_FILES} jfw/main.c)
 target_link_libraries(jfw_test PRIVATE vulkan X11 m jmem jfmt jdm)

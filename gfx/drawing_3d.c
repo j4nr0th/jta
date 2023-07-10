@@ -10,16 +10,16 @@
 
 gfx_result
 draw_frame(
-        vk_state* state, jfw_window_vk_resources* vk_resources, u32 n_meshes, jtb_mesh** meshes,
-        const jtb_camera_3d* camera)
+        vk_state* state, jfw_window_vk_resources* vk_resources, u32 n_meshes, jta_mesh** meshes,
+        const jta_camera_3d* camera)
 {
     assert(meshes);
     for (u32 i = 0; i < n_meshes; ++i)
     {
-        jtb_mesh* mesh = meshes[i];
+        jta_mesh* mesh = meshes[i];
         if (mesh->up_to_date == 0)
         {
-            gfx_result res = jtb_mesh_update_instance(mesh, vk_resources, state);
+            gfx_result res = jta_mesh_update_instance(mesh, vk_resources, state);
             if (res != GFX_RESULT_SUCCESS)
             {
                 JDM_ERROR("Could not update mesh %"PRIu32" instance data, reason: %s", i, gfx_result_to_str(res));
@@ -106,7 +106,7 @@ draw_frame(
         vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, state->gfx_pipeline_3D);
         for (u32 i = 0; i < n_meshes; ++i)
         {
-            const jtb_mesh* mesh = meshes[i];
+            const jta_mesh* mesh = meshes[i];
             if (mesh->count == 0) continue;
             VkBuffer buffers[2] = { mesh->common_geometry_vtx.buffer, mesh->instance_memory.buffer};
             VkDeviceSize offsets[2] = { mesh->common_geometry_vtx.offset, mesh->instance_memory.offset};
@@ -162,7 +162,7 @@ draw_frame(
     //  Update uniforms
     {
         f32 near, far;
-//        jtb_camera_find_depth_planes(camera, &near, &far);
+//        jta_camera_find_depth_planes(camera, &near, &far);
         gfx_find_bounding_planes(state->point_list, camera->position, camera->uz, &near, &far);
         far *= 2;
         near *= 0.5f;

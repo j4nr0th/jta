@@ -2,7 +2,7 @@
 // Created by jan on 9.7.2023.
 //
 
-#include "jtbnaturalbcs.h"
+#include "jtanaturalbcs.h"
 
 
 static const jio_string_segment NATURAL_BC_FILE_HEADERS[] =
@@ -28,7 +28,7 @@ typedef struct natural_bc_parse_ss_data_struct natural_bc_parse_ss_data;
 struct natural_bc_parse_ss_data_struct
 {
     uint32_t count;
-    const jtb_point_list* point_list;
+    const jta_point_list* point_list;
     uint32_t* values;
 };
 
@@ -80,17 +80,17 @@ static bool (*converter_functions[])(jio_string_segment* v, void* param) =
                 converter_natural_bc_float_function,
         };
 
-jtb_result jtb_load_natural_boundary_conditions(
-        const jio_memory_file* mem_file, const jtb_point_list* point_list, jtb_natural_boundary_condition_list* bcs)
+jta_result jta_load_natural_boundary_conditions(
+        const jio_memory_file* mem_file, const jta_point_list* point_list, jta_natural_boundary_condition_list* bcs)
 {
     JDM_ENTER_FUNCTION;
-    jtb_result res;
+    jta_result res;
     uint32_t line_count = 0;
     jio_result jio_res = jio_memory_file_count_lines(mem_file, &line_count);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not count lines in natural boundary condition input file, reason: %s", jio_result_to_str(jio_res));
-        res = JTB_RESULT_BAD_IO;
+        res = JTA_RESULT_BAD_IO;
         goto end;
     }
 
@@ -98,7 +98,7 @@ jtb_result jtb_load_natural_boundary_conditions(
     if (!x)
     {
         JDM_ERROR("Could not allocate memory for natural boundary condition array");
-        res = JTB_RESULT_BAD_ALLOC;
+        res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
     f32* y = ill_jalloc(G_JALLOCATOR, sizeof(*y) * (line_count - 1));
@@ -106,7 +106,7 @@ jtb_result jtb_load_natural_boundary_conditions(
     {
         ill_jfree(G_JALLOCATOR, x);
         JDM_ERROR("Could not allocate memory for natural boundary condition array");
-        res = JTB_RESULT_BAD_ALLOC;
+        res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
     f32* z = ill_jalloc(G_JALLOCATOR, sizeof(*z) * (line_count - 1));
@@ -115,7 +115,7 @@ jtb_result jtb_load_natural_boundary_conditions(
         ill_jfree(G_JALLOCATOR, x);
         ill_jfree(G_JALLOCATOR, y);
         JDM_ERROR("Could not allocate memory for natural boundary condition array");
-        res = JTB_RESULT_BAD_ALLOC;
+        res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
     uint32_t* i_pts = ill_jalloc(G_JALLOCATOR, sizeof(*i_pts) * (line_count - 1));
@@ -125,7 +125,7 @@ jtb_result jtb_load_natural_boundary_conditions(
         ill_jfree(G_JALLOCATOR, y);
         ill_jfree(G_JALLOCATOR, z);
         JDM_ERROR("Could not allocate memory for natural boundary condition array");
-        res = JTB_RESULT_BAD_ALLOC;
+        res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
     natural_bc_parse_float_data float_data[] =
@@ -153,7 +153,7 @@ jtb_result jtb_load_natural_boundary_conditions(
         ill_jfree(G_JALLOCATOR, x);
         ill_jfree(G_JALLOCATOR, y);
         ill_jfree(G_JALLOCATOR, z);
-        res = JTB_RESULT_BAD_INPUT;
+        res = JTA_RESULT_BAD_INPUT;
         goto end;
     }
     assert(float_data[0].count == float_data[1].count);
@@ -246,10 +246,10 @@ jtb_result jtb_load_natural_boundary_conditions(
     min_mag = sqrtf(min_mag);
     max_mag = sqrtf(max_mag);
 
-    *bcs = (jtb_natural_boundary_condition_list){.count = count, .x = x, .y = y, .z = z, .i_point = i_pts, .min_mag = min_mag, .max_mag = max_mag};
+    *bcs = (jta_natural_boundary_condition_list){.count = count, .x = x, .y = y, .z = z, .i_point = i_pts, .min_mag = min_mag, .max_mag = max_mag};
 
     JDM_LEAVE_FUNCTION;
-    return JTB_RESULT_SUCCESS;
+    return JTA_RESULT_SUCCESS;
     end:
     JDM_LEAVE_FUNCTION;
     return res;

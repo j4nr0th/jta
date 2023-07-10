@@ -382,90 +382,90 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
                 {
                 .binding = 0,
                 .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
-                .stride = sizeof(jtb_vertex),
+                .stride = sizeof(jta_vertex),
                 };
         VkVertexInputBindingDescription vtx_binding_desc_model =
                 {
                 .binding = 1,
                 .inputRate = VK_VERTEX_INPUT_RATE_INSTANCE,
-                .stride = sizeof(jtb_model_data),
+                .stride = sizeof(jta_model_data),
                 };
         VkVertexInputAttributeDescription position_attribute_description =
                 {
                 .binding = 0,
                 .location = 0,
                 .format = VK_FORMAT_R32G32B32_SFLOAT,
-                .offset = offsetof(jtb_vertex, x),
+                .offset = offsetof(jta_vertex, x),
                 };
         VkVertexInputAttributeDescription normal_attribute_description =
                 {
                 .binding = 0,
                 .location = 1,
                 .format = VK_FORMAT_R32G32B32_SFLOAT,
-                .offset = offsetof(jtb_vertex, nx),
+                .offset = offsetof(jta_vertex, nx),
                 };
         VkVertexInputAttributeDescription color_attribute_description =
                 {
                 .binding = 1,
                 .location = 2,
                 .format = VK_FORMAT_R8G8B8A8_UNORM,
-                .offset = offsetof(jtb_model_data, color),
+                .offset = offsetof(jta_model_data, color),
                 };
         VkVertexInputAttributeDescription model_transform_attribute_description_col1 =
                 {
                 .binding = 1,
                 .location = 3,
                 .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-                .offset = offsetof(jtb_model_data, model_data[0]),
+                .offset = offsetof(jta_model_data, model_data[0]),
                 };
         VkVertexInputAttributeDescription model_transform_attribute_description_col2 =
                 {
                 .binding = 1,
                 .location = 4,
                 .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-                .offset = offsetof(jtb_model_data, model_data[4]),
+                .offset = offsetof(jta_model_data, model_data[4]),
                 };
         VkVertexInputAttributeDescription model_transform_attribute_description_col3 =
                 {
                 .binding = 1,
                 .location = 5,
                 .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-                .offset = offsetof(jtb_model_data, model_data[8]),
+                .offset = offsetof(jta_model_data, model_data[8]),
                 };
         VkVertexInputAttributeDescription model_transform_attribute_description_col4 =
                 {
                 .binding = 1,
                 .location = 6,
                 .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-                .offset = offsetof(jtb_model_data, model_data[12]),
+                .offset = offsetof(jta_model_data, model_data[12]),
                 };
         VkVertexInputAttributeDescription normal_transform_attribute_description_col1 =
                 {
                         .binding = 1,
                         .location = 7,
                         .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-                        .offset = offsetof(jtb_model_data, normal_data[0]),
+                        .offset = offsetof(jta_model_data, normal_data[0]),
                 };
         VkVertexInputAttributeDescription normal_transform_attribute_description_col2 =
                 {
                         .binding = 1,
                         .location = 8,
                         .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-                        .offset = offsetof(jtb_model_data, normal_data[4]),
+                        .offset = offsetof(jta_model_data, normal_data[4]),
                 };
         VkVertexInputAttributeDescription normal_transform_attribute_description_col3 =
                 {
                         .binding = 1,
                         .location = 9,
                         .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-                        .offset = offsetof(jtb_model_data, normal_data[8]),
+                        .offset = offsetof(jta_model_data, normal_data[8]),
                 };
         VkVertexInputAttributeDescription normal_transform_attribute_description_col4 =
                 {
                         .binding = 1,
                         .location = 10,
                         .format = VK_FORMAT_R32G32B32A32_SFLOAT,
-                        .offset = offsetof(jtb_model_data, normal_data[12]),
+                        .offset = offsetof(jta_model_data, normal_data[12]),
                 };
         VkShaderModuleCreateInfo shader_vtx_create_info =
                 {

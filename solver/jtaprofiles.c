@@ -2,7 +2,7 @@
 // Created by jan on 5.7.2023.
 //
 
-#include "jtbprofiles.h"
+#include "jtaprofiles.h"
 
 static const jio_string_segment PROFILE_FILE_HEADERS[] =
         {
@@ -77,23 +77,23 @@ static bool (*converter_functions[])(jio_string_segment* v, void* param) =
                 converter_float_function,
         };
 
-jtb_result jtb_load_profiles(const jio_memory_file* mem_file, jtb_profile_list* profile_list)
+jta_result jta_load_profiles(const jio_memory_file* mem_file, jta_profile_list* profile_list)
 {
     JDM_ENTER_FUNCTION;
-    jtb_result res;
+    jta_result res;
     uint32_t line_count = 0;
     jio_result jio_res = jio_memory_file_count_lines(mem_file, &line_count);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not count lines in profile input file, reason: %s", jio_result_to_str(jio_res));
-        res = JTB_RESULT_BAD_IO;
+        res = JTA_RESULT_BAD_IO;
         goto end;
     }
     f32* area = ill_jalloc(G_JALLOCATOR, sizeof(*area) * (line_count - 1));
     if (!area)
     {
         JDM_ERROR("Could not allocate memory for point array");
-        res = JTB_RESULT_BAD_ALLOC;
+        res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
     f32* smoa = ill_jalloc(G_JALLOCATOR, sizeof(*smoa) * (line_count - 1));
@@ -101,7 +101,7 @@ jtb_result jtb_load_profiles(const jio_memory_file* mem_file, jtb_profile_list* 
     {
         ill_jfree(G_JALLOCATOR, area);
         JDM_ERROR("Could not allocate memory for point array");
-        res = JTB_RESULT_BAD_ALLOC;
+        res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
     jio_string_segment* ss = ill_jalloc(G_JALLOCATOR, sizeof(*ss) * (line_count - 1));
@@ -110,7 +110,7 @@ jtb_result jtb_load_profiles(const jio_memory_file* mem_file, jtb_profile_list* 
         ill_jfree(G_JALLOCATOR, area);
         ill_jfree(G_JALLOCATOR, smoa);
         JDM_ERROR("Could not allocate memory for point array");
-        res = JTB_RESULT_BAD_ALLOC;
+        res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
 
@@ -141,7 +141,7 @@ jtb_result jtb_load_profiles(const jio_memory_file* mem_file, jtb_profile_list* 
         ill_jfree(G_JALLOCATOR, area);
         ill_jfree(G_JALLOCATOR, smoa);
         ill_jfree(G_JALLOCATOR, ss);
-        res = JTB_RESULT_BAD_INPUT;
+        res = JTA_RESULT_BAD_INPUT;
         goto end;
     }
     assert(parse_float_data[0].count == parse_float_data[1].count);
@@ -157,7 +157,7 @@ jtb_result jtb_load_profiles(const jio_memory_file* mem_file, jtb_profile_list* 
         ill_jfree(G_JALLOCATOR, smoa);
         ill_jfree(G_JALLOCATOR, ss);
         JDM_ERROR("Could not allocate memory for profile array");
-        res = JTB_RESULT_BAD_ALLOC;
+        res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
     if (count != line_count - 1)
@@ -225,10 +225,10 @@ jtb_result jtb_load_profiles(const jio_memory_file* mem_file, jtb_profile_list* 
         }
     }
 
-    *profile_list = (jtb_profile_list){.count = count, .labels = ss, .area = area, .second_moment_of_area = smoa, .equivalent_radius = equivalent_radius, .min_equivalent_radius = min_r, .max_equivalent_radius = max_r};
+    *profile_list = (jta_profile_list){.count = count, .labels = ss, .area = area, .second_moment_of_area = smoa, .equivalent_radius = equivalent_radius, .min_equivalent_radius = min_r, .max_equivalent_radius = max_r};
 
     JDM_LEAVE_FUNCTION;
-    return JTB_RESULT_SUCCESS;
+    return JTA_RESULT_SUCCESS;
     end:
     JDM_LEAVE_FUNCTION;
     return res;

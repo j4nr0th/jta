@@ -2,8 +2,8 @@
 // Created by jan on 30.4.2023.
 //
 
-#ifndef JTB_ALIGNED_JALLOC_H
-#define JTB_ALIGNED_JALLOC_H
+#ifndef JTA_ALIGNED_JALLOC_H
+#define JTA_ALIGNED_JALLOC_H
 #include <jmem/jmem.h>
 #include <vulkan/vulkan.h>
 
@@ -27,4 +27,4 @@ int aligned_jallocator_verify(aligned_jallocator* allocator);
 
 size_t aligned_jalloc_block_size(aligned_jallocator* allocator, void* ptr);
 
-#endif //JTB_ALIGNED_JALLOC_H
+#endif //JTA_ALIGNED_JALLOC_H

@@ -2,8 +2,8 @@
 // Created by jan on 30.6.2023.
 //
 
-#ifndef JTB_GFXERR_H
-#define JTB_GFXERR_H
+#ifndef JTA_GFXERR_H
+#define JTA_GFXERR_H
 
 
 enum gfx_result_enum : unsigned
@@ -40,4 +40,4 @@ typedef enum gfx_result_enum gfx_result;
 
 const char* gfx_result_to_str(gfx_result res);
 
-#endif //JTB_GFXERR_H
+#endif //JTA_GFXERR_H

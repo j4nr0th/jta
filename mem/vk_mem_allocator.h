@@ -2,8 +2,8 @@
 // Created by jan on 14.5.2023.
 //
 
-#ifndef JTB_VK_MEM_ALLOCATOR_H
-#define JTB_VK_MEM_ALLOCATOR_H
+#ifndef JTA_VK_MEM_ALLOCATOR_H
+#define JTA_VK_MEM_ALLOCATOR_H
 #include "../common/common.h"
 
 typedef struct vk_buffer_allocator_struct vk_buffer_allocator;
@@ -42,4 +42,4 @@ void* vk_map_allocation(const vk_buffer_allocation* allocation);
 
 void vk_unmap_allocation(void* ptr_mapped, const vk_buffer_allocation* allocation);
 
-#endif //JTB_VK_MEM_ALLOCATOR_H
+#endif //JTA_VK_MEM_ALLOCATOR_H

@@ -3,7 +3,7 @@
 //
 #include "bounding_box.h"
 
-//gfx_result gfx_find_bounding_box(u32 n_points, const jtb_point* points)
+//gfx_result gfx_find_bounding_box(u32 n_points, const jta_point* points)
 //{
 //    JDM_ENTER_FUNCTION;
 //    vec4 bb_e1, bb_e2, bb_e3, origin;
@@ -143,7 +143,7 @@
 //    return GFX_RESULT_SUCCESS;
 //}
 
-gfx_result gfx_find_bounding_sphere(const jtb_point_list* points, vec4* origin, f32* radius)
+gfx_result gfx_find_bounding_sphere(const jta_point_list* points, vec4* origin, f32* radius)
 {
     JDM_ENTER_FUNCTION;
     vec4 o;
@@ -207,7 +207,7 @@ gfx_result gfx_find_bounding_sphere(const jtb_point_list* points, vec4* origin, 
     return GFX_RESULT_SUCCESS;
 }
 
-gfx_result gfx_find_bounding_planes(const jtb_point_list* point_list, vec4 origin, vec4 unit_view_dir, f32* p_near, f32* p_far)
+gfx_result gfx_find_bounding_planes(const jta_point_list* point_list, vec4 origin, vec4 unit_view_dir, f32* p_near, f32* p_far)
 {
     JDM_ENTER_FUNCTION;
 

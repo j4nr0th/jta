@@ -2,8 +2,8 @@
 // Created by jan on 27.5.2023.
 //
 
-#ifndef JTB_COMMON_H
-#define JTB_COMMON_H
+#ifndef JTA_COMMON_H
+#define JTA_COMMON_H
 //  Standard library includes
 #include <stdlib.h>
 #include <stdint.h>
@@ -67,4 +67,4 @@ struct ubo_3d_struct
 };
 
 
-#endif //JTB_COMMON_H
+#endif //JTA_COMMON_H

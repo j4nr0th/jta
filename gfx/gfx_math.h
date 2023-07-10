@@ -2,8 +2,8 @@
 // Created by jan on 18.4.2023.
 //
 
-#ifndef JTB_GFX_MATH_H
-#define JTB_GFX_MATH_H
+#ifndef JTA_GFX_MATH_H
+#define JTA_GFX_MATH_H
 #include "../jfw/jfw_common.h"
 #include <immintrin.h>
 #include <ammintrin.h>
@@ -487,4 +487,4 @@ static const mtx4 mtx4_identity =
 }
 
 #define VEC4(vx, vy, vz) (vec4){.x = (vx), .y = (vy), .z = (vz), .w = 1.0f}
-#endif //JTB_GFX_MATH_H
+#endif //JTA_GFX_MATH_H

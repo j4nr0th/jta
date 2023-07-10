@@ -2,15 +2,15 @@
 // Created by jan on 5.7.2023.
 //
 
-#ifndef JTB_JTBPROFILES_H
-#define JTB_JTBPROFILES_H
+#ifndef JTA_JTAPROFILES_H
+#define JTA_JTAPROFILES_H
 
 #include <jio/iocsv.h>
 #include "../common/common.h"
-#include "jtberr.h"
+#include "jtaerr.h"
 
-typedef struct jtb_profile_list_struct jtb_profile_list;
-struct jtb_profile_list_struct
+typedef struct jta_profile_list_struct jta_profile_list;
+struct jta_profile_list_struct
 {
     uint32_t count;
     jio_string_segment* labels;
@@ -21,6 +21,6 @@ struct jtb_profile_list_struct
     f32 max_equivalent_radius;
 };
 
-jtb_result jtb_load_profiles(const jio_memory_file* mem_file, jtb_profile_list* profile_list);
+jta_result jta_load_profiles(const jio_memory_file* mem_file, jta_profile_list* profile_list);
 
-#endif //JTB_JTBPROFILES_H
+#endif //JTA_JTAPROFILES_H

@@ -2,7 +2,7 @@
 // Created by jan on 5.7.2023.
 //
 
-#include "jtbelements.h"
+#include "jtaelements.h"
 
 static const jio_string_segment ELEMENT_FILE_HEADERS[] =
         {
@@ -27,7 +27,7 @@ struct element_parse_pt_data_struct
 {
     uint32_t count;
     jio_string_segment* labels;
-    const jtb_point_list* points;
+    const jta_point_list* points;
     uint32_t* values;
 };
 
@@ -36,7 +36,7 @@ struct element_parse_pro_data_struct
 {
     uint32_t count;
     jio_string_segment* labels;
-    const jtb_profile_list* profiles;
+    const jta_profile_list* profiles;
     uint32_t* values;
 };
 
@@ -46,7 +46,7 @@ struct element_parse_mat_data_struct
     uint32_t count;
     jio_string_segment* labels;
     u32 n_materials;
-    const jtb_material* materials;
+    const jta_material* materials;
     uint32_t* values;
 };
 
@@ -133,25 +133,25 @@ static bool (*converter_functions[])(jio_string_segment* v, void* param) =
                 converter_point_label_function,
         };
 
-jtb_result jtb_load_elements(
-        const jio_memory_file* mem_file, const jtb_point_list* points, u32 n_mat, const jtb_material* materials,
-        const jtb_profile_list* profiles, jtb_element_list* element_list)
+jta_result jta_load_elements(
+        const jio_memory_file* mem_file, const jta_point_list* points, u32 n_mat, const jta_material* materials,
+        const jta_profile_list* profiles, jta_element_list* element_list)
 {
     JDM_ENTER_FUNCTION;
-    jtb_result res;
+    jta_result res;
     uint32_t line_count = 0;
     jio_result jio_res = jio_memory_file_count_lines(mem_file, &line_count);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not count lines in element input file, reason: %s", jio_result_to_str(jio_res));
-        res = JTB_RESULT_BAD_IO;
+        res = JTA_RESULT_BAD_IO;
         goto end;
     }
     uint32_t* i_point0 = ill_jalloc(G_JALLOCATOR, sizeof(*i_point0) * (line_count - 1));
     if (!i_point0)
     {
         JDM_ERROR("Could not allocate memory for element array");
-        res = JTB_RESULT_BAD_ALLOC;
+        res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
     uint32_t* i_point1 = ill_jalloc(G_JALLOCATOR, sizeof(*i_point1) * (line_count - 1));
@@ -159,7 +159,7 @@ jtb_result jtb_load_elements(
     {
         JDM_ERROR("Could not allocate memory for element array");
         ill_jfree(G_JALLOCATOR, i_point0);
-        res = JTB_RESULT_BAD_ALLOC;
+        res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
 
@@ -169,7 +169,7 @@ jtb_result jtb_load_elements(
         JDM_ERROR("Could not allocate memory for element array");
         ill_jfree(G_JALLOCATOR, i_point0);
         ill_jfree(G_JALLOCATOR, i_point1);
-        res = JTB_RESULT_BAD_ALLOC;
+        res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
     uint32_t* i_profile = ill_jalloc(G_JALLOCATOR, sizeof(*i_profile) * (line_count - 1));
@@ -179,7 +179,7 @@ jtb_result jtb_load_elements(
         ill_jfree(G_JALLOCATOR, i_point0);
         ill_jfree(G_JALLOCATOR, i_point1);
         ill_jfree(G_JALLOCATOR, i_material);
-        res = JTB_RESULT_BAD_ALLOC;
+        res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
     jio_string_segment* labels = ill_jalloc(G_JALLOCATOR, sizeof(*labels) * (line_count - 1));
@@ -190,7 +190,7 @@ jtb_result jtb_load_elements(
         ill_jfree(G_JALLOCATOR, i_point1);
         ill_jfree(G_JALLOCATOR, i_material);
         ill_jfree(G_JALLOCATOR, i_profile);
-        res = JTB_RESULT_BAD_ALLOC;
+        res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
     f32* lengths = ill_jalloc(G_JALLOCATOR, sizeof(*lengths) * (line_count - 1));
@@ -202,7 +202,7 @@ jtb_result jtb_load_elements(
         ill_jfree(G_JALLOCATOR, i_material);
         ill_jfree(G_JALLOCATOR, i_profile);
         ill_jfree(G_JALLOCATOR, labels);
-        res = JTB_RESULT_BAD_ALLOC;
+        res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
 
@@ -226,7 +226,7 @@ jtb_result jtb_load_elements(
     {
         JDM_ERROR("Processing the element input file failed, reason: %s", jio_result_to_str(jio_res));
         ill_jfree(G_JALLOCATOR, i_point1);
-        res = JTB_RESULT_BAD_INPUT;
+        res = JTA_RESULT_BAD_INPUT;
         goto end;
     }
     assert(label_parse_data.count == mat_parse_data.count);
@@ -357,9 +357,9 @@ jtb_result jtb_load_elements(
         }
     }
 
-    *element_list = (jtb_element_list){.count = count, .labels = labels, .i_profile = i_profile, .i_point0 = i_point0, .i_point1 = i_point1, .i_material = i_material, .lengths = lengths, .max_len = l_max, .min_len = l_min};
+    *element_list = (jta_element_list){.count = count, .labels = labels, .i_profile = i_profile, .i_point0 = i_point0, .i_point1 = i_point1, .i_material = i_material, .lengths = lengths, .max_len = l_max, .min_len = l_min};
     JDM_LEAVE_FUNCTION;
-    return JTB_RESULT_SUCCESS;
+    return JTA_RESULT_SUCCESS;
 end:
     JDM_LEAVE_FUNCTION;
     return res;
