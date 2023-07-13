@@ -55,8 +55,8 @@ static gfx_result mesh_allocate_vulkan_memory(vk_state* state, jta_mesh* mesh, j
 
 static gfx_result clean_mesh_model(jta_model* model)
 {
-    jfw_free(&model->vtx_array);
-    jfw_free(&model->idx_array);
+    ill_jfree(G_JALLOCATOR, model->vtx_array);
+    ill_jfree(G_JALLOCATOR, model->idx_array);
     memset(model, 0, sizeof*model);
     return GFX_RESULT_SUCCESS;
 }
@@ -64,20 +64,19 @@ static gfx_result clean_mesh_model(jta_model* model)
 static gfx_result generate_truss_model(jta_model* const p_out, const u16 pts_per_side)
 {
     gfx_result res;
-    jfw_res jfw_result;
     jta_vertex* vertices;
-    if (!jfw_success(jfw_result = (jfw_calloc(2 * pts_per_side, sizeof*vertices, &vertices))))
+    if (!(vertices = ill_jalloc(G_JALLOCATOR,2 * pts_per_side * sizeof*vertices)))
     {
-        JDM_ERROR("Could not allocate memory for truss model, reason: %s", jfw_error_message(jfw_result));
+        JDM_ERROR("Could not allocate memory for truss model");
         return GFX_RESULT_BAD_ALLOC;
     }
     jta_vertex* const btm = vertices;
     jta_vertex* const top = vertices + pts_per_side;
     u16* indices;
-    if (!jfw_success(jfw_result = (jfw_calloc(3 * 2 * pts_per_side, sizeof*indices, &indices))))
+    if (!(indices = ill_jalloc(G_JALLOCATOR, 3 * 2 * pts_per_side * sizeof*indices)))
     {
-        JDM_ERROR("Could not allocate memory for truss model, reason: %s", jfw_error_message(jfw_result));
-        jfw_free(&vertices);
+        JDM_ERROR("Could not allocate memory for truss model");
+        ill_jfree(G_JALLOCATOR, vertices);
         return res;
     }
 
@@ -124,7 +123,6 @@ const u64 DEFAULT_MESH_CAPACITY = 64;
 gfx_result mesh_init_truss(jta_mesh* mesh, u16 pts_per_side, vk_state* state, jfw_window_vk_resources* resources)
 {
     JDM_ENTER_FUNCTION;
-    jfw_res res;
     mesh->name = "truss";
     mesh->up_to_date = false;
     gfx_result gfx_res;
@@ -137,9 +135,9 @@ gfx_result mesh_init_truss(jta_mesh* mesh, u16 pts_per_side, vk_state* state, jf
     mesh->count = 0;
     mesh->capacity = DEFAULT_MESH_CAPACITY;
 
-    if (!jfw_success(res = jfw_calloc(mesh->capacity, sizeof(*mesh->model_data), &mesh->model_data)))
+    if (!(mesh->model_data = ill_jalloc(G_JALLOCATOR,mesh->capacity * sizeof(*mesh->model_data))))
     {
-        JDM_ERROR("Could not allocate memory for mesh model array, reason: %s", jfw_error_message(res));
+        JDM_ERROR("Could not allocate memory for mesh model array");
         clean_mesh_model(&mesh->model);
         return GFX_RESULT_BAD_ALLOC;
     }
@@ -148,7 +146,7 @@ gfx_result mesh_init_truss(jta_mesh* mesh, u16 pts_per_side, vk_state* state, jf
     if ((gfx_res = mesh_allocate_vulkan_memory(state, mesh, resources)) != GFX_RESULT_SUCCESS)
     {
         clean_mesh_model(&mesh->model);
-        jfw_free(&mesh->model_data);
+        ill_jfree(G_JALLOCATOR, mesh->model_data);
         JDM_ERROR("Could not allocate vulkan memory for the truss mesh");
         JDM_LEAVE_FUNCTION;
         return gfx_res;
@@ -160,7 +158,7 @@ gfx_result mesh_init_truss(jta_mesh* mesh, u16 pts_per_side, vk_state* state, jf
 
 gfx_result mesh_uninit(jta_mesh* mesh)
 {
-    jfw_free(&mesh->model_data);
+    ill_jfree(G_JALLOCATOR, mesh->model_data);
     clean_mesh_model(&mesh->model);
     return GFX_RESULT_SUCCESS;
 }
@@ -173,11 +171,13 @@ static gfx_result mesh_add_new(jta_mesh* mesh, mtx4 model_transform, mtx4 normal
     {
         //  Reallocate memory for data on host side
         const u32 new_capacity = mesh->capacity + 64;
-        if (!jfw_success(jfw_realloc(new_capacity * sizeof(*mesh->model_data), &mesh->model_data)))
+        jta_model_data* const new_ptr = ill_jrealloc(G_JALLOCATOR, mesh->model_data, new_capacity * sizeof(*mesh->model_data));
+        if (!new_ptr)
         {
             JDM_ERROR("Could not reallocate memory for mesh color array");
             return GFX_RESULT_BAD_ALLOC;
         }
+        mesh->model_data = new_ptr;
         //  Reallocate memory on the GPU
         vk_buffer_allocation new_alloc;
         vk_buffer_deallocate(state->buffer_allocator, &mesh->instance_memory);
@@ -236,35 +236,33 @@ truss_mesh_add_between_pts(jta_mesh* mesh, jfw_color color, f32 radius, vec4 pt1
 }
 
 
-static jfw_res clean_sphere_model(jta_model* model)
+static void  clean_sphere_model(jta_model* model)
 {
-    jfw_free(&model->vtx_array);
-    jfw_free(&model->idx_array);
+    ill_jfree(G_JALLOCATOR, model->vtx_array);
+    ill_jfree(G_JALLOCATOR, model->idx_array);
     memset(model, 0, sizeof*model);
-    return jfw_res_success;
 }
 
-static jfw_res generate_sphere_model(jta_model* const p_out, const u16 order)
+static gfx_result generate_sphere_model(jta_model* const p_out, const u16 order)
 {
     JDM_ENTER_FUNCTION;
     assert(order >= 1);
-    jfw_res res;
     u16* indices;
     const u32 max_index_count = 3 * ((1 << (2 * order)));  //  3 per triangle, increases by a factor of 4 for each level of refinement
-    if (!jfw_success(res = (jfw_calloc(max_index_count, sizeof*indices, &indices))))
+    if (!(indices = ill_jalloc(G_JALLOCATOR, max_index_count * sizeof*indices)))
     {
         JDM_ERROR("Could not allocate memory for sphere model");
         JDM_LEAVE_FUNCTION;
-        return res;
+        return GFX_RESULT_BAD_ALLOC;
     }
     jta_vertex* vertices;
     const u32 max_vertex_count = 3 * ((1 << (2 * order)));  //  This is an upper bound
-    if (!jfw_success(res = (jfw_calloc(max_vertex_count, sizeof*vertices, &vertices))))
+    if (!(vertices = ill_jalloc(G_JALLOCATOR, max_vertex_count * sizeof*vertices)))
     {
         JDM_ERROR("Could not allocate memory for sphere model");
-        jfw_free(&indices);
+        ill_jfree(G_JALLOCATOR, indices);
         JDM_LEAVE_FUNCTION;
-        return res;
+        return GFX_RESULT_BAD_ALLOC;
     }
 
 
@@ -277,8 +275,10 @@ static jfw_res generate_sphere_model(jta_model* const p_out, const u16 order)
     if (!triangle_list)
     {
         JDM_ERROR("Could not allocate buffer for sphere triangle generation");
+        ill_jfree(G_JALLOCATOR, vertices);
+        ill_jfree(G_JALLOCATOR, indices);
         JDM_LEAVE_FUNCTION;
-        return jfw_res_bad_malloc;
+        return GFX_RESULT_BAD_ALLOC;
     }
     //  Initial mesh
     triangle_list[0] = (triangle)
@@ -401,9 +401,14 @@ static jfw_res generate_sphere_model(jta_model* const p_out, const u16 order)
         indices[index_count++] = j;
     }
     lin_jfree(G_LIN_JALLOCATOR, triangle_list);
-    if ((res = jfw_realloc(vertex_count * sizeof(*vertices), &vertices)) != jfw_res_success)
+    jta_vertex* const new_ptr = ill_jrealloc(G_JALLOCATOR, vertices, vertex_count * sizeof(*vertices));
+    if (!new_ptr)
     {
         JDM_WARN("Could not shrink memory used by vertex list");
+    }
+    else
+    {
+        vertices = new_ptr;
     }
 
     p_out->vtx_count = vertex_count;
@@ -412,35 +417,35 @@ static jfw_res generate_sphere_model(jta_model* const p_out, const u16 order)
     p_out->idx_array = indices;
 
     JDM_LEAVE_FUNCTION;
-    return jfw_res_success;
+    return GFX_RESULT_SUCCESS;
 }
 
 gfx_result mesh_init_sphere(jta_mesh* mesh, u16 order, vk_state* state, jfw_window_vk_resources* resources)
 {
     JDM_ENTER_FUNCTION;
-    jfw_res res;
+    gfx_result gfx_res;
+
     mesh->name = "sphere";
-    if (!jfw_success(generate_sphere_model(&mesh->model, order)))
+    if ((gfx_res = generate_sphere_model(&mesh->model, order)) != GFX_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not generate a sphere model for a mesh");
         JDM_LEAVE_FUNCTION;
-        return GFX_RESULT_BAD_ALLOC;
+        return gfx_res;
     }
     mesh->count = 0;
     mesh->capacity = DEFAULT_MESH_CAPACITY;
 
-    if (!jfw_success(res = jfw_calloc(mesh->capacity, sizeof(*mesh->model_data), &mesh->model_data)))
+    if (!(mesh->model_data = ill_jalloc(G_JALLOCATOR, mesh->capacity * sizeof(*mesh->model_data))))
     {
-        JDM_ERROR("Could not allocate memory for mesh model array, reason: %s", jfw_error_message(res));
+        JDM_ERROR("Could not allocate memory for mesh model array");
         clean_mesh_model(&mesh->model);
         return GFX_RESULT_BAD_ALLOC;
     }
 
-    gfx_result gfx_res;
     if ((gfx_res = mesh_allocate_vulkan_memory(state, mesh, resources)) != GFX_RESULT_SUCCESS)
     {
         clean_mesh_model(&mesh->model);
-        jfw_free(&mesh->model_data);
+        ill_jfree(G_JALLOCATOR, mesh->model_data);
         JDM_ERROR("Could not allocate vulkan memory for the sphere mesh");
         JDM_LEAVE_FUNCTION;
         return gfx_res;
@@ -491,22 +496,21 @@ static gfx_result generate_cone_model(jta_model* const model, const u16 order)
 {
     assert(order >= 3);
     gfx_result res;
-    jfw_res jfw_result;
     jta_vertex* vertices;
     u32 vtx_count = 2 * order + 2;
-    if (!jfw_success(jfw_result = (jfw_calloc(vtx_count, sizeof*vertices, &vertices))))
+    if (!(vertices = (ill_jalloc(G_JALLOCATOR, vtx_count * sizeof*vertices))))
     {
-        JDM_ERROR("Could not allocate memory for truss model, reason: %s", jfw_error_message(jfw_result));
+        JDM_ERROR("Could not allocate memory for truss model");
         return GFX_RESULT_BAD_ALLOC;
     }
     jta_vertex*const  top = vertices + 0;
     jta_vertex*const  btm = vertices + order;
     u16* indices;
     u32 idx_count = 3 * 2 * order;
-    if (!jfw_success(jfw_result = (jfw_calloc(idx_count, sizeof*indices, &indices))))
+    if (!(indices = (ill_jalloc(G_JALLOCATOR, idx_count * sizeof*indices))))
     {
-        JDM_ERROR("Could not allocate memory for truss model, reason: %s", jfw_error_message(jfw_result));
-        jfw_free(&vertices);
+        JDM_ERROR("Could not allocate memory for truss model");
+        ill_jfree(G_JALLOCATOR, vertices);
         return res;
     }
 
@@ -565,7 +569,6 @@ static gfx_result generate_cone_model(jta_model* const model, const u16 order)
 gfx_result mesh_init_cone(jta_mesh* mesh, u16 order, vk_state* state, jfw_window_vk_resources* resources)
 {
     JDM_ENTER_FUNCTION;
-    jfw_res res;
     mesh->name = "cone";
     mesh->up_to_date = false;
     gfx_result gfx_res;
@@ -578,9 +581,9 @@ gfx_result mesh_init_cone(jta_mesh* mesh, u16 order, vk_state* state, jfw_window
     mesh->count = 0;
     mesh->capacity = DEFAULT_MESH_CAPACITY;
 
-    if (!jfw_success(res = jfw_calloc(mesh->capacity, sizeof(*mesh->model_data), &mesh->model_data)))
+    if (!(mesh->model_data = ill_jalloc(G_JALLOCATOR,mesh->capacity * sizeof(*mesh->model_data))))
     {
-        JDM_ERROR("Could not allocate memory for mesh model array, reason: %s", jfw_error_message(res));
+        JDM_ERROR("Could not allocate memory for mesh model array");
         clean_mesh_model(&mesh->model);
         return GFX_RESULT_BAD_ALLOC;
     }
@@ -589,7 +592,7 @@ gfx_result mesh_init_cone(jta_mesh* mesh, u16 order, vk_state* state, jfw_window
     if ((gfx_res = mesh_allocate_vulkan_memory(state, mesh, resources)) != GFX_RESULT_SUCCESS)
     {
         clean_mesh_model(&mesh->model);
-        jfw_free(&mesh->model_data);
+        ill_jfree(G_JALLOCATOR, mesh->model_data);
         JDM_ERROR("Could not allocate vulkan memory for the cone mesh");
         JDM_LEAVE_FUNCTION;
         return gfx_res;

@@ -53,7 +53,7 @@ vk_buffer_allocator_create(VkDevice device, VkPhysicalDevice physical_device, Vk
     this->pools = calloc(this->pool_capacity, sizeof(buffer_pool*));
     if (!this->pools)
     {
-        free(this);
+        ill_jfree(G_JALLOCATOR, this);
         return NULL;
     }
     this->pool_count = 0;
@@ -74,12 +74,12 @@ void vk_buffer_allocator_destroy(vk_buffer_allocator* allocator)
         assert(pool);
         vkFreeMemory(allocator->device, pool->memory, NULL);
         vkDestroyBuffer(allocator->device, pool->buffer, NULL);
-        free(pool);
+        ill_jfree(G_JALLOCATOR, pool);
         allocator->pools[i] = NULL;
     }
-    free(allocator->pools);
+    ill_jfree(G_JALLOCATOR, allocator->pools);
     memset(allocator, 0, sizeof(*allocator));
-    free(allocator);
+    ill_jfree(G_JALLOCATOR, allocator);
 }
 
 u32 find_device_memory_type(const VkPhysicalDeviceMemoryProperties* mem_props, VkMemoryPropertyFlags props)
@@ -164,20 +164,21 @@ i32 vk_buffer_allocate(
         }
     }
 
-    jfw_res jfw_result;
+
     if (allocator->pool_count == allocator->pool_capacity)
     {
         const u32 new_capacity = allocator->pool_capacity << 1;
-        jfw_result = jfw_realloc(new_capacity * sizeof(buffer_pool*), &allocator->pools);
-        if (!jfw_success(jfw_result))
+        buffer_pool** const new_ptr = ill_jrealloc(G_JALLOCATOR, allocator->pools, new_capacity * sizeof(buffer_pool*));
+        if (!new_ptr)
         {
             JDM_ERROR("Could not reallocate %zu bytes of memory for pool list", new_capacity * sizeof(buffer_pool*));
             return -1;
         }
+        allocator->pools = new_ptr;
         allocator->pool_capacity = new_capacity;
     }
-    jfw_result = jfw_malloc(sizeof *pool, &pool);
-    if (!jfw_success(jfw_result))
+    pool = ill_jalloc(G_JALLOCATOR, sizeof *pool);
+    if (!pool)
     {
         JDM_ERROR("Could not allocate memory for the new buffer pool");
         return -1;
@@ -188,7 +189,7 @@ i32 vk_buffer_allocate(
 //    if (!jfw_success(jfw_result))
 //    {
 //        JDM_ERROR("Failed allocating memory for the pool's queue list");
-//        jfw_free(&pool);
+//        ill_jfree(G_JALLOCATOR, pool);
 //        return -1;
 //    }
 //    memcpy(v_qfi, p_queue_family_indices, sizeof(*v_qfi) * n_queue_family_indices);
@@ -212,8 +213,8 @@ i32 vk_buffer_allocate(
     if (vk_res != VK_SUCCESS)
     {
         JDM_ERROR("Failed creating vk_buffer, reason: %s", jfw_vk_error_msg(vk_res));
-//        jfw_free(&v_qfi);
-        jfw_free(&pool);
+//        ill_jfree(G_JALLOCATOR, v_qfi);
+        ill_jfree(G_JALLOCATOR, pool);
         return -1;
     }
     //  Query buffer's memory requirements
@@ -233,8 +234,8 @@ i32 vk_buffer_allocate(
     {
         JDM_ERROR("Failed creating vk_buffer, reason: %s", jfw_vk_error_msg(vk_res));
         vkDestroyBuffer(allocator->device, new_buffer, NULL);
-//        jfw_free(&v_qfi);
-        jfw_free(&pool);
+//        ill_jfree(G_JALLOCATOR, v_qfi);
+        ill_jfree(G_JALLOCATOR, pool);
         return -1;
     }
 
@@ -331,35 +332,24 @@ i32 vk_buffer_reserve(
         VkSharingMode sharing_mode)
 {
     //  Make sure that the allocation can be made for the specified size
-    jfw_res jfw_result;
     if (allocator->pool_count == allocator->pool_capacity)
     {
         const u32 new_capacity = allocator->pool_capacity << 1;
-        jfw_result = jfw_realloc(new_capacity * sizeof(buffer_pool*), &allocator->pools);
-        if (!jfw_success(jfw_result))
+        buffer_pool** const new_ptr = ill_jrealloc(G_JALLOCATOR, allocator->pools, new_capacity * sizeof(buffer_pool*));
+        if (!new_ptr)
         {
             JDM_ERROR("Could not reallocate %zu bytes of memory for pool list", new_capacity * sizeof(buffer_pool*));
             return -1;
         }
+        allocator->pools = new_ptr;
         allocator->pool_capacity = new_capacity;
     }
-    buffer_pool* pool;
-    jfw_result = jfw_malloc(sizeof *pool, &pool);
-    if (!jfw_success(jfw_result))
+    buffer_pool* pool = ill_jalloc(G_JALLOCATOR, sizeof *pool);
+    if (!pool)
     {
         JDM_ERROR("Could not allocate memory for the new buffer pool");
         return -1;
     }
-
-//    u32* v_qfi;
-//    jfw_result =  jfw_calloc(n_queue_family_indices, sizeof(*v_qfi), &v_qfi);
-//    if (!jfw_success(jfw_result))
-//    {
-//        JDM_ERROR("Failed allocating memory for the pool's queue list");
-//        jfw_free(&pool);
-//        return -1;
-//    }
-//    memcpy(v_qfi, p_queue_family_indices, sizeof(*v_qfi) * n_queue_family_indices);
 
     //  No pool was good, make a new one
     const VkDeviceSize new_pool_size = size > allocator->pool_init_size ? size : allocator->pool_init_size;
@@ -381,8 +371,8 @@ i32 vk_buffer_reserve(
     if (vk_res != VK_SUCCESS)
     {
         JDM_ERROR("Failed creating vk_buffer, reason: %s", jfw_vk_error_msg(vk_res));
-//        jfw_free(&v_qfi);
-        jfw_free(&pool);
+//        ill_jfree(G_JALLOCATOR, v_qfi);
+        ill_jfree(G_JALLOCATOR, pool);
         return -1;
     }
     //  Query buffer's memory requirements
@@ -415,8 +405,8 @@ i32 vk_buffer_reserve(
     {
         JDM_ERROR("Failed creating vk_buffer, reason: %s", jfw_vk_error_msg(vk_res));
         vkDestroyBuffer(allocator->device, new_buffer, NULL);
-//        jfw_free(&v_qfi);
-        jfw_free(&pool);
+//        ill_jfree(G_JALLOCATOR, v_qfi);
+        ill_jfree(G_JALLOCATOR, pool);
         return -1;
     }
 

@@ -21,427 +21,10 @@
 #include "gfx/camera.h"
 #include "gfx/bounding_box.h"
 #include "ui.h"
-#include "solver/jtaelements.h"
-#include "solver/jtanaturalbcs.h"
-#include "solver/jtanumericalbcs.h"
+#include "core/jtaelements.h"
+#include "core/jtanaturalbcs.h"
+#include "core/jtanumericalbcs.h"
 
-//
-//static gfx_result save_screenshot(vk_state* const state, jfw_window_vk_resources* resources, const char* filename)
-//{
-//    //  Code based on https://github.com/SaschaWillems/Vulkan/blob/master/examples/screenshot/screenshot.cpp accessed on 10.7.2023
-//    bool supports_blit = true;
-//    VkFormatProperties f_props;
-//    //  Check for blit support (otherwise fallback on copy)
-//    vkGetPhysicalDeviceFormatProperties(resources->physical_device, resources->surface_format.format, &f_props);
-//    if (!(f_props.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT))
-//    {
-//        //  No blit support for the input (swapchain optimal) format
-//        JDM_TRACE("No blitting support for input format for the screenshot");
-//        supports_blit = false;
-//    }
-//    else
-//    {
-//        vkGetPhysicalDeviceFormatProperties(resources->physical_device, VK_FORMAT_R8G8B8A8_UNORM, &f_props);
-//        if (!(f_props.linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT))
-//        {
-//            //  No blit support for the output (linear) format
-//            JDM_TRACE("No blitting support for output format for the screenshot");
-//            supports_blit = false;
-//        }
-//    }
-//    if (!supports_blit)
-//    {
-//        JDM_TRACE("Blitting not an option for screenshot, resorting to an image copy");
-//    }
-//    uint32_t swp_count;
-//    VkResult vk_res = vkGetSwapchainImagesKHR(resources->device, resources->swapchain, &swp_count, NULL);
-//    if (vk_res != VK_SUCCESS)
-//    {
-//        JDM_ERROR("Could not acquire swapchain images, reason: %s", jfw_vk_error_msg(vk_res));
-//        return GFX_RESULT_BAD_IMG;
-//    }
-//    VkImage* swapchain_images = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*swapchain_images) * swp_count);
-//    if (!swapchain_images)
-//    {
-//        JDM_ERROR("Could not allocate memory for swapchain image array");
-//        return GFX_RESULT_BAD_ALLOC;
-//    }
-//    VkImage src_image;
-//    vk_res = vkGetSwapchainImagesKHR(resources->device, resources->swapchain, &swp_count, swapchain_images);
-//    if (vk_res != VK_SUCCESS)
-//    {
-//        lin_jfree(G_LIN_JALLOCATOR, swapchain_images);
-//        JDM_ERROR("Could not acquire swapchain images, reason: %s", jfw_vk_error_msg(vk_res));
-//        return GFX_RESULT_BAD_IMG;
-//    }
-//    assert(state->last_img_idx < swp_count);
-//    src_image = swapchain_images[state->last_img_idx];
-//    lin_jfree(G_LIN_JALLOCATOR, swapchain_images);
-//    VkImage dst_image;
-//    {
-//        VkImageCreateInfo create_info =
-//                {
-//                .imageType = VK_IMAGE_TYPE_2D,
-//                .format = VK_FORMAT_R8G8B8A8_UINT,
-//                .extent.width = resources->extent.width,
-//                .extent.height = resources->extent.height,
-//                .extent.depth = 1,
-//                .arrayLayers = 1,
-//                .mipLevels = 1,
-//                .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-//                .samples = VK_SAMPLE_COUNT_1_BIT,
-//                .tiling = VK_IMAGE_TILING_LINEAR,
-//                .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-//                .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-//                };
-//
-//        vk_res = vkCreateImage(resources->device, &create_info, NULL, &dst_image);
-//        if (vk_res != VK_SUCCESS)
-//        {
-//            JDM_ERROR("Could not create destination image");
-//            return GFX_RESULT_BAD_IMG;
-//        }
-//    }
-//    VkDeviceMemory dst_mem;
-//    VkMemoryRequirements mem_req;
-//    vkGetImageMemoryRequirements(resources->device, dst_image, &mem_req);
-//    VkMemoryPropertyFlags mem_props;
-//    {
-//        //  Find memory type (I swear I will clean this part up!)
-//        VkPhysicalDeviceMemoryProperties memory_properties;
-//        vkGetPhysicalDeviceMemoryProperties(resources->physical_device, &memory_properties);
-//        u32 mem_type = find_device_memory_type(&memory_properties, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT|VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-//        if (mem_type == -1)
-//        {
-//            JDM_ERROR("No memory type supports the needed properties");
-//            return GFX_RESULT_BAD_ALLOC;
-//        }
-//        VkMemoryAllocateInfo alloc_info =
-//                {
-//                .allocationSize = mem_req.size,
-//                .memoryTypeIndex = mem_type,
-//                .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-//                };
-//        vk_res = vkAllocateMemory(resources->device, &alloc_info, NULL, &dst_mem);
-//        if (vk_res != VK_SUCCESS)
-//        {
-//            JDM_ERROR("Could not allocate memory for the output image");
-//            vkDestroyImage(resources->device, dst_image, NULL);
-//            return GFX_RESULT_BAD_ALLOC;
-//        }
-//        vk_res = vkBindImageMemory(resources->device, dst_image, dst_mem, 0);
-//        if (vk_res != VK_SUCCESS)
-//        {
-//            JDM_ERROR("Could not bind device memory to output image");
-//            vkFreeMemory(resources->device, dst_mem, NULL);
-//            vkDestroyImage(resources->device, dst_image, NULL);
-//            return GFX_RESULT_BAD_ALLOC;
-//        }
-//    }
-//    //  Create a command buffer for moving commands
-//    VkCommandBuffer cpy_buffer;
-//
-//    {
-//        VkCommandBufferAllocateInfo alloc_info =
-//                {
-//                .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-//                .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-//                .commandBufferCount = 1,
-//                .commandPool = resources->cmd_pool,
-//                };
-//        vk_res = vkAllocateCommandBuffers(resources->device, &alloc_info, &cpy_buffer);
-//        if (vk_res != VK_SUCCESS)
-//        {
-//            JDM_ERROR("Could not allocate command buffer for copy/blit operation");
-//            vkFreeMemory(resources->device, dst_mem, NULL);
-//            vkDestroyImage(resources->device, dst_image, NULL);
-//            return GFX_RESULT_BAD_ALLOC;
-//        }
-//        VkCommandBufferBeginInfo begin_info =
-//                {
-//                .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-//                };
-//        vk_res = vkBeginCommandBuffer(cpy_buffer, &begin_info);
-//        if (vk_res != VK_SUCCESS)
-//        {
-//            JDM_ERROR("Could not begin command buffer for copy/blit operation");
-//            vkFreeMemory(resources->device, dst_mem, NULL);
-//            vkDestroyImage(resources->device, dst_image, NULL);
-//            return GFX_RESULT_BAD_ALLOC;
-//        }
-//    }
-//    //  Transition for output image from initial layout to destination layout
-//    VkImageMemoryBarrier dst_initial_img_barrier =
-//            {
-//            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-//            .subresourceRange =
-//                    {
-//                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-//                    .baseArrayLayer = 0,
-//                    .baseMipLevel = 0,
-//                    .layerCount = 1,
-//                    .levelCount = 1,
-//                    },
-//                .srcAccessMask = 0,
-//                .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-//                .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-//                .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-//                .srcQueueFamilyIndex = 0,
-//                .dstQueueFamilyIndex = 0,
-//                .image = dst_image,
-//            };
-//    //  Transition for input image from initial layout to destination layout
-//    VkImageMemoryBarrier src_initial_img_barrier =
-//            {
-//                    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-//                    .subresourceRange =
-//                            {
-//                                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-//                                    .baseArrayLayer = 0,
-//                                    .baseMipLevel = 0,
-//                                    .layerCount = 1,
-//                                    .levelCount = 1,
-//                            },
-//                    .srcAccessMask = VK_ACCESS_MEMORY_READ_BIT,
-//                    .dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
-//                    .oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-//                    .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-//                    .srcQueueFamilyIndex = 0,
-//                    .dstQueueFamilyIndex = 0,
-//                    .image = src_image,
-//            };
-//    VkImageMemoryBarrier initial_img_barriers[2] = { src_initial_img_barrier, dst_initial_img_barrier};
-//    vkCmdPipelineBarrier(cpy_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_DEVICE_GROUP_BIT, 0, NULL, 0, NULL, sizeof(initial_img_barriers) / sizeof(*initial_img_barriers), initial_img_barriers);
-////    if (supports_blit)
-//    if (0)
-//    {
-//        VkOffset3D size =
-//                {
-//                        .x = (int32_t)resources->extent.width,
-//                        .y = (int32_t)resources->extent.height,
-//                        .z = 1,
-//                };
-//        VkImageBlit blit_region =
-//                {
-//                .srcSubresource =
-//                        {
-//                        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-//                        .layerCount = 1,
-//                        },
-//                .dstOffsets[1] = size,
-//                .dstSubresource =
-//                        {
-//                        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-//                        .layerCount = 1,
-//                        },
-//                .srcOffsets[1] = size,
-//                };
-//        vkCmdBlitImage(cpy_buffer, src_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dst_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit_region, VK_FILTER_NEAREST);
-//    }
-//    else
-//    {
-//        VkImageCopy cpy =
-//                {
-//                .srcSubresource =
-//                        {
-//                        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-//                        .layerCount = 1,
-//                        },
-//                .dstSubresource =
-//                        {
-//                        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-//                        .layerCount = 1,
-//                        },
-//                .extent.width = resources->extent.width,
-//                .extent.height = resources->extent.height,
-//                .extent.depth = 1,
-//                };
-//        vkCmdCopyImage(cpy_buffer, src_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dst_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &cpy);
-//    }
-//    //  Transition back to correct layouts
-//
-//    VkImageMemoryBarrier dst_final_img_barrier =
-//            {
-//                    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-//                    .subresourceRange =
-//                            {
-//                                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-//                                    .baseArrayLayer = 0,
-//                                    .baseMipLevel = 0,
-//                                    .layerCount = 1,
-//                                    .levelCount = 1,
-//                            },
-//                    .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-//                    .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
-//                    .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-//                    .newLayout = VK_IMAGE_LAYOUT_GENERAL,
-//                    .srcQueueFamilyIndex = 0,
-//                    .dstQueueFamilyIndex = 0,
-//                    .image = dst_image,
-//            };
-//    //  Transition for input image from initial layout to destination layout
-//    VkImageMemoryBarrier src_final_img_barrier =
-//            {
-//                    .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-//                    .subresourceRange =
-//                            {
-//                                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-//                                    .baseArrayLayer = 0,
-//                                    .baseMipLevel = 0,
-//                                    .layerCount = 1,
-//                                    .levelCount = 1,
-//                            },
-//                    .dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
-//                    .srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
-//                    .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-//                    .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-//                    .srcQueueFamilyIndex = 0,
-//                    .dstQueueFamilyIndex = 0,
-//                    .image = src_image,
-//            };
-//    VkImageMemoryBarrier final_img_barriers[2] = { src_final_img_barrier, dst_final_img_barrier};
-//    vkCmdPipelineBarrier(cpy_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_DEVICE_GROUP_BIT, 0, NULL, 0, NULL, sizeof(final_img_barriers) / sizeof(*final_img_barriers), final_img_barriers);
-//    vkEndCommandBuffer(cpy_buffer);
-//    VkSubmitInfo submit_info =
-//            {
-//            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-//            .commandBufferCount = 1,
-//            .pCommandBuffers = &cpy_buffer,
-//            };
-//    vk_res = vkWaitForFences(resources->device, 1, &state->fence_transfer_free, VK_TRUE, UINT64_MAX);
-//    if (vk_res != VK_SUCCESS)
-//    {
-//        JDM_ERROR("Failed waiting for transfer fence");
-//        vkFreeCommandBuffers(resources->device, resources->cmd_pool, 1, &cpy_buffer);
-//        vkFreeMemory(resources->device, dst_mem, NULL);
-//        vkDestroyImage(resources->device, dst_image, NULL);
-//        return GFX_RESULT_BAD_FENCE_WAIT;
-//    }
-//    vk_res = vkResetFences(resources->device, 1, &state->fence_transfer_free);
-//    if (vk_res != VK_SUCCESS)
-//    {
-//        JDM_ERROR("Failed resetting the transfer fence");
-//        vkFreeCommandBuffers(resources->device, resources->cmd_pool, 1, &cpy_buffer);
-//        vkFreeMemory(resources->device, dst_mem, NULL);
-//        vkDestroyImage(resources->device, dst_image, NULL);
-//        return GFX_RESULT_BAD_FENCE_RESET;
-//    }
-//    vkQueueSubmit(resources->queue_transfer, 1, &submit_info, state->fence_transfer_free);
-//    vk_res = vkWaitForFences(resources->device, 1, &state->fence_transfer_free, VK_TRUE, UINT64_MAX);
-//    if (vk_res != VK_SUCCESS)
-//    {
-//        JDM_ERROR("Failed waiting for transfer fence");
-//        vkFreeCommandBuffers(resources->device, resources->cmd_pool, 1, &cpy_buffer);
-//        vkFreeMemory(resources->device, dst_mem, NULL);
-//        vkDestroyImage(resources->device, dst_image, NULL);
-//        return GFX_RESULT_BAD_FENCE_WAIT;
-//    }
-//    vk_res = vkResetFences(resources->device, 1, &state->fence_transfer_free);
-//    if (vk_res != VK_SUCCESS)
-//    {
-//        JDM_ERROR("Failed resetting the transfer fence");
-//        vkFreeCommandBuffers(resources->device, resources->cmd_pool, 1, &cpy_buffer);
-//        vkFreeMemory(resources->device, dst_mem, NULL);
-//        vkDestroyImage(resources->device, dst_image, NULL);
-//        return GFX_RESULT_BAD_FENCE_RESET;
-//    }
-//    VkImageSubresource subresource =
-//            {
-//            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-//            .arrayLayer = 0,
-//            .mipLevel = 0,
-//            };
-//    VkSubresourceLayout layout;
-//    vkGetImageSubresourceLayout(resources->device, dst_image, &subresource, &layout);
-//    const uint8_t* data;
-//    vkFreeCommandBuffers(resources->device, resources->cmd_pool, 1, &cpy_buffer);
-//    vk_res = vkMapMemory(resources->device, dst_mem, 0, VK_WHOLE_SIZE, 0, (void**)&data);
-//    if (vk_res != VK_SUCCESS)
-//    {
-//        JDM_ERROR("Could not map destination image memory");
-//    }
-//    data += layout.offset;
-//
-//    FILE* f_out = fopen(filename, "wb");
-//    if (!f_out)
-//    {
-//        JDM_ERROR("Could not open a screenshot output file, reason: %s", JDM_ERRNO_MESSAGE);
-//        vkFreeMemory(resources->device, dst_mem, NULL);
-//        vkDestroyImage(resources->device, dst_image, NULL);
-//        return GFX_RESULT_BAD_IO;
-//    }
-//    fprintf(f_out, "P6\n%"PRIu32"\n%"PRIu32"\n255\n", resources->extent.width, resources->extent.height);
-//    bool swizzle = !supports_blit;
-//    if (!supports_blit)
-//    {
-//        VkFormat formats[] =
-//                {
-//                VK_FORMAT_B8G8R8A8_UNORM,
-//                VK_FORMAT_B8G8R8A8_SNORM,
-//                VK_FORMAT_B8G8R8A8_UINT,
-//                VK_FORMAT_B8G8R8A8_SINT,
-//                VK_FORMAT_B8G8R8A8_SRGB,
-//                };
-//        for (u32 i = 0; i < sizeof(formats) / sizeof(*formats); ++i)
-//        {
-//            if (formats[i] == resources->surface_format.format)
-//            {
-//                swizzle = false;
-//                break;
-//            }
-//        }
-//    }
-//
-//    //  PPM pixel data
-//    if (swizzle)
-//    {
-//        for (u32 y = 0; y < resources->extent.height; ++y)
-//        {
-//            const uint32_t* p_row = (const uint32_t*)data;
-//            for (u32 x = 0; x < resources->extent.width; ++x)
-//            {
-//                size_t written = fwrite(((const uint8_t*)data) + 2, 1, 1, f_out);
-//                if (written != 1)
-//                {
-//                    JDM_WARN("Write to file failed: %s", JDM_ERRNO_MESSAGE);
-//                }
-//                written = fwrite(((const uint8_t*)data) + 1, 1, 1, f_out);
-//                if (written != 1)
-//                {
-//                    JDM_WARN("Write to file failed: %s", JDM_ERRNO_MESSAGE);
-//                }
-//                written = fwrite(((const uint8_t*)data) + 0, 1, 1, f_out);
-//                if (written != 1)
-//                {
-//                    JDM_WARN("Write to file failed: %s", JDM_ERRNO_MESSAGE);
-//                }
-//            }
-//            data += layout.rowPitch;
-//        }
-//    }
-//    else
-//    {
-//        for (u32 y = 0; y < resources->extent.height; ++y)
-//        {
-//            const uint32_t* p_row = (const uint32_t*)data;
-//            for (u32 x = 0; x < resources->extent.width; ++x)
-//            {
-//                size_t written = fwrite(data, 3, 1, f_out);
-//                if (written != 1)
-//                {
-//                    JDM_WARN("Write to file failed: %s", JDM_ERRNO_MESSAGE);
-//                }
-//            }
-//            data += layout.rowPitch;
-//        }
-//    }
-//    fclose(f_out);
-//    JDM_TRACE("Screenshot saved to \"%s\"\n", filename);
-//    vkUnmapMemory(resources->device, dst_mem);
-//    vkFreeMemory(resources->device, dst_mem, NULL);
-//    vkDestroyImage(resources->device, dst_image, NULL);
-//    return GFX_RESULT_SUCCESS;
-//}
 
 static jfw_res widget_draw(jfw_widget* this)
 {
@@ -453,7 +36,6 @@ static jfw_res widget_draw(jfw_widget* this)
     if (draw_good && draw_state->screenshot)
     {
         //  Save the screenshot
-//        save_screenshot(state, jfw_window_get_vk_resources(this->window), "screenshot.png");
 
 
         draw_state->screenshot = 0;
@@ -471,91 +53,26 @@ static jfw_res widget_dtor(jfw_widget* this)
     return jfw_res_success;
 }
 
-static void* VKAPI_PTR vk_aligned_allocation_fn(void* pUserData, size_t size, size_t alignment, VkSystemAllocationScope allocationScope)
+static i32 jdm_error_hook_callback_function(const char* thread_name, u32 stack_trace_count, const char*const* stack_trace, jdm_message_level level, u32 line, const char* file, const char* function, const char* message, void* param)
 {
-    assert(pUserData == G_ALIGN_JALLOCATOR);
-    void* ptr = aligned_jalloc((aligned_jallocator*) pUserData, alignment, size);
-    if (alignment > 8)
-    JDM_INFO("Called aligned_jalloc(%p, %zu, %zu) = %p\n", pUserData, alignment, size, ptr);
-    return ptr;
-}
-
-static void* VKAPI_PTR vk_aligned_reallocation_fn(void* pUserData, void* pOriginal, size_t size, size_t alignment, VkSystemAllocationScope allocationScope)
-{
-    assert(pUserData == G_ALIGN_JALLOCATOR);
-    void* ptr = aligned_jrealloc((aligned_jallocator*) pUserData, pOriginal, alignment, size);
-    if (alignment > 8)
-    JDM_INFO("Called aligned_rejalloc(%p, %p, %zu, %zu) = %p\n", pUserData, pOriginal, alignment, size, ptr);
-    return ptr;
-}
-
-static void VKAPI_PTR vk_aligned_free_fn(void* pUserData, void* pMemory)
-{
-    assert(pUserData == G_ALIGN_JALLOCATOR);
-//    JDM_INFO("Called aligned_jfree(%p, %p)", pUserData, pMemory);
-    aligned_jfree(pUserData, pMemory);
-}
-
-static const char* vk_internal_allocation_type_to_str(VkInternalAllocationType allocation_type)
-{
-    switch (allocation_type)
+    FILE* out;
+    const char* level_str = jdm_message_level_str(level);
+    if (level < JDM_MESSAGE_LEVEL_WARN)
     {
-    case VK_INTERNAL_ALLOCATION_TYPE_EXECUTABLE: return "VK_INTERNAL_ALLOCATION_TYPE_EXECUTABLE";
-    default: return "UNKNOWN";
+        out = stdout;
     }
-}
-
-static const char* vk_system_allocation_scope_to_str(VkSystemAllocationScope allocation_scope)
-{
-    switch (allocation_scope)
+    else
     {
-    case VK_SYSTEM_ALLOCATION_SCOPE_COMMAND: return "VK_SYSTEM_ALLOCATION_SCOPE_COMMAND";
-    case VK_SYSTEM_ALLOCATION_SCOPE_OBJECT: return "VK_SYSTEM_ALLOCATION_SCOPE_OBJECT";
-    case VK_SYSTEM_ALLOCATION_SCOPE_CACHE: return "VK_SYSTEM_ALLOCATION_SCOPE_CACHE";
-    case VK_SYSTEM_ALLOCATION_SCOPE_DEVICE: return "VK_SYSTEM_ALLOCATION_SCOPE_DEVICE";
-    case VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE: return "VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE";
-    default:return "UNKNOWN";
+        out = stderr;
     }
-}
-
-static void VKAPI_PTR vk_internal_alloc_notif(void* pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope)
-{
-    printf("Vulkan allocating %zu bytes of memory for type %s and scope %s", size, vk_internal_allocation_type_to_str(allocationType),
-           vk_system_allocation_scope_to_str(allocationScope));
-}
-
-static void VKAPI_PTR vk_internal_free_notif(void* pUserData, size_t size, VkInternalAllocationType allocationType, VkSystemAllocationScope allocationScope)
-{
-    printf("Vulkan freeing %zu bytes of memory for type %s and scope %s", size, vk_internal_allocation_type_to_str(allocationType),
-           vk_system_allocation_scope_to_str(allocationScope));
-}
-
-
-static i32 jfw_error_hook_callback_function(const char* thread_name, u32 stack_trace_count, const char*const* stack_trace, jdm_message_level level, u32 line, const char* file, const char* function, const char* message, void* param)
-{
-    switch (level)
+    fprintf(out, "%s:%d - %s [%s]: %s\n", file, line, function, level_str, message);
+    fprintf(out, "Stacktrace:\n+->%s\n", function);
+    for (uint32_t i = 0; i < stack_trace_count - 1; ++i)
     {
-    case JDM_MESSAGE_LEVEL_INFO:fprintf(stdout, "JDM_INFO (thread %s - %s): %s\n", thread_name, function, message);
-        break;
-    case JDM_MESSAGE_LEVEL_WARN:
-        fprintf(stderr, "Warning issued from thread \"%s\", stack trace (%s", thread_name, stack_trace[0]);
-        for (u32 i = 1; i < stack_trace_count; ++i)
-        {
-            fprintf(stderr, "-> %s", stack_trace[i]);
-        }
-        fprintf(stderr, ") in file \"%s\" on line \"%i\" (function \"%s\"): %s\n\n", file, line, function, message);
-        break;
-
-    case JDM_MESSAGE_LEVEL_ERR:
-    default:
-        fprintf(stderr, "Error occurred in thread \"%s\", stack trace (%s", thread_name, stack_trace[0]);
-        for (u32 i = 1; i < stack_trace_count; ++i)
-        {
-            fprintf(stderr, "-> %s", stack_trace[i]);
-        }
-        fprintf(stderr, ") in file \"%s\" on line \"%i\" (function \"%s\"): %s\n\n", file, line, function, message);
-        break;
+        fprintf(out, "|-%s\n", stack_trace[stack_trace_count - 1 - i]);
     }
+    fprintf(out, "%s[%s]\n", stack_trace[0], thread_name);
+
     (void)param;
 
     return 0;
@@ -651,8 +168,7 @@ int main(int argc, char* argv[argc])
                 &jdm_callbacks);
     }
     JDM_ENTER_FUNCTION;
-    jdm_set_hook(jfw_error_hook_callback_function, NULL);
-
+    jdm_set_hook(jdm_error_hook_callback_function, NULL);
     if (argc == 1)
     {
         printf("usage:\n    %s CFG_FILE\n", argv[0]);
@@ -791,12 +307,10 @@ int main(int argc, char* argv[argc])
         jio_memory_file_destroy(&cfg_file);
     }
 
-//    ill_jallocator_set_debug_trap(G_JALLOCATOR, 35, jmem_trap, NULL);
 
-    u32 n_materials;
     jio_memory_file file_points, file_materials, file_profiles, file_elements, file_nat, file_num;
     jta_point_list point_list;
-    jta_material* materials;
+    jta_material_list material_list;
     jta_profile_list profile_list;
     jta_element_list elements;
     jta_natural_boundary_condition_list natural_boundary_conditions;
@@ -848,12 +362,12 @@ int main(int argc, char* argv[argc])
     {
         JDM_FATAL("At least two points should be defined");
     }
-    jta_res = jta_load_materials(&file_materials, &n_materials, &materials);
+    jta_res = jta_load_materials(&file_materials, &material_list);
     if (jta_res != JTA_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not load materials");
     }
-    if (n_materials < 1)
+    if (material_list.count < 1)
     {
         JDM_FATAL("At least one material should be defined");
     }
@@ -867,7 +381,7 @@ int main(int argc, char* argv[argc])
         JDM_FATAL("At least one profile should be defined");
     }
 
-    jta_res = jta_load_elements(&file_elements, &point_list, n_materials, materials, &profile_list, &elements);
+    jta_res = jta_load_elements(&file_elements, &point_list, &material_list, &profile_list, &elements);
     if (jta_res != JTA_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not load elements");
@@ -1094,9 +608,9 @@ int main(int argc, char* argv[argc])
             &camera,                                    //  Camera
             geo_base,                                   //  View target
             geo_base,                                   //  Geometry center
-            geo_radius,                                 //  Geometry radius
+            geo_radius * sqrtf(3),                                 //  Geometry radius
+            vec4_add(geo_base, vec4_mul_one(VEC4(-1, 1, 1), geo_radius)), //  Camera position
             VEC4(0, 0, -1),                             //  Down
-            vec4_sub(geo_base, vec4_mul_one(VEC4(0, -1, 0), geo_radius)), //  Camera position
             4.0f,                                       //  Turn sensitivity
             1.0f                                        //  Move sensitivity
             );
@@ -1167,7 +681,11 @@ cleanup:
     ill_jfree(G_JALLOCATOR, profile_list.area);
     ill_jfree(G_JALLOCATOR, profile_list.second_moment_of_area);
     ill_jfree(G_JALLOCATOR, profile_list.labels);
-    ill_jfree(G_JALLOCATOR, materials);
+    ill_jfree(G_JALLOCATOR, material_list.labels);
+    ill_jfree(G_JALLOCATOR, material_list.compressive_strength);
+    ill_jfree(G_JALLOCATOR, material_list.tensile_strength);
+    ill_jfree(G_JALLOCATOR, material_list.density);
+    ill_jfree(G_JALLOCATOR, material_list.elastic_modulus);
     ill_jfree(G_JALLOCATOR, point_list.p_x);
     ill_jfree(G_JALLOCATOR, point_list.p_y);
     ill_jfree(G_JALLOCATOR, point_list.p_z);
@@ -1188,6 +706,10 @@ cleanup:
     {
         jallocator* const allocator = G_JALLOCATOR;
         G_JALLOCATOR = NULL;
+        uint64_t total_allocations, max_usage, total_allocated, biggest_allocation;
+        ill_jallocator_statistics(allocator, &biggest_allocation, &total_allocated, &max_usage, &total_allocations);
+        printf("G_JALLOCATOR statistics:\n\tBiggest allocation: %zu b (%g kB)\n\tTotal allocated memory: %g kB (%g MB)"
+               "\n\tMax usage: %g kB (%g MB)\n\tTotal allocations: %zu\n", (size_t)biggest_allocation, (double)biggest_allocation / 1024.0, (double)total_allocated / 1024.0, (double)total_allocated / 1024.0 / 1024.0, (double)max_usage / 1024.0, (double )max_usage / 1024.0 / 1024.0, (size_t)total_allocations);
 #ifndef NDEBUG
         uint_fast32_t leaked_block_indices[256];
         uint_fast32_t leaked_block_count = ill_jallocator_count_used_blocks(allocator, sizeof(leaked_block_indices) / sizeof(*leaked_block_indices), leaked_block_indices);

@@ -29,7 +29,7 @@ struct jta_element_list_struct
 
 
 jta_result jta_load_elements(
-        const jio_memory_file* mem_file, const jta_point_list* points, u32 n_mat, const jta_material* materials,
+        const jio_memory_file* mem_file, const jta_point_list* points, const jta_material_list* materials,
         const jta_profile_list* profiles, jta_element_list* element_list);
 
 #endif //JTA_JTAELEMENTS_H

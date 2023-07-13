@@ -5,7 +5,7 @@
 #ifndef JTA_BOUNDING_BOX_H
 #define JTA_BOUNDING_BOX_H
 #include "gfxerr.h"
-#include "../solver/jtapoints.h"
+#include "../core/jtapoints.h"
 
 gfx_result gfx_find_bounding_sphere(const jta_point_list* points, vec4* origin, f32* radius);
 

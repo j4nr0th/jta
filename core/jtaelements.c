@@ -45,8 +45,7 @@ struct element_parse_mat_data_struct
 {
     uint32_t count;
     jio_string_segment* labels;
-    u32 n_materials;
-    const jta_material* materials;
+    const jta_material_list* materials;
     uint32_t* values;
 };
 
@@ -74,9 +73,9 @@ static bool converter_material_label_function(jio_string_segment* v, void* param
 {
     JDM_ENTER_FUNCTION;
     element_parse_mat_data* const data = (element_parse_mat_data*)param;
-    for (uint32_t i = 0; i < data->n_materials; ++i)
+    for (uint32_t i = 0; i < data->materials->count; ++i)
     {
-        if (string_segment_equal(&data->materials[i].label, v))
+        if (string_segment_equal(data->materials->labels + i, v))
         {
             data->values[data->count++] = i;
             JDM_LEAVE_FUNCTION;
@@ -134,7 +133,7 @@ static bool (*converter_functions[])(jio_string_segment* v, void* param) =
         };
 
 jta_result jta_load_elements(
-        const jio_memory_file* mem_file, const jta_point_list* points, u32 n_mat, const jta_material* materials,
+        const jio_memory_file* mem_file, const jta_point_list* points, const jta_material_list* materials,
         const jta_profile_list* profiles, jta_element_list* element_list)
 {
     JDM_ENTER_FUNCTION;
@@ -207,7 +206,7 @@ jta_result jta_load_elements(
     }
 
     element_ss_parse_data label_parse_data = {.count = 0, .values = labels};
-    element_parse_mat_data mat_parse_data = {.count = 0, .labels = labels, .materials = materials, .n_materials = n_mat, .values = i_material};
+    element_parse_mat_data mat_parse_data = {.count = 0, .labels = labels, .materials = materials, .values = i_material};
     element_pro_parse_data pro_parse_data = {.count = 0, .labels = labels, .profiles = profiles, .values = i_profile};
     element_pt_parse_data  pts_parse_data0 = {.count = 0, .labels = labels, .points = points, .values = i_point0};
     element_pt_parse_data  pts_parse_data1 = {.count = 0, .labels = labels, .points = points, .values = i_point1};

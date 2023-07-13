@@ -7,3 +7,6 @@
 [submodule "jmem"]
 	path = jmem
 	url = git@github.com:j4nr0th/jmem.git
+[submodule "jmtx"]
+	path = jmtx
+	url = git@github.com:j4nr0th/jmtx
