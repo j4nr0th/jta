@@ -24,6 +24,7 @@ typedef struct jfw_widget_functions_struct
     jfw_res (*child_redrawn)(jfw_widget* this, jfw_widget* child);
     //  Related to mouse input
     jfw_res (*mouse_button_press)(jfw_widget* this, i32 x, i32 y, u32 button, u32 mods);
+    jfw_res (*mouse_button_double_press)(jfw_widget* this, i32 x, i32 y, u32 button, u32 mods);
     jfw_res (*mouse_button_release)(jfw_widget* this, i32 x, i32 y, u32 button, u32 mods);
     jfw_res (*mouse_motion)(jfw_widget* this, i32 x, i32 y, u32 mods);
     jfw_res (*mouse_focus_get)(jfw_widget* this, jfw_widget* new_focus);

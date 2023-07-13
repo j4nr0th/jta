@@ -3,6 +3,7 @@
 //
 
 #include <X11/keysym.h>
+#include <inttypes.h>
 #include "ui.h"
 
 jfw_res truss_mouse_button_press(jfw_widget* this, i32 x, i32 y, u32 button, u32 mods)
@@ -11,13 +12,13 @@ jfw_res truss_mouse_button_press(jfw_widget* this, i32 x, i32 y, u32 button, u32
     assert(state);
     switch (button)
     {
-    case Button2:
-        //  press was with mmb
+    case Button3:
+        //  press was with rmb
         state->track_move = 1;
         state->mv_x = x; state->mv_y = y;
         break;
-    case Button3:
-        //  press was with rmb
+    case Button2:
+        //  press was with mmb
         state->track_turn = 1;
         state->mv_x = x; state->mv_y = y;
         break;
@@ -46,11 +47,11 @@ jfw_res truss_mouse_button_release(jfw_widget* this, i32 x, i32 y, u32 button, u
     jta_draw_state* const state = jfw_widget_get_user_pointer(this);
     switch (button)
     {
-    case Button3:
+    case Button2:
         assert(state);
         state->track_turn = 0;
         break;
-    case Button2:
+    case Button3:
         assert(state);
         state->track_move = 0;
         break;
@@ -65,7 +66,7 @@ jfw_res truss_mouse_motion(jfw_widget* const this, i32 x, i32 y, const u32 mods)
 {
     jta_draw_state* const state = jfw_widget_get_user_pointer(this);
     assert(state);
-    if (mods & Button3Mask && state && state->track_turn)
+    if (mods & Button2Mask && state && state->track_turn)
     {
         //  Clamp x and y to intervals [0, w) and [0, h)
         if (x < 0)
@@ -126,11 +127,8 @@ jfw_res truss_mouse_motion(jfw_widget* const this, i32 x, i32 y, const u32 mods)
 
         state->vulkan_state->view = jta_camera_to_view_matrix(camera);
         jfw_widget_ask_for_redraw(this);
-
-//        state->mv_x = x;
-//        state->mv_y = y;
     }
-    if (mods & Button2Mask && state && state->track_move)
+    if (mods & Button3Mask && state && state->track_move)
     {
         //  Clamp x and y to intervals [0, w) and [0, h)
         if (x < 0)
@@ -207,5 +205,17 @@ jfw_res truss_key_press(jfw_widget* this, KeySym key_sym)
     }
 
     JDM_LEAVE_FUNCTION;
+    return jfw_res_success;
+}
+
+jfw_res truss_mouse_button_double_press(jfw_widget* this, i32 x, i32 y, u32 button, u32 mods)
+{
+    if (button == Button2)
+    {
+        jta_draw_state* const state = jfw_widget_get_user_pointer(this);
+        state->camera = state->original_camera;
+        state->vulkan_state->view = jta_camera_to_view_matrix(&state->camera);
+        jfw_widget_ask_for_redraw(this);
+    }
     return jfw_res_success;
 }

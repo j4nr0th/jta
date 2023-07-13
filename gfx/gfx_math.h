@@ -36,10 +36,10 @@ typedef union
     };
     struct
     {
-        f32 s00, s01, s02, s03;
-        f32 s10, s11, s12, s13;
-        f32 s20, s21, s22, s23;
-        f32 s30, s31, s32, s33;
+        f32 s00, s10, s20, s30;
+        f32 s01, s11, s21, s31;
+        f32 s02, s12, s22, s32;
+        f32 s03, s13, s23, s33;
     };
     f32 m[4][4];
 } mtx4;
@@ -304,6 +304,35 @@ typedef union
     c.col1 = mtx4_vector_mul(a, b.col1);
     c.col2 = mtx4_vector_mul(a, b.col2);
     c.col3 = mtx4_vector_mul(a, b.col3);
+    return c;
+}
+
+
+[[nodiscard]] static inline vec4 mtx4_vector_mul3(mtx4 m, vec4 x)
+{
+//    assert(x.w == 1.0f);
+    vec4 y;
+    __m128 x_element = _mm_set1_ps(x.s0);
+    __m128 col = _mm_load_ps(m.col0.data);
+    __m128 res = _mm_mul_ps(col, x_element);
+
+    col = _mm_load_ps(m.col1.data);
+    x_element = _mm_set1_ps(x.s1);
+    res = _mm_add_ps(res, _mm_mul_ps(col, x_element));
+
+    col = _mm_load_ps(m.col2.data);
+    x_element = _mm_set1_ps(x.s2);
+    res = _mm_add_ps(res, _mm_mul_ps(col, x_element));
+    _mm_store_ps(y.data, res);
+    return y;
+}
+
+[[nodiscard]] static inline mtx4 mtx4_multiply3(mtx4 a, mtx4 b)
+{
+    mtx4 c;
+    c.col0 = mtx4_vector_mul3(a, b.col0);
+    c.col1 = mtx4_vector_mul3(a, b.col1);
+    c.col2 = mtx4_vector_mul3(a, b.col2);
     return c;
 }
 

@@ -603,13 +603,14 @@ int main(int argc, char* argv[argc])
     jwidget->functions.mouse_button_release = truss_mouse_button_release;
     jwidget->functions.mouse_motion = truss_mouse_motion;
     jwidget->functions.button_up = truss_key_press;
+    jwidget->functions.mouse_button_double_press = truss_mouse_button_double_press;
     jta_camera_3d camera;
     jta_camera_set(
             &camera,                                    //  Camera
             geo_base,                                   //  View target
             geo_base,                                   //  Geometry center
-            geo_radius * sqrtf(3),                                 //  Geometry radius
-            vec4_add(geo_base, vec4_mul_one(VEC4(-1, 1, 1), geo_radius)), //  Camera position
+            geo_radius,                                 //  Geometry radius
+            vec4_add(geo_base, vec4_mul_one(VEC4(1, 1, 1), geo_radius)), //  Camera position
             VEC4(0, 0, -1),                             //  Down
             4.0f,                                       //  Turn sensitivity
             1.0f                                        //  Move sensitivity
@@ -638,6 +639,7 @@ int main(int argc, char* argv[argc])
             {
             .vulkan_state = &vulkan_state,
             .camera = camera,
+            .original_camera = camera,
             .vulkan_resources = vk_res,
             };
     jfw_widget_set_user_pointer(jwidget, &draw_state);
@@ -652,7 +654,7 @@ int main(int argc, char* argv[argc])
         }
         if (!close)
         {
-            jfw_window_force_redraw(jctx, jwnd);
+            jfw_window_redraw(jctx, jwnd);
         }
     }
 //    vk_state_destroy(&vulkan_state, vk_res);

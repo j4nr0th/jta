@@ -1394,15 +1394,25 @@ check_children:
         }
         this->keyboard_focus = widget;
     }
-    if (widget->functions.mouse_button_press)
+
+    jfw_res res = jfw_res_success;
+    if (widget->functions.mouse_button_double_press && ctx->last_button_id == e->button && (e->time - ctx->last_button_time) < 500)
     {
-        jfw_res res = widget->functions.mouse_button_press(widget, x, y, e->button, e->state);
-        JDM_LEAVE_FUNCTION;
-        return res;
+        res = widget->functions.mouse_button_double_press(widget, x, y, e->button, e->state);
+        ctx->last_button_id = -1;
     }
+    else
+    {
+        if (widget->functions.mouse_button_press)
+        {
+            res = widget->functions.mouse_button_press(widget, x, y, e->button, e->state);
+        }
+        ctx->last_button_id = e->button;
+    }
+    ctx->last_button_time = e->time;
 
     JDM_LEAVE_FUNCTION;
-    return jfw_res_success;
+    return res;
 }
 
 static jfw_res handle_mouse_button_release(jfw_ctx* ctx, XEvent* ptr, jfw_window* this)

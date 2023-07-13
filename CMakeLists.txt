@@ -36,7 +36,7 @@ add_executable(jta main.c
         ${GFX_SOURCE_FILES} ${GFX_HEADER_FILES}
         ${PARSING_SOURCE_FILES} ${PARSING_HEADER_FILES}
         ${UTILITY_SOURCE_FILES} ${UTILITY_HEADER_FILES}
-        ${JTA_SOLVER_SOURCE_FILES} ${JTA_SOLVER_HEADER_FILES})
+        ${JTA_SOLVER_SOURCE_FILES} ${JTA_SOLVER_HEADER_FILES} core/jtamatrices.c core/jtamatrices.h)
 
 add_compile_definitions(JALLOC_TRAP_COUNT=128)
 add_compile_definitions(JALLOC_TRACKING=1)

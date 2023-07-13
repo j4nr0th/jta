@@ -73,6 +73,8 @@ struct jfw_context_struct
     jfw_window* kbd_focus;
 
     jfw_vulkan_context vk_ctx;
+    unsigned int last_button_id;
+    Time last_button_time;
 };
 
 struct jfw_window_platform_struct
