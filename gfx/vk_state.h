@@ -28,6 +28,7 @@ struct vk_state_struct
     VkPipeline gfx_pipeline_UI;
     vk_buffer_allocator* buffer_allocator;
     vk_buffer_allocation buffer_transfer, buffer_uniform;
+    VkCommandBuffer transfer_cmd_buffer;
     VkFence fence_transfer_free;
     VkDescriptorSetLayout ubo_layout;
     ubo_3d** p_mapped_array;
@@ -42,6 +43,7 @@ struct vk_state_struct
     mtx4 view;
     const jta_point_list* point_list;
     uint32_t last_img_idx;
+    VkCommandPool transfer_cmd_pool;
 };
 
 gfx_result vk_state_create(vk_state* p_state, const jfw_window_vk_resources* vk_resources);

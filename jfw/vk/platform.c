@@ -516,7 +516,7 @@ static jfw_res score_physical_device(
     for (u32 i = 0; i < queue_count; ++i)
     {
         const VkQueueFamilyProperties* const props = queue_buffer + i;
-        if (!(props->queueFlags & VK_QUEUE_GRAPHICS_BIT|VK_QUEUE_COMPUTE_BIT) && props->queueFlags & VK_QUEUE_TRANSFER_BIT)
+        if (!(props->queueFlags & (VK_QUEUE_GRAPHICS_BIT|VK_QUEUE_COMPUTE_BIT)) && props->queueFlags & VK_QUEUE_TRANSFER_BIT)
         {
             trs = (i32)i;
             break;

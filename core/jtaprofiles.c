@@ -33,7 +33,7 @@ static bool converter_profile_label_function(jio_string_segment* v, void* param)
     profile_parse_ss_data* const data = (profile_parse_ss_data*)param;
     for (uint32_t i = 0; i < data->count; ++i)
     {
-        if (string_segment_equal(data->values + i, v))
+        if (jio_string_segment_equal(data->values + i, v))
         {
             JDM_ERROR("Profile label \"%.*s\" was already defined as profile %u", (int)v->len, v->begin, i);
             JDM_LEAVE_FUNCTION;

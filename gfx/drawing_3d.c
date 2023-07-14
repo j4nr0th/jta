@@ -79,7 +79,7 @@ draw_frame(
         assert(vk_res == VK_SUCCESS);
         VkClearValue clear_color =
                 {
-                .color = {0.0f, 0.0f, 0.0f, 0.0f},
+                .color = {.float32={0.0f, 0.0f, 0.0f, 0.0f}},
                 };
         VkClearValue clear_ds =
                 {

@@ -1,4 +1,4 @@
-connection label,material label,profile label,point label 1,point label 2
+element label,material label,profile label,point label 1,point label 2
 A0000A0100,med_carbon_steel,P0450,A0000,A0100
 A0100B0100,med_carbon_steel,P0150,A0100,B0100
 B0100B0000,med_carbon_steel,P0880,B0100,B0000

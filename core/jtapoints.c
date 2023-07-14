@@ -7,6 +7,7 @@
 static const jio_string_segment POINT_FILE_HEADERS[] =
         {
                 {.begin = "point label", .len = sizeof("point label") - 1},
+//                {.begin = "sdad ldasabel", .len = sizeof("sdad ldasabel") - 1},
                 {.begin = "x", .len = sizeof("x") - 1},
                 {.begin = "y", .len = sizeof("y") - 1},
                 {.begin = "z", .len = sizeof("z") - 1},
@@ -33,7 +34,7 @@ static bool converter_point_label_function(jio_string_segment* v, void* param)
     point_parse_data_ss* const data = (point_parse_data_ss*)param;
     for (uint32_t i = 0; i < data->count; ++i)
     {
-        if (string_segment_equal(data->values + i , v))
+        if (jio_string_segment_equal(data->values + i , v))
         {
             JDM_ERROR("Point label \"%.*s\" was already defined as point %u", (int)v->len, v->begin, i);
             JDM_LEAVE_FUNCTION;

@@ -414,10 +414,10 @@ static const mtx4 mtx4_identity =
     vec4 unit_z = vec4_unit(d);
     return (mtx4)
             {
-        .col0 = {unit_x.x, unit_y.x, unit_z.x, 0},
-        .col1 = {unit_x.y, unit_y.y, unit_z.y, 0},
-        .col2 = {unit_x.z, unit_y.z, unit_z.z, 0},
-        .col3 = {-pos.x, -pos.y, -pos.z, 1},
+        .col0 = {{unit_x.x, unit_y.x, unit_z.x, 0}},
+        .col1 = {{unit_x.y, unit_y.y, unit_z.y, 0}},
+        .col2 = {{unit_x.z, unit_y.z, unit_z.z, 0}},
+        .col3 = {{-pos.x, -pos.y, -pos.z, 1}},
             };
 }
 

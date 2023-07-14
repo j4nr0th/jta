@@ -41,6 +41,10 @@ add_executable(jta main.c
 add_compile_definitions(JALLOC_TRAP_COUNT=128)
 add_compile_definitions(JALLOC_TRACKING=1)
 
+if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(jta PRIVATE -Wall -Wextra)
+endif ()
+
 configure_file(test_configuration.cfg "${CMAKE_BINARY_DIR}/test_configuration.cfg" COPYONLY)
 
 target_include_directories(jta PRIVATE jio/include jdm/include jmem/source/include jmtx/source)

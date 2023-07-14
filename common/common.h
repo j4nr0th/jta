@@ -66,5 +66,15 @@ struct ubo_3d_struct
     vec4 view_direction;
 };
 
+typedef struct jta_timer_struct jta_timer;
+struct jta_timer_struct
+{
+    struct timespec ts;
+};
+
+void jta_timer_set(jta_timer* timer);
+
+f64 jta_timer_get(jta_timer* timer);
+
 
 #endif //JTA_COMMON_H

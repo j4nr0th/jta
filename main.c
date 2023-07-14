@@ -67,7 +67,7 @@ static i32 jdm_error_hook_callback_function(const char* thread_name, u32 stack_t
     }
     fprintf(out, "%s:%d - %s [%s]: %s\n", file, line, function, level_str, message);
     fprintf(out, "Stacktrace:\n+->%s\n", function);
-    for (uint32_t i = 0; i < stack_trace_count - 1; ++i)
+    for (uint32_t i = 0; stack_trace_count && i < stack_trace_count - 1; ++i)
     {
         fprintf(out, "|-%s\n", stack_trace[stack_trace_count - 1 - i]);
     }
@@ -81,6 +81,7 @@ static i32 jdm_error_hook_callback_function(const char* thread_name, u32 stack_t
 static void double_free_hook(jallocator* allocator, void* param)
 {
     JDM_ENTER_FUNCTION;
+    (void)param;
     JDM_ERROR("Double free detected by allocator %s (%p)", allocator->type, allocator);
     JDM_LEAVE_FUNCTION;
 }
@@ -88,12 +89,15 @@ static void double_free_hook(jallocator* allocator, void* param)
 static void invalid_alloc(jallocator* allocator, void* param)
 {
     JDM_ENTER_FUNCTION;
+    (void)param;
     JDM_ERROR("Bad allocation detected by allocator %s (%p)", allocator->type, allocator);
     JDM_LEAVE_FUNCTION;
 }
 
 static void jmem_trap(uint32_t idx, void* param)
 {
+    (void)param;
+    (void)idx;
     __builtin_trap();
 }
 
@@ -112,20 +116,21 @@ static char* get_string_value_from_the_section(const jio_cfg_section* section, c
         JDM_ERROR("Type of value of key \"%s\" of section \"%.*s\" was not \"String\", instead it was \"%s\"", name, (int)section->name.len, section->name.begin, "Unknown");
         return NULL;
     }
-    char* str = lin_jalloc(G_LIN_JALLOCATOR, v.value_string.len + 1);
+    char* str = lin_jalloc(G_LIN_JALLOCATOR, v.value.value_string.len + 1);
     if (!str)
     {
-        JDM_ERROR("Could not allocate %zu bytes of memory to copy value of key \"%s\" from section \"%.*s\"", (size_t)v.value_string.len + 1, name, (int)section->name.len, section->name.begin);
+        JDM_ERROR("Could not allocate %zu bytes of memory to copy value of key \"%s\" from section \"%.*s\"", (size_t)v.value.value_string.len + 1, name, (int)section->name.len, section->name.begin);
         return NULL;
     }
-    memcpy(str, v.value_string.begin, v.value_string.len);
-    str[v.value_string.len] = 0;
+    memcpy(str, v.value.value_string.begin, v.value.value_string.len);
+    str[v.value.value_string.len] = 0;
     return str;
 }
 
 int main(int argc, char* argv[argc])
 {
-
+    jta_timer main_timer;
+    jta_timer_set(&main_timer);
     //  Create allocators
     //  Estimated to be 512 kB per small pool and 512 kB per med pool
     G_ALIGN_JALLOCATOR = aligned_jallocator_create(1, 1);
@@ -174,6 +179,8 @@ int main(int argc, char* argv[argc])
         printf("usage:\n    %s CFG_FILE\n", argv[0]);
         exit(EXIT_SUCCESS);
     }
+    f64 dt = jta_timer_get(&main_timer);
+    JDM_TRACE("Initialization time: %g sec", dt);
 
     //  Load up the configuration
     char* pts_file_name;
@@ -183,6 +190,7 @@ int main(int argc, char* argv[argc])
     char* nat_file_name;
     char* num_file_name;
 
+    jta_timer_set(&main_timer);
     {
         jio_memory_file cfg_file;
         jio_result jio_res = jio_memory_file_create(argv[1], &cfg_file, 0, 0, 0);
@@ -229,24 +237,10 @@ int main(int argc, char* argv[argc])
                             jio_result_to_str(jio_res));
                 }
                 //  Get the points file
+                pts_file_name = get_string_value_from_the_section(input_section, "points");
+                if (!pts_file_name)
                 {
-                    jio_cfg_value v;
-                    jio_res = jio_cfg_get_value_by_key(input_section, "points", &v);
-                    if (jio_res != JIO_RESULT_SUCCESS)
-                    {
-                        JDM_FATAL("Could not get the element of section \"problem setup.input files\" with key \"points\", reason: %s", jio_result_to_str(jio_res));
-                    }
-                    if (v.type != JIO_CFG_TYPE_STRING)
-                    {
-                        JDM_FATAL("Element \"points\" of section \"problem setup.input files\" was not a string");
-                    }
-                    pts_file_name = lin_jalloc(G_LIN_JALLOCATOR ,v.value_string.len + 1);
-                    if (!pts_file_name)
-                    {
-                        JDM_FATAL("Could not allocate %zu bytes for point file string", (size_t)v.value_string.len + 1);
-                    }
-                    memcpy(pts_file_name, v.value_string.begin, v.value_string.len);
-                    pts_file_name[v.value_string.len] = 0;
+                    JDM_FATAL("Could not load points");
                 }
                 //  Get the material file
                 mat_file_name = get_string_value_from_the_section(input_section, "materials");
@@ -306,7 +300,8 @@ int main(int argc, char* argv[argc])
         jio_cfg_section_destroy(cfg_root);
         jio_memory_file_destroy(&cfg_file);
     }
-
+    dt = jta_timer_get(&main_timer);
+    JDM_TRACE("Config parsing time: %g sec", dt);
 
     jio_memory_file file_points, file_materials, file_profiles, file_elements, file_nat, file_num;
     jta_point_list point_list;
@@ -316,6 +311,7 @@ int main(int argc, char* argv[argc])
     jta_natural_boundary_condition_list natural_boundary_conditions;
     jta_numerical_boundary_condition_list numerical_boundary_conditions;
 
+    jta_timer_set(&main_timer);
     jio_result jio_res = jio_memory_file_create(pts_file_name, &file_points, 0, 0, 0);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
@@ -402,7 +398,8 @@ int main(int argc, char* argv[argc])
     {
         JDM_FATAL("Could not load numerical boundary conditions");
     }
-
+    dt = jta_timer_get(&main_timer);
+    JDM_TRACE("Data loading time: %g sec", dt);
     //  Find the bounding box of the geometry
     vec4 geo_base;
     f32 geo_radius;
@@ -410,26 +407,13 @@ int main(int argc, char* argv[argc])
 
 
 
-//#ifdef NDEBUG
-//    VkAllocationCallbacks VK_ALLOCATION_CALLBACKS =
-//            {
-//            .pUserData = G_ALIGN_JALLOCATOR,
-//            .pfnAllocation = vk_aligned_allocation_fn,
-//            .pfnReallocation = vk_aligned_reallocation_fn,
-//            .pfnFree = vk_aligned_free_fn,
-//            .pfnInternalAllocation = vk_internal_alloc_notif,
-//            .pfnInternalFree = vk_internal_free_notif,
-//            };
-//#endif
 
     jfw_ctx* jctx = NULL;
     jfw_window* jwnd = NULL;
+    jta_timer_set(&main_timer);
+
     jfw_res jfw_result = jfw_context_create(&jctx,
-//#ifndef NDEBUG
                                             NULL
-//#else
-//                                            &VK_ALLOCATION_CALLBACKS
-//#endif
                                            );
     if (!jfw_success(jfw_result))
     {
@@ -445,7 +429,6 @@ int main(int argc, char* argv[argc])
         goto cleanup;
     }
     jfw_window_show(jctx, jwnd);
-    VkResult vk_result;
     jfw_window_vk_resources* const vk_res = jfw_window_get_vk_resources(jwnd);
     jfw_vulkan_context* const vk_ctx = &jctx->vk_ctx;
     vk_state vulkan_state;
@@ -471,8 +454,11 @@ int main(int argc, char* argv[argc])
     {
         JDM_FATAL("Could not create cone mesh: %s", gfx_result_to_str(gfx_res));
     }
+    dt = jta_timer_get(&main_timer);
+    JDM_TRACE("Vulkan init time: %g sec", dt);
 
 
+    jta_timer_set(&main_timer);
     //  This is the truss mesh :)
     f32 radius_factor = 1.0f;  //  This could be a config option
     for (u32 i = 0; i < elements.count; ++i)
@@ -535,6 +521,7 @@ int main(int argc, char* argv[argc])
             break;
         default:
             JDM_WARN("Point \"%.*s\" has %u numerical boundary conditions applied to it", (int)point_list.label[i].len, point_list.label[i].begin, bcs_per_point[i]);
+            [[fallthrough]];
         case 3:
             c = point_colors[3];
             r = point_scales[3];
@@ -577,6 +564,9 @@ int main(int argc, char* argv[argc])
             goto cleanup;
         }
     }
+
+    dt = jta_timer_get(&main_timer);
+    JDM_TRACE("Mesh generation time: %g sec", dt);
     jta_mesh* meshes[] = {
             &truss_mesh,
             &sphere_mesh,

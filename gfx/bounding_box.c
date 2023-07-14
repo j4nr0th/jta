@@ -147,7 +147,6 @@ gfx_result gfx_find_bounding_sphere(const jta_point_list* points, vec4* origin, 
 {
     JDM_ENTER_FUNCTION;
     vec4 o;
-    f32 r = 0.0f;
 
 
     f32 min_bbx = +INFINITY, max_bbx = -INFINITY,

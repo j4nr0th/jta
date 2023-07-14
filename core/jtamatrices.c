@@ -48,16 +48,12 @@ static inline void jta_add_to_global_entries_3x3(const mtx4* mtx, uint32_t first
 
 jta_result jta_make_global_matrices(
         const jta_point_list* point_list, const jta_element_list* element_list, const jta_profile_list* profiles,
-        const jta_material_list* materials, f32 gravity, jmtx_matrix_crs* out_k, jmtx_matrix_crs* out_m, f32* out_f)
+        const jta_material_list* materials, f32 gravity, jmtx_matrix_crs* out_k, f32* out_m)
 {
     assert(out_k->base.type == JMTX_TYPE_CRS);
-    assert(out_m->base.type == JMTX_TYPE_CRS);
     assert(out_k->base.rows == out_k->base.cols);
-    assert(out_m->base.rows == out_m->base.cols);
     assert(out_k->base.rows == 3 * point_list->count);
-    assert(out_m->base.rows == 3 * point_list->count);
     assert(out_k->n_elements == 0);
-    assert(out_m->n_elements == 0);
 
 
     mtx4 mtx_a00 = {};
@@ -106,14 +102,8 @@ jta_result jta_make_global_matrices(
         jta_add_to_global_entries_3x3(&mtx_ta10t, i_pt1, i_pt0, out_k);
         jta_add_to_global_entries_3x3(&mtx_ta11t, i_pt1, i_pt1, out_k);
 
-        jmtx_matrix_crs_add_to_element(out_m, 3 * i_pt0 + 0, 3 * i_pt0 + 0, mass_of_element / 2);
-        jmtx_matrix_crs_add_to_element(out_m, 3 * i_pt0 + 1, 3 * i_pt0 + 1, mass_of_element / 2);
-        jmtx_matrix_crs_add_to_element(out_m, 3 * i_pt0 + 2, 3 * i_pt0 + 2, mass_of_element / 2);
-        out_f[3 * i_pt0 + 2] += gravity * mass_of_element / 2;
-        jmtx_matrix_crs_add_to_element(out_m, 3 * i_pt1 + 0, 3 * i_pt1 + 0, mass_of_element / 2);
-        jmtx_matrix_crs_add_to_element(out_m, 3 * i_pt1 + 1, 3 * i_pt1 + 1, mass_of_element / 2);
-        jmtx_matrix_crs_add_to_element(out_m, 3 * i_pt1 + 2, 3 * i_pt1 + 2, mass_of_element / 2);
-        out_f[3 * i_pt1 + 2] += gravity * mass_of_element / 2;
+        out_m[i_pt0] += gravity * mass_of_element / 2;
+        out_m[i_pt1] += gravity * mass_of_element / 2;
     }
 
     return JTA_RESULT_SUCCESS;

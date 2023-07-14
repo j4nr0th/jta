@@ -860,9 +860,43 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
         p_state->desc_pool = desc_pool;
         p_state->desc_set = desc_sets;
     }
+    {
+        VkCommandPool cmd_pool;
+        VkCommandBuffer cmd_buffer;
+        VkCommandPoolCreateInfo create_info =
+                {
+                .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+                .queueFamilyIndex = vk_resources->i_trs_queue,
+                .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT|VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+                };
+        vk_res = vkCreateCommandPool(vk_resources->device, &create_info, NULL, &cmd_pool);
+        if (vk_res != VK_SUCCESS)
+        {
+            JDM_ERROR("Could not create transfer command pool, reason: %s", jfw_vk_error_msg(vk_res));
+            goto after_descriptor_sets;
+        }
+        VkCommandBufferAllocateInfo alloc_info =
+                {
+                .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+                .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+                .commandPool = cmd_pool,
+                .commandBufferCount = 1,
+                };
+        vk_res = vkAllocateCommandBuffers(vk_resources->device, &alloc_info, &cmd_buffer);
+        if (vk_res != VK_SUCCESS)
+        {
+            vkDestroyCommandPool(vk_resources->device, cmd_pool, NULL);
+            JDM_ERROR("Could not allocate transfer command buffer, reason: %s", jfw_vk_error_msg(vk_res));
+            goto after_descriptor_sets;
+        }
+        p_state->transfer_cmd_pool = cmd_pool;
+        p_state->transfer_cmd_buffer = cmd_buffer;
+    }
 
 
     return gfx_res;
+after_transfer_buffers:
+    vkDestroyCommandPool(vk_resources->device, p_state->transfer_cmd_pool, NULL);
 after_descriptor_sets:
     vkDestroyDescriptorPool(vk_resources->device, p_state->desc_pool, NULL);
     jfw_free(&p_state->desc_set);
@@ -917,7 +951,7 @@ gfx_result vk_transfer_memory_to_buffer(
     }
     memcpy(mapped_memory, data, size);
     vk_unmap_allocation(mapped_memory, &p_state->buffer_transfer);
-    VkCommandBuffer cmd_buffer = vk_resources->cmd_buffers[vk_resources->n_frames_in_flight];
+    VkCommandBuffer cmd_buffer = p_state->transfer_cmd_buffer;
     static const VkCommandBufferBeginInfo begin_info =
             {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -958,6 +992,7 @@ gfx_result vk_transfer_memory_to_buffer(
 
 void vk_state_destroy(vk_state* p_state, jfw_window_vk_resources* vk_resources)
 {
+    vkDestroyCommandPool(vk_resources->device, p_state->transfer_cmd_pool, NULL);
     vkDestroyDescriptorPool(vk_resources->device, p_state->desc_pool, NULL);
     jfw_free(&p_state->desc_set);
     jfw_free(&p_state->p_mapped_array);

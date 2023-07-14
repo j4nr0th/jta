@@ -37,7 +37,7 @@ static bool converter_natural_bc_point_label_function(jio_string_segment* v, voi
     uint32_t i;
     for (i = 0; i < data->point_list->count; ++i)
     {
-        if (string_segment_equal(data->point_list->label + i, v))
+        if (jio_string_segment_equal(data->point_list->label + i, v))
         {
             break;
         }

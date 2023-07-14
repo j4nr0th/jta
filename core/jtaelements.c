@@ -57,7 +57,7 @@ static bool converter_element_label_function(jio_string_segment* v, void* param)
     element_ss_parse_data* const data = (element_ss_parse_data*)param;
     for (uint32_t i = 0; i < data->count; ++i)
     {
-        if (string_segment_equal(data->values + i, v))
+        if (jio_string_segment_equal(data->values + i, v))
         {
             JDM_ERROR("Element label \"%.*s\" was already defined as element %u", (int)v->len, v->begin, i);
             JDM_LEAVE_FUNCTION;
@@ -75,7 +75,7 @@ static bool converter_material_label_function(jio_string_segment* v, void* param
     element_parse_mat_data* const data = (element_parse_mat_data*)param;
     for (uint32_t i = 0; i < data->materials->count; ++i)
     {
-        if (string_segment_equal(data->materials->labels + i, v))
+        if (jio_string_segment_equal(data->materials->labels + i, v))
         {
             data->values[data->count++] = i;
             JDM_LEAVE_FUNCTION;
@@ -93,7 +93,7 @@ static bool converter_profile_label_function(jio_string_segment* v, void* param)
     element_pro_parse_data* const data = (element_pro_parse_data*)param;
     for (uint32_t i = 0; i < data->profiles->count; ++i)
     {
-        if (string_segment_equal(data->profiles->labels + i, v))
+        if (jio_string_segment_equal(data->profiles->labels + i, v))
         {
             data->values[data->count++] = i;
             JDM_LEAVE_FUNCTION;
@@ -111,7 +111,7 @@ static bool converter_point_label_function(jio_string_segment* v, void* param)
     element_pt_parse_data* const data = (element_pt_parse_data*)param;
     for (uint32_t i = 0; i < data->points->count; ++i)
     {
-        if (string_segment_equal(data->points->label + i, v))
+        if (jio_string_segment_equal(data->points->label + i, v))
         {
             data->values[data->count++] = i;
             JDM_LEAVE_FUNCTION;

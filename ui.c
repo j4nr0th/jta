@@ -73,7 +73,7 @@ jfw_res truss_mouse_motion(jfw_widget* const this, i32 x, i32 y, const u32 mods)
         {
             x = 0;
         }
-        else if (x > this->width)
+        else if (x > (i32)this->width)
         {
             x = (i32)this->width - 1;
         }
@@ -81,7 +81,7 @@ jfw_res truss_mouse_motion(jfw_widget* const this, i32 x, i32 y, const u32 mods)
         {
             y = 0;
         }
-        else if (y > this->height)
+        else if (y > (i32)this->height)
         {
             y = (i32)this->height - 1;
         }
@@ -135,7 +135,7 @@ jfw_res truss_mouse_motion(jfw_widget* const this, i32 x, i32 y, const u32 mods)
         {
             x = 0;
         }
-        else if (x > this->width)
+        else if (x > (i32)this->width)
         {
             x = (i32)this->width - 1;
         }
@@ -143,7 +143,7 @@ jfw_res truss_mouse_motion(jfw_widget* const this, i32 x, i32 y, const u32 mods)
         {
             y = 0;
         }
-        else if (y > this->height)
+        else if (y > (i32)this->height)
         {
             y = (i32)this->height - 1;
         }

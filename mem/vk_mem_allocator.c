@@ -452,5 +452,6 @@ void* vk_map_allocation(const vk_buffer_allocation* allocation)
 
 void vk_unmap_allocation(void* ptr_mapped, const vk_buffer_allocation* allocation)
 {
+    (void)ptr_mapped;
     vkUnmapMemory(allocation->device, allocation->memory);
 }

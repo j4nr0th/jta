@@ -63,7 +63,6 @@ static gfx_result clean_mesh_model(jta_model* model)
 
 static gfx_result generate_truss_model(jta_model* const p_out, const u16 pts_per_side)
 {
-    gfx_result res;
     jta_vertex* vertices;
     if (!(vertices = ill_jalloc(G_JALLOCATOR,2 * pts_per_side * sizeof*vertices)))
     {
@@ -77,7 +76,7 @@ static gfx_result generate_truss_model(jta_model* const p_out, const u16 pts_per
     {
         JDM_ERROR("Could not allocate memory for truss model");
         ill_jfree(G_JALLOCATOR, vertices);
-        return res;
+        return GFX_RESULT_BAD_ALLOC;
     }
 
 
@@ -233,14 +232,6 @@ truss_mesh_add_between_pts(jta_mesh* mesh, jfw_color color, f32 radius, vec4 pt1
     normal_transform = mtx4_multiply(normal_transform, mtx4_enlarge(1/radius, 1/radius, 1/len));
 
     return mesh_add_new(mesh, model, normal_transform, color, state);
-}
-
-
-static void  clean_sphere_model(jta_model* model)
-{
-    ill_jfree(G_JALLOCATOR, model->vtx_array);
-    ill_jfree(G_JALLOCATOR, model->idx_array);
-    memset(model, 0, sizeof*model);
 }
 
 static gfx_result generate_sphere_model(jta_model* const p_out, const u16 order)
@@ -495,7 +486,6 @@ gfx_result jta_mesh_update_model(jta_mesh* mesh, jfw_window_vk_resources* resour
 static gfx_result generate_cone_model(jta_model* const model, const u16 order)
 {
     assert(order >= 3);
-    gfx_result res;
     jta_vertex* vertices;
     u32 vtx_count = 2 * order + 2;
     if (!(vertices = (ill_jalloc(G_JALLOCATOR, vtx_count * sizeof*vertices))))
@@ -511,7 +501,7 @@ static gfx_result generate_cone_model(jta_model* const model, const u16 order)
     {
         JDM_ERROR("Could not allocate memory for truss model");
         ill_jfree(G_JALLOCATOR, vertices);
-        return res;
+        return GFX_RESULT_BAD_ALLOC;
     }
 
 
@@ -520,7 +510,6 @@ static gfx_result generate_cone_model(jta_model* const model, const u16 order)
     //  Top and bottom are at the end of the list
     vertices[2 * order + 0] = (jta_vertex) {.x = 0, .y = 0, .z = 1, .nx = 0, .ny = 0, .nz = 1};
     vertices[2 * order + 1] = (jta_vertex) {.x = 0, .y = 0, .z = 0, .nx = 0, .ny = 0, .nz =-1};
-    u32 j = 0;
     for (u32 i = 0; i < order; ++i)
     {
         //    Positions
@@ -535,7 +524,7 @@ static gfx_result generate_cone_model(jta_model* const model, const u16 order)
         btm[i].nz = -1.0f;
         //  Top triangle connections
         indices[6 * i + 0] = i;
-        if (i == order - 1)
+        if ((i32)i == order - 1)
         {
             indices[6 * i + 1] = 0;
         }
@@ -547,7 +536,7 @@ static gfx_result generate_cone_model(jta_model* const model, const u16 order)
         //  Bottom triangle connections
         indices[6 * i + 3] = i + order;
         indices[6 * i + 4] = 2 * order + 1;
-        if (i == order - 1)
+        if ((i32)i == order - 1)
         {
             indices[6 * i + 5] = order;
         }
