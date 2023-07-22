@@ -605,26 +605,9 @@ int main(int argc, char* argv[argc])
             4.0f,                                       //  Turn sensitivity
             1.0f                                        //  Move sensitivity
             );
-#ifndef NDEBUG
-    f32 min = +INFINITY, max = -INFINITY;
-    for (u32 i = 0; i < point_list.count; ++i)
-    {
-        vec4 p = VEC4(point_list.p_x[i], point_list.p_y[i], point_list.p_z[i]);
-        p = vec4_sub(p, camera.position);
-        f32 d = vec4_dot(p, camera.uz);
-        if (d < min)
-        {
-            min = d;
-        }
-        if (d > max)
-        {
-            max = d;
-        }
-    }
-    f32 n, f;
-    jta_camera_find_depth_planes(&camera, &n, &f);
-//    assert(min >= n); assert(max <= f);
-#endif
+
+
+
     jta_draw_state draw_state =
             {
             .vulkan_state = &vulkan_state,
@@ -632,6 +615,39 @@ int main(int argc, char* argv[argc])
             .original_camera = camera,
             .vulkan_resources = vk_res,
             };
+
+    draw_state.problem.numerical_bcs = &numerical_boundary_conditions;
+    draw_state.problem.natural_bcs = &natural_boundary_conditions;
+    draw_state.problem.point_list = &point_list;
+    draw_state.problem.element_list = &elements;
+    draw_state.problem.materials = &material_list;
+    draw_state.problem.profile_list = &profile_list;
+    draw_state.problem.deformations = ill_jalloc(G_JALLOCATOR, sizeof(*draw_state.problem.deformations) * 3 * point_list.count);
+    draw_state.problem.forces = ill_jalloc(G_JALLOCATOR, sizeof(*draw_state.problem.forces) * 3 * point_list.count);
+    draw_state.problem.point_masses = ill_jalloc(G_JALLOCATOR, sizeof(*draw_state.problem.point_masses) * point_list.count);
+    draw_state.problem.gravity = VEC4(0, 0, -9.81);
+
+    if (!draw_state.problem.deformations)
+    {
+        JDM_FATAL("Could not allocate memory for deformation results");
+    }
+    if (!draw_state.problem.forces)
+    {
+        JDM_FATAL("Could not allocate memory for force values");
+    }
+    if (!draw_state.problem.point_masses)
+    {
+        JDM_FATAL("Could not allocate memory for point masses");
+    }
+    memset(draw_state.problem.deformations, 0, sizeof(*draw_state.problem.deformations) * point_list.count);
+    memset(draw_state.problem.forces, 0, sizeof(*draw_state.problem.forces) * point_list.count);
+    memset(draw_state.problem.point_masses, 0, sizeof(*draw_state.problem.point_masses) * point_list.count);
+
+    jmtx_result jmtx_res = jmtx_matrix_crs_new(&draw_state.problem.stiffness_matrix, 3 * point_list.count, 3 * point_list.count, 36 * point_list.count, NULL);
+    if (jmtx_res != JMTX_RESULT_SUCCESS)
+    {
+        JDM_FATAL("Could not allocate memory for problem stiffness matrix, reason: %s", jmtx_result_to_str(jmtx_res));
+    }
     jfw_widget_set_user_pointer(jwidget, &draw_state);
     vulkan_state.view = jta_camera_to_view_matrix(&camera);
 
@@ -649,6 +665,11 @@ int main(int argc, char* argv[argc])
     }
 //    vk_state_destroy(&vulkan_state, vk_res);
     jwnd = NULL;
+
+    ill_jfree(G_JALLOCATOR, draw_state.problem.point_masses);
+    ill_jfree(G_JALLOCATOR, draw_state.problem.forces);
+    ill_jfree(G_JALLOCATOR, draw_state.problem.deformations);
+    jmtx_matrix_crs_destroy(draw_state.problem.stiffness_matrix);
 
 cleanup:
     mesh_uninit(&truss_mesh);

@@ -5,6 +5,8 @@
 #include <X11/keysym.h>
 #include <inttypes.h>
 #include "ui.h"
+#include <solvers/jacobi_point_iteration.h>
+#include <solvers/bicgstab_iteration.h>
 
 jfw_res truss_mouse_button_press(jfw_widget* this, i32 x, i32 y, u32 button, u32 mods)
 {
@@ -200,10 +202,114 @@ jfw_res truss_key_press(jfw_widget* this, KeySym key_sym)
     }
     else if (key_sym == XK_space)
     {
-        static u32 i = 0;
-        printf("Hi %u\n", i++);
+        static int solved = 0;
+        if (!solved)
+        {
+            jta_draw_state* const state = jfw_widget_get_user_pointer(this);
+            assert(state);
+            jta_problem_setup_data* problem = &state->problem;
+            jta_result res = jta_make_global_matrices(
+                    problem->point_list, problem->element_list, problem->profile_list, problem->materials, problem->stiffness_matrix, problem->point_masses);
+            if (res != JTA_RESULT_SUCCESS)
+            {
+                JDM_ERROR("Could not build global system matrices, reason: %s", jta_result_to_str(res));
+                goto end;
+            }
+
+            res = jta_apply_natural_bcs(problem->point_list->count, problem->natural_bcs, problem->gravity, problem->point_masses, problem->forces);
+            if (res != JTA_RESULT_SUCCESS)
+            {
+                JDM_ERROR("Could not apply natural BCs, reason: %s", jta_result_to_str(res));
+                goto end;
+            }
+            jmtx_matrix_crs* k_reduced;
+            bool* dofs = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*dofs) * 3 * problem->point_list->count);
+            if (!dofs)
+            {
+                JDM_ERROR("Could not allocate %zu bytes for the list of free DOFs", sizeof(*dofs) * 3 * problem->point_list->count);
+                goto end;
+            }
+            float* f_r = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*f_r) * 3 * problem->point_list->count);
+            if (!f_r)
+            {
+                JDM_ERROR("Could not allocate %zu bytes for reduced force vector", sizeof(*f_r) * 3 * problem->point_list->count);
+                lin_jfree(G_LIN_JALLOCATOR, dofs);
+                goto end;
+            }
+            float* u_r = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*u_r) * 3 * problem->point_list->count * 3);
+            if (!u_r)
+            {
+                JDM_ERROR("Could not allocate %zu bytes for reduced force vector", sizeof(*f_r) * 3 * problem->point_list->count);
+                lin_jfree(G_LIN_JALLOCATOR, dofs);
+                lin_jfree(G_LIN_JALLOCATOR, f_r);
+                goto end;
+            }
+
+
+            res = jta_reduce_system(problem->point_list->count, problem->stiffness_matrix, problem->numerical_bcs, &k_reduced, dofs);
+            if (res != JTA_RESULT_SUCCESS)
+            {
+                JDM_ERROR("Could not apply reduce the system of equations to solve, reason: %s", jta_result_to_str(res));
+                lin_jfree(G_LIN_JALLOCATOR, dofs);
+                lin_jfree(G_LIN_JALLOCATOR, f_r);
+                lin_jfree(G_LIN_JALLOCATOR, u_r);
+                goto end;
+            }
+
+            uint32_t p_g, p_r;
+            for (p_g = 0, p_r = 0; p_g < problem->point_list->count * 3; ++p_g)
+            {
+                if (dofs[p_g])
+                {
+                    f_r[p_r] = problem->forces[p_g];
+                    p_r += 1;
+                }
+            }
+
+            uint32_t iter_count;
+            const uint32_t max_iters = 1 << 16;    //  This could be config parameter
+            float max_err = 1e-7f;              //  This could be config parameter
+            float err_evol[max_iters];
+            float final_error;
+            jta_timer solver_timer;
+            jta_timer_set(&solver_timer);
+            jmtx_result jmtx_res = jmtx_jacobi_relaxed_crs(k_reduced, f_r, u_r,
+                                                   0.1f,
+                                                   max_err, max_iters, &iter_count, err_evol, &final_error, NULL);
+            f64 time_taken = jta_timer_get(&solver_timer);
+            for (p_g = 0, p_r = 0; p_g < problem->point_list->count * 3; ++p_g)
+            {
+                if (dofs[p_g])
+                {
+                    problem->forces[p_g] = f_r[p_r];
+                    problem->deformations[p_g] = u_r[p_r];
+                    p_r += 1;
+                }
+//                else
+//                {
+//                    problem->forces[p_g] = 0;
+//                    problem->deformations[p_g] = 0;
+//                }
+            }
+            JDM_TRACE("Time taken for %"PRIu32" iterations of Jacobi was %g seconds", iter_count, time_taken);
+            if (jmtx_res != JMTX_RESULT_SUCCESS && jmtx_res != JMTX_RESULT_NOT_CONVERGED)
+            {
+                JDM_ERROR("Failed solving the problem using Jacobi's method, reason: %s", jmtx_result_to_str(jmtx_res));
+            }
+            if (jmtx_res == JMTX_RESULT_NOT_CONVERGED)
+            {
+                JDM_WARN("Did not converge after %"PRIu32" iterations (error was %g)", iter_count, final_error);
+            }
+
+            printf(":(\n");
+            solved = 1;
+            lin_jfree(G_LIN_JALLOCATOR, u_r);
+            lin_jfree(G_LIN_JALLOCATOR, f_r);
+            lin_jfree(G_LIN_JALLOCATOR, dofs);
+        }
     }
 
+end:
     JDM_LEAVE_FUNCTION;
     return jfw_res_success;
 }

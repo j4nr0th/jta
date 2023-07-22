@@ -67,11 +67,12 @@ static bool converter_numerical_bc_floatx_function(jio_string_segment* v, void* 
             JDM_LEAVE_FUNCTION;
             return false;
         }
-        data->type[data->count] |= JTA_NUMERICAL_BC_TYPE_X;
+        data->type[data->count] = JTA_NUMERICAL_BC_TYPE_X;
         data->values[data->count] = v_d;
     }
     else
     {
+        data->type[data->count] = 0;
         data->values[data->count] = 0;
     }
     data->count += 1;
@@ -126,6 +127,7 @@ static bool converter_numerical_bc_floatz_function(jio_string_segment* v, void* 
     {
         data->values[data->count] = 0;
     }
+    assert((data->type[data->count] & JTA_NUMERICAL_BC_TYPE_X) || (data->type[data->count] & JTA_NUMERICAL_BC_TYPE_Y) || (data->type[data->count] & JTA_NUMERICAL_BC_TYPE_Z));
     data->count += 1;
     JDM_LEAVE_FUNCTION;
     return true;
@@ -141,7 +143,6 @@ static bool (*converter_functions[])(jio_string_segment* v, void* param) =
 jta_result jta_load_numerical_boundary_conditions(
         const jio_memory_file* mem_file, const jta_point_list* point_list, jta_numerical_boundary_condition_list* bcs)
 {
-
     JDM_ENTER_FUNCTION;
     jta_result res;
     uint32_t line_count = 0;
@@ -283,11 +284,107 @@ jta_result jta_load_numerical_boundary_conditions(
             type = new_ptr2;
         }
     }
+    //  Sort the numerical BCs and discover duplicates
+    uint32_t* const order = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*order) * count);
+    if (!order)
+    {
+        JDM_ERROR("Could not allocate buffer needed to sort numerical boundary conditions");
+        ill_jfree(G_JALLOCATOR, type);
+        ill_jfree(G_JALLOCATOR, i_pts);
+        ill_jfree(G_JALLOCATOR, x);
+        ill_jfree(G_JALLOCATOR, y);
+        ill_jfree(G_JALLOCATOR, z);
+        JDM_LEAVE_FUNCTION;
+        return JTA_RESULT_BAD_ALLOC;
+    }
+    void* const sup_buffer = lin_jalloc(G_LIN_JALLOCATOR, sizeof(void*) * count);
+    if (!sup_buffer)
+    {
+        JDM_ERROR("Could not allocate buffer needed to sort numerical boundary conditions");
+        lin_jfree(G_LIN_JALLOCATOR, order);
+        ill_jfree(G_JALLOCATOR, type);
+        ill_jfree(G_JALLOCATOR, i_pts);
+        ill_jfree(G_JALLOCATOR, x);
+        ill_jfree(G_JALLOCATOR, y);
+        ill_jfree(G_JALLOCATOR, z);
+        JDM_LEAVE_FUNCTION;
+        return JTA_RESULT_BAD_ALLOC;
+    }
+
+    uint32_t i_bc = 0;
+    for (uint32_t i_pt = 0; i_pt < point_list->count && i_bc < count; ++i_pt)
+    {
+        uint32_t pos = UINT32_MAX;
+        for (uint32_t j = 0; j < count; ++j)
+        {
+            if (i_pt == i_pts[j])
+            {
+                if (pos != UINT32_MAX)
+                {
+                    JDM_ERROR("Multiple numerical boundary conditions are applied on point \"%.*s\"", (int)point_list->label[i_pt].len, point_list->label[i_pt].begin);
+                    ill_jfree(G_JALLOCATOR, type);
+                    ill_jfree(G_JALLOCATOR, i_pts);
+                    ill_jfree(G_JALLOCATOR, x);
+                    ill_jfree(G_JALLOCATOR, y);
+                    ill_jfree(G_JALLOCATOR, z);
+                    JDM_LEAVE_FUNCTION;
+                    return JTA_RESULT_BAD_NUM_BC;
+                }
+                pos = j;
+            }
+        }
+        if (pos == UINT32_MAX)
+        {
+            continue;
+        }
+        order[i_bc] = pos;
+        i_bc += 1;
+    }
+    assert(i_bc == count);
+
+    f32* const sup_x = sup_buffer;
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        sup_x[i] = x[order[i]];
+    }
+    memcpy(x, sup_x, sizeof(*x) * count);
+
+    f32* const sup_y = sup_buffer;
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        sup_y[i] = y[order[i]];
+    }
+    memcpy(y, sup_y, sizeof(*y) * count);
+
+    f32* const sup_z = sup_buffer;
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        sup_z[i] = z[order[i]];
+    }
+    memcpy(z, sup_z, sizeof(*z) * count);
+
+    uint32_t* const sup_i = sup_buffer;
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        sup_i[i] = i_pts[order[i]];
+    }
+    memcpy(i_pts, sup_i, sizeof(*i_pts) * count);
+
+    jta_numerical_boundary_condition_type* const sup_t = sup_buffer;
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        sup_t[i] = type[order[i]];
+    }
+    memcpy(type, sup_t, sizeof(*type) * count);
+
+    lin_jfree(G_LIN_JALLOCATOR, sup_buffer);
+    lin_jfree(G_LIN_JALLOCATOR, order);
+
     *bcs = (jta_numerical_boundary_condition_list){.count = count, .x = x, .y = y, .z = z, .i_point = i_pts, .type = type};
 
     JDM_LEAVE_FUNCTION;
     return JTA_RESULT_SUCCESS;
-    end:
+end:
     JDM_LEAVE_FUNCTION;
     return res;
 }

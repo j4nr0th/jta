@@ -10,6 +10,7 @@ static const char* const code_strings[JTA_RESULT_COUNT] =
             [JTA_RESULT_BAD_ALLOC] = "Memory allocation failed",
             [JTA_RESULT_BAD_IO] = "IO operation failed",
             [JTA_RESULT_BAD_INPUT] = "Input file was invalid",
+            [JTA_RESULT_BAD_NUM_BC] = "Invalid boundary conditions were specified",
         };
 
 const char* jta_result_to_str(jta_result res)
