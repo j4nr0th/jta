@@ -25,6 +25,7 @@
 #include "core/jtanumericalbcs.h"
 #include "config/config_loading.h"
 
+bool close_program = false;
 
 static jfw_result wnd_draw(jfw_window* this)
 {
@@ -158,8 +159,7 @@ int main(int argc, char* argv[argc])
     //  Load up the configuration
 
     jta_timer_set(&main_timer);
-    jta_config master_config;
-    jta_result jta_res = jta_load_configuration(argv[1], &master_config);
+    jta_result jta_res = jta_load_configuration(argv[1], &G_CONFIG);
     if (jta_res != JTA_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not load program configuration, reason: %s", jta_result_to_str(jta_res));
@@ -170,7 +170,7 @@ int main(int argc, char* argv[argc])
 
     jta_problem_setup problem_setup;
     jta_timer_set(&main_timer);
-    jta_res = jta_load_problem(&master_config.problem, &problem_setup);
+    jta_res = jta_load_problem(&G_CONFIG.problem, &problem_setup);
     if (jta_res != JTA_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not load problem, reason: %s", jta_result_to_str(jta_res));
@@ -245,7 +245,7 @@ int main(int argc, char* argv[argc])
 
     jta_timer_set(&main_timer);
     //  This is the truss mesh :)
-    f32 radius_factor = 1.0f;  //  This could be a config option
+    f32 radius_factor = G_CONFIG.display.radius_scale;
     for (u32 i = 0; i < problem_setup.element_list.count; ++i)
     {
         if ((gfx_res = truss_mesh_add_between_pts(
@@ -273,18 +273,38 @@ int main(int argc, char* argv[argc])
     //  These could be a config options
     const jfw_color point_colors[4] =
             {
-                    {.r = 0x80, .g = 0x80, .b = 0x80, .a = 0xFF},   //  0 - just gray
-                    {.r = 0xFF, .g = 0xFF, .b = 0x00, .a = 0xFF},   //  1 - yellow
-                    {.r = 0xFF, .g = 0x00, .b = 0xFF, .a = 0xFF},   //  2 - purple
-                    {.r = 0xFF, .g = 0x00, .b = 0x00, .a = 0xFF},   //  3 (or somehow more) - red
+                    {
+                            .r = G_CONFIG.display.dof_point_colors[0].r,
+                            .g = G_CONFIG.display.dof_point_colors[0].g,
+                            .b = G_CONFIG.display.dof_point_colors[0].b,
+                            .a = G_CONFIG.display.dof_point_colors[0].a,
+                    },
+                    {
+                            .r = G_CONFIG.display.dof_point_colors[1].r,
+                            .g = G_CONFIG.display.dof_point_colors[1].g,
+                            .b = G_CONFIG.display.dof_point_colors[1].b,
+                            .a = G_CONFIG.display.dof_point_colors[1].a,
+                    },
+                    {
+                            .r = G_CONFIG.display.dof_point_colors[2].r,
+                            .g = G_CONFIG.display.dof_point_colors[2].g,
+                            .b = G_CONFIG.display.dof_point_colors[2].b,
+                            .a = G_CONFIG.display.dof_point_colors[2].a,
+                    },
+                    {
+                            .r = G_CONFIG.display.dof_point_colors[3].r,
+                            .g = G_CONFIG.display.dof_point_colors[3].g,
+                            .b = G_CONFIG.display.dof_point_colors[3].b,
+                            .a = G_CONFIG.display.dof_point_colors[3].a,
+                    },
             };
     //  These could be a config options
     const f32 point_scales[4] =
             {
-                1.0f,//  0 - just gray
-                2.0f,//  1 - yellow
-                2.0f,//  2 - purple
-                2.0f,//  3 (or somehow more) - red
+                G_CONFIG.display.dof_point_scales[0],//  0 - just gray
+                G_CONFIG.display.dof_point_scales[1],//  1 - yellow
+                G_CONFIG.display.dof_point_scales[2],//  2 - purple
+                G_CONFIG.display.dof_point_scales[3],//  3 (or somehow more) - red
             };
 
     for (u32 i = 0; i < problem_setup.point_list.count; ++i)
@@ -322,9 +342,9 @@ int main(int argc, char* argv[argc])
     }
     lin_jfree(G_LIN_JALLOCATOR, bcs_per_point);
     //  These are the force vectors
-    const f32 max_radius_scale = 0.3f;    //  This could be a config option
-    const f32 arrow_cone_ratio = 0.5f;    //  This could be a config option
-    const f32 max_length_scale = 0.3f;    //  This could be a config option
+    const f32 max_radius_scale = G_CONFIG.display.force_radius_ratio;
+    const f32 arrow_cone_ratio = G_CONFIG.display.force_head_ratio;
+    const f32 max_length_scale = G_CONFIG.display.force_length_ratio;
     for (u32 i = 0; i < problem_setup.natural_bcs.count; ++i)
     {
         vec4 base = VEC4(problem_setup.point_list.p_x[problem_setup.natural_bcs.i_point[i]],
@@ -425,14 +445,13 @@ int main(int argc, char* argv[argc])
     jfw_window_set_usr_ptr(jwnd, &draw_state);
     vulkan_state.view = jta_camera_to_view_matrix(&camera);
 
-    i32 close = 0;
-    while ((JFW_RESULT_SUCCESS == jfw_context_wait_for_events(jctx)) && !close)
+    while ((JFW_RESULT_SUCCESS == jfw_context_wait_for_events(jctx)) && !close_program)
     {
-        while (jfw_context_has_events(jctx) && !close)
+        while (jfw_context_has_events(jctx) && !close_program)
         {
-            close = JFW_RESULT_SUCCESS !=(jfw_context_process_events(jctx));
+            close_program = JFW_RESULT_SUCCESS !=(jfw_context_process_events(jctx));
         }
-        if (!close)
+        if (!close_program)
         {
             jfw_window_redraw(jctx, jwnd);
         }
@@ -455,7 +474,7 @@ cleanup:
         jctx = NULL;
     }
     jta_free_problem(&problem_setup);
-    jta_free_configuration(&master_config);
+    jta_free_configuration(&G_CONFIG);
     JDM_LEAVE_FUNCTION;
     jdm_cleanup_thread();
     //  Clean up the allocators

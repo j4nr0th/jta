@@ -8,6 +8,8 @@
 #include <solvers/jacobi_point_iteration.h>
 #include <solvers/bicgstab_iteration.h>
 
+extern bool close_program;
+
 jfw_result truss_mouse_button_press(jfw_window* this, i32 x, i32 y, u32 button, u32 mods)
 {
     jta_draw_state* const state = jfw_window_get_usr_ptr(this);
@@ -267,15 +269,16 @@ jfw_result truss_key_press(jfw_window* this, KeySym key_sym)
             }
 
             uint32_t iter_count;
-            const uint32_t max_iters = 1 << 16;    //  This could be config parameter
-            float max_err = 1e-5f;              //  This could be config parameter
+            const uint32_t max_iters = G_CONFIG.problem.sim_and_sol.max_iterations;    //  This could be config parameter
+            float max_err = G_CONFIG.problem.sim_and_sol.convergence_criterion;              //  This could be config parameter
             float err_evol[max_iters];
             float final_error;
             jta_timer solver_timer;
             jta_timer_set(&solver_timer);
             jmtx_result jmtx_res = jmtx_jacobi_relaxed_crs(k_reduced, f_r, u_r,
-                                                   .67f,
-                                                   max_err, max_iters, &iter_count, err_evol, &final_error, NULL);
+                                                   G_CONFIG.problem.sim_and_sol.relaxation_factor,
+                                                   max_err,
+                                                   max_iters, &iter_count, err_evol, &final_error, NULL);
             f64 time_taken = jta_timer_get(&solver_timer);
             for (p_g = 0, p_r = 0; p_g < problem->point_list.count * 3; ++p_g)
             {
@@ -306,7 +309,7 @@ jfw_result truss_key_press(jfw_window* this, KeySym key_sym)
             lin_jfree(G_LIN_JALLOCATOR, u_r);
             lin_jfree(G_LIN_JALLOCATOR, f_r);
             lin_jfree(G_LIN_JALLOCATOR, dofs);
-            exit(EXIT_SUCCESS);
+            close_program = true;
         }
     }
 

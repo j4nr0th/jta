@@ -39,6 +39,7 @@ typedef struct jta_config_problem_struct jta_config_problem;
 //  Parameters related to graphics and display
 struct jta_config_display_struct
 {
+    float radius_scale;             //  Scale by which the (equivalent) radius of elements is exaggerated
     float deformation_scale;        //  Scale by which deformations are exaggerated
     jta_color deformed_color;       //  Color of the deformed mesh
     char* material_cmap_file;       //  Path to the material color map (optional)
@@ -47,7 +48,7 @@ struct jta_config_display_struct
     float force_radius_ratio;       //  Radius of the force arrows divided by the maximum node radius
     float force_head_ratio;         //  Ratio between the force arrows' head and tail
     float force_length_ratio;       //  Length of the largest force arrow as a fraction of the length of the longest element
-    char* stress_cmap_file;     //  Path to the stress color map (optional)
+    char* stress_cmap_file;         //  Path to the stress color map (optional)
 };
 
 typedef struct jta_config_display_struct jta_config_display;
@@ -72,7 +73,10 @@ struct jta_config_struct
     jta_config_display  display;    //  Parameters related to graphics and display
     jta_config_output   output;     //  Parameters related to output and saving of results
 };
+
 typedef struct jta_config_struct jta_config;
+
+extern jta_config G_CONFIG;
 
 jta_result jta_load_configuration(const char* filename, jta_config* p_out);
 

@@ -8,6 +8,8 @@
 #include <jio/iocfg.h>
 #include "config_loading.h"
 
+jta_config G_CONFIG;
+
 static void* jio_alloc(void* param, uint64_t size)
 {
     assert(param == G_JALLOCATOR);
@@ -245,7 +247,7 @@ static jta_result load_problem_config(const jio_cfg_section* section, jta_config
     if (!get_float_array_from_section(sim_sol_section, "gravity", 3, cfg->sim_and_sol.gravity)
     ||  !get_float_from_section(sim_sol_section, "convergence criterion", &cfg->sim_and_sol.convergence_criterion, FLT_EPSILON, FLT_MAX)
     ||  !get_uint_from_section(sim_sol_section, "maximum iterations", &cfg->sim_and_sol.max_iterations, 1, UINT32_MAX)
-    ||  !get_float_from_section(sim_sol_section, "relaxation factor", &cfg->sim_and_sol.convergence_criterion, FLT_MIN, FLT_MAX))
+    ||  !get_float_from_section(sim_sol_section, "relaxation factor", &cfg->sim_and_sol.relaxation_factor, FLT_MIN, FLT_MAX))
     {
         JDM_ERROR("Could not get required entry from section \"%.*s\"", (int)definitions_section->name.len, definitions_section->name.begin);
         ill_jfree(G_JALLOCATOR, cfg->definition.points_file);
@@ -333,6 +335,7 @@ static jta_result load_display_config(const jio_cfg_section* section, jta_config
     ||  !get_float_from_section(section, "force radius ratio", &cfg->force_radius_ratio, 0, FLT_MAX)
     ||  !get_float_from_section(section, "force head ratio", &cfg->force_head_ratio, 0, FLT_MAX)
     ||  !get_float_from_section(section, "force length ratio", &cfg->force_length_ratio, 0, FLT_MAX)
+    ||  !get_float_from_section(section, "radius scale", &cfg->radius_scale, 0, FLT_MAX)
     )
     {
         JDM_ERROR("Could not get required entry from section \"%.*s\"", (int)section->name.len, section->name.begin);
