@@ -8,8 +8,6 @@
 #include <jio/iocfg.h>
 #include "config_loading.h"
 
-jta_config G_CONFIG;
-
 static void* jio_alloc(void* param, uint64_t size)
 {
     assert(param == G_JALLOCATOR);

@@ -26,10 +26,6 @@ struct jta_problem_setup_struct
     jta_natural_boundary_condition_list natural_bcs;     //  Natural BC list parsed from input file
     jta_numerical_boundary_condition_list numerical_bcs; //  Numerical BC list parsed from input file
     vec4 gravity;                                               //  Gravitational acceleration vector set in the input file
-    jmtx_matrix_crs* stiffness_matrix;                          //  Stiffness matrix K (size is 3 * length of point list in each dimension)
-    f32* point_masses;                                          //  Array of masses lumped at each point (length is same as point list)
-    f32* forces;                                                //  Forces vector f (size 3 * length of point list)
-    f32* deformations;                                          //  Deformation vector d (size 3 * length of point list)
 };
 
 jta_result jta_load_problem(const jta_config_problem* cfg, jta_problem_setup* problem);

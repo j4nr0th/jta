@@ -8,6 +8,7 @@
 #include "gfx/vk_state.h"
 #include "gfx/camera.h"
 #include "core/jtaproblem.h"
+#include "core/jtasolve.h"
 
 typedef struct jta_draw_state_struct jta_draw_state;
 struct jta_draw_state_struct
@@ -22,6 +23,8 @@ struct jta_draw_state_struct
     i32 mv_x, mv_y;
     int screenshot;
     jta_problem_setup* p_problem;
+    jta_solution* p_solution;
+    jta_config* config;
 };
 
 

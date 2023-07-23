@@ -40,7 +40,7 @@ typedef struct jta_config_problem_struct jta_config_problem;
 struct jta_config_display_struct
 {
     float radius_scale;             //  Scale by which the (equivalent) radius of elements is exaggerated
-    float deformation_scale;        //  Scale by which deformations are exaggerated
+    float deformation_scale;        //  Scale by which point_displacements are exaggerated
     jta_color deformed_color;       //  Color of the deformed mesh
     char* material_cmap_file;       //  Path to the material color map (optional)
     jta_color dof_point_colors[4];  //  Colors for points with 0 DoFs, 1 DoF, 2 DoFs, and 3/all DoFs
@@ -75,8 +75,6 @@ struct jta_config_struct
 };
 
 typedef struct jta_config_struct jta_config;
-
-extern jta_config G_CONFIG;
 
 jta_result jta_load_configuration(const char* filename, jta_config* p_out);
 

@@ -25,7 +25,6 @@
 #include "core/jtanumericalbcs.h"
 #include "config/config_loading.h"
 
-bool close_program = false;
 
 static jfw_result wnd_draw(jfw_window* this)
 {
@@ -159,7 +158,8 @@ int main(int argc, char* argv[argc])
     //  Load up the configuration
 
     jta_timer_set(&main_timer);
-    jta_result jta_res = jta_load_configuration(argv[1], &G_CONFIG);
+    jta_config master_config;
+    jta_result jta_res = jta_load_configuration(argv[1], &master_config);
     if (jta_res != JTA_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not load program configuration, reason: %s", jta_result_to_str(jta_res));
@@ -170,7 +170,7 @@ int main(int argc, char* argv[argc])
 
     jta_problem_setup problem_setup;
     jta_timer_set(&main_timer);
-    jta_res = jta_load_problem(&G_CONFIG.problem, &problem_setup);
+    jta_res = jta_load_problem(&master_config.problem, &problem_setup);
     if (jta_res != JTA_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not load problem, reason: %s", jta_result_to_str(jta_res));
@@ -245,7 +245,7 @@ int main(int argc, char* argv[argc])
 
     jta_timer_set(&main_timer);
     //  This is the truss mesh :)
-    f32 radius_factor = G_CONFIG.display.radius_scale;
+    f32 radius_factor = master_config.display.radius_scale;
     for (u32 i = 0; i < problem_setup.element_list.count; ++i)
     {
         if ((gfx_res = truss_mesh_add_between_pts(
@@ -274,37 +274,37 @@ int main(int argc, char* argv[argc])
     const jfw_color point_colors[4] =
             {
                     {
-                            .r = G_CONFIG.display.dof_point_colors[0].r,
-                            .g = G_CONFIG.display.dof_point_colors[0].g,
-                            .b = G_CONFIG.display.dof_point_colors[0].b,
-                            .a = G_CONFIG.display.dof_point_colors[0].a,
+                            .r = master_config.display.dof_point_colors[0].r,
+                            .g = master_config.display.dof_point_colors[0].g,
+                            .b = master_config.display.dof_point_colors[0].b,
+                            .a = master_config.display.dof_point_colors[0].a,
                     },
                     {
-                            .r = G_CONFIG.display.dof_point_colors[1].r,
-                            .g = G_CONFIG.display.dof_point_colors[1].g,
-                            .b = G_CONFIG.display.dof_point_colors[1].b,
-                            .a = G_CONFIG.display.dof_point_colors[1].a,
+                            .r = master_config.display.dof_point_colors[1].r,
+                            .g = master_config.display.dof_point_colors[1].g,
+                            .b = master_config.display.dof_point_colors[1].b,
+                            .a = master_config.display.dof_point_colors[1].a,
                     },
                     {
-                            .r = G_CONFIG.display.dof_point_colors[2].r,
-                            .g = G_CONFIG.display.dof_point_colors[2].g,
-                            .b = G_CONFIG.display.dof_point_colors[2].b,
-                            .a = G_CONFIG.display.dof_point_colors[2].a,
+                            .r = master_config.display.dof_point_colors[2].r,
+                            .g = master_config.display.dof_point_colors[2].g,
+                            .b = master_config.display.dof_point_colors[2].b,
+                            .a = master_config.display.dof_point_colors[2].a,
                     },
                     {
-                            .r = G_CONFIG.display.dof_point_colors[3].r,
-                            .g = G_CONFIG.display.dof_point_colors[3].g,
-                            .b = G_CONFIG.display.dof_point_colors[3].b,
-                            .a = G_CONFIG.display.dof_point_colors[3].a,
+                            .r = master_config.display.dof_point_colors[3].r,
+                            .g = master_config.display.dof_point_colors[3].g,
+                            .b = master_config.display.dof_point_colors[3].b,
+                            .a = master_config.display.dof_point_colors[3].a,
                     },
             };
     //  These could be a config options
     const f32 point_scales[4] =
             {
-                G_CONFIG.display.dof_point_scales[0],//  0 - just gray
-                G_CONFIG.display.dof_point_scales[1],//  1 - yellow
-                G_CONFIG.display.dof_point_scales[2],//  2 - purple
-                G_CONFIG.display.dof_point_scales[3],//  3 (or somehow more) - red
+                master_config.display.dof_point_scales[0],//  0 - just gray
+                master_config.display.dof_point_scales[1],//  1 - yellow
+                master_config.display.dof_point_scales[2],//  2 - purple
+                master_config.display.dof_point_scales[3],//  3 (or somehow more) - red
             };
 
     for (u32 i = 0; i < problem_setup.point_list.count; ++i)
@@ -342,9 +342,9 @@ int main(int argc, char* argv[argc])
     }
     lin_jfree(G_LIN_JALLOCATOR, bcs_per_point);
     //  These are the force vectors
-    const f32 max_radius_scale = G_CONFIG.display.force_radius_ratio;
-    const f32 arrow_cone_ratio = G_CONFIG.display.force_head_ratio;
-    const f32 max_length_scale = G_CONFIG.display.force_length_ratio;
+    const f32 max_radius_scale = master_config.display.force_radius_ratio;
+    const f32 arrow_cone_ratio = master_config.display.force_head_ratio;
+    const f32 max_length_scale = master_config.display.force_length_ratio;
     for (u32 i = 0; i < problem_setup.natural_bcs.count; ++i)
     {
         vec4 base = VEC4(problem_setup.point_list.p_x[problem_setup.natural_bcs.i_point[i]],
@@ -383,7 +383,7 @@ int main(int argc, char* argv[argc])
     vulkan_state.mesh_array = meshes + 0;
 
 
-    printf("Total of %"PRIu64" triangles in the mesh\n", mesh_polygon_count(&truss_mesh) + mesh_polygon_count(&sphere_mesh) + mesh_polygon_count(&cone_mesh));
+    JDM_TRACE("Total of %"PRIu64" triangles in the mesh\n", mesh_polygon_count(&truss_mesh) + mesh_polygon_count(&sphere_mesh) + mesh_polygon_count(&cone_mesh));
 
 
     jwnd->functions.dtor_fn = wnd_dtor;
@@ -406,52 +406,29 @@ int main(int argc, char* argv[argc])
             );
 
 
-
+    jta_solution solution = {};
     jta_draw_state draw_state =
             {
             .vulkan_state = &vulkan_state,
             .camera = camera,
             .original_camera = camera,
             .vulkan_resources = vk_res,
+            .p_problem = &problem_setup,
+            .p_solution = &solution,
+            .config = &master_config,
             };
 
-    draw_state.p_problem = &problem_setup;
-    draw_state.p_problem->deformations = ill_jalloc(G_JALLOCATOR, sizeof(*draw_state.p_problem->deformations) * 3 * problem_setup.point_list.count);
-    draw_state.p_problem->forces = ill_jalloc(G_JALLOCATOR, sizeof(*draw_state.p_problem->forces) * 3 * problem_setup.point_list.count);
-    draw_state.p_problem->point_masses = ill_jalloc(G_JALLOCATOR, sizeof(*draw_state.p_problem->point_masses) * problem_setup.point_list.count);
 
-
-    if (!draw_state.p_problem->deformations)
-    {
-        JDM_FATAL("Could not allocate memory for deformation results");
-    }
-    if (!draw_state.p_problem->forces)
-    {
-        JDM_FATAL("Could not allocate memory for force values");
-    }
-    if (!draw_state.p_problem->point_masses)
-    {
-        JDM_FATAL("Could not allocate memory for point masses");
-    }
-    memset(draw_state.p_problem->deformations, 0, sizeof(*draw_state.p_problem->deformations) * problem_setup.point_list.count);
-    memset(draw_state.p_problem->forces, 0, sizeof(*draw_state.p_problem->forces) * problem_setup.point_list.count);
-    memset(draw_state.p_problem->point_masses, 0, sizeof(*draw_state.p_problem->point_masses) * problem_setup.point_list.count);
-
-    jmtx_result jmtx_res = jmtx_matrix_crs_new(&draw_state.p_problem->stiffness_matrix, 3 * problem_setup.point_list.count, 3 * problem_setup.point_list.count, 36 * problem_setup.point_list.count, NULL);
-    if (jmtx_res != JMTX_RESULT_SUCCESS)
-    {
-        JDM_FATAL("Could not allocate memory for problem stiffness matrix, reason: %s", jmtx_result_to_str(jmtx_res));
-    }
     jfw_window_set_usr_ptr(jwnd, &draw_state);
     vulkan_state.view = jta_camera_to_view_matrix(&camera);
-
-    while ((JFW_RESULT_SUCCESS == jfw_context_wait_for_events(jctx)) && !close_program)
+    bool close = false;
+    while ((JFW_RESULT_SUCCESS == jfw_context_wait_for_events(jctx)) && !close)
     {
-        while (jfw_context_has_events(jctx) && !close_program)
+        while (jfw_context_has_events(jctx) && !close)
         {
-            close_program = JFW_RESULT_SUCCESS !=(jfw_context_process_events(jctx));
+            close = (jfw_context_process_events(jctx) != JFW_RESULT_SUCCESS);
         }
-        if (!close_program)
+        if (!close)
         {
             jfw_window_redraw(jctx, jwnd);
         }
@@ -459,11 +436,8 @@ int main(int argc, char* argv[argc])
 
     jwnd = NULL;
 
-    ill_jfree(G_JALLOCATOR, draw_state.p_problem->point_masses);
-    ill_jfree(G_JALLOCATOR, draw_state.p_problem->forces);
-    ill_jfree(G_JALLOCATOR, draw_state.p_problem->deformations);
-    jmtx_matrix_crs_destroy(draw_state.p_problem->stiffness_matrix);
 
+    jta_solution_free(&solution);
 cleanup:
     mesh_uninit(&truss_mesh);
     mesh_uninit(&sphere_mesh);
@@ -474,7 +448,7 @@ cleanup:
         jctx = NULL;
     }
     jta_free_problem(&problem_setup);
-    jta_free_configuration(&G_CONFIG);
+    jta_free_configuration(&master_config);
     JDM_LEAVE_FUNCTION;
     jdm_cleanup_thread();
     //  Clean up the allocators
