@@ -23,4 +23,6 @@ struct jta_profile_list_struct
 
 jta_result jta_load_profiles(const jio_memory_file* mem_file, jta_profile_list* profile_list);
 
+void jta_free_profiles(jta_profile_list* profile_list);
+
 #endif //JTA_JTAPROFILES_H

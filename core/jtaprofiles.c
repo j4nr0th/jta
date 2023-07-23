@@ -233,3 +233,15 @@ jta_result jta_load_profiles(const jio_memory_file* mem_file, jta_profile_list* 
     JDM_LEAVE_FUNCTION;
     return res;
 }
+
+void jta_free_profiles(jta_profile_list* profile_list)
+{
+    JDM_ENTER_FUNCTION;
+
+    ill_jfree(G_JALLOCATOR, profile_list->labels);
+    ill_jfree(G_JALLOCATOR, profile_list->area);
+    ill_jfree(G_JALLOCATOR, profile_list->second_moment_of_area);
+    ill_jfree(G_JALLOCATOR, profile_list->equivalent_radius);
+
+    JDM_LEAVE_FUNCTION;
+}

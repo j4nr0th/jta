@@ -242,3 +242,16 @@ end:
     JDM_LEAVE_FUNCTION;
     return res;
 }
+
+void jta_free_materials(jta_material_list* material_list)
+{
+    JDM_ENTER_FUNCTION;
+
+    ill_jfree(G_JALLOCATOR, material_list->density);
+    ill_jfree(G_JALLOCATOR, material_list->labels);
+    ill_jfree(G_JALLOCATOR, material_list->elastic_modulus);
+    ill_jfree(G_JALLOCATOR, material_list->compressive_strength);
+    ill_jfree(G_JALLOCATOR, material_list->tensile_strength);
+
+    JDM_LEAVE_FUNCTION;
+}

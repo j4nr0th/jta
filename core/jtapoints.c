@@ -214,3 +214,16 @@ end:
     JDM_LEAVE_FUNCTION;
     return res;
 }
+
+void jta_free_points(jta_point_list* list)
+{
+    JDM_ENTER_FUNCTION;
+
+    ill_jfree(G_JALLOCATOR, list->p_z);
+    ill_jfree(G_JALLOCATOR, list->p_y);
+    ill_jfree(G_JALLOCATOR, list->p_x);
+    ill_jfree(G_JALLOCATOR, list->label);
+    ill_jfree(G_JALLOCATOR, list->max_radius);
+
+    JDM_LEAVE_FUNCTION;
+}

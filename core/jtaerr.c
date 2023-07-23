@@ -11,7 +11,8 @@ static const char* const code_strings[JTA_RESULT_COUNT] =
             [JTA_RESULT_BAD_IO] = "IO operation failed",
             [JTA_RESULT_BAD_INPUT] = "Input file was invalid",
             [JTA_RESULT_BAD_NUM_BC] = "Invalid boundary conditions were specified",
-            [JTA_RESULT_BAD_CFG_ENTRY] = "Failed parsing configuration entry"
+            [JTA_RESULT_BAD_CFG_ENTRY] = "Failed parsing configuration entry",
+            [JTA_RESULT_BAD_PROBLEM] = "Problem was poorly defined",
         };
 
 const char* jta_result_to_str(jta_result res)

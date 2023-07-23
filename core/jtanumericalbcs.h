@@ -28,4 +28,6 @@ struct jta_numerical_boundary_condition_list_struct
 
 jta_result jta_load_numerical_boundary_conditions(const jio_memory_file* mem_file, const jta_point_list* point_list, jta_numerical_boundary_condition_list* bcs);
 
+void jta_free_numerical_boundary_conditions(jta_numerical_boundary_condition_list* bcs);
+
 #endif //JTA_JTANUMERICALBCS_H

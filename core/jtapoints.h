@@ -22,4 +22,6 @@ struct jta_point_list_struct
 
 jta_result jta_load_points(const jio_memory_file* mem_file, jta_point_list* p_list);
 
+void jta_free_points(jta_point_list* list);
+
 #endif //JTA_JTAPOINTS_H

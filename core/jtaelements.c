@@ -363,3 +363,17 @@ end:
     JDM_LEAVE_FUNCTION;
     return res;
 }
+
+void jta_free_elements(jta_element_list* element_list)
+{
+    JDM_ENTER_FUNCTION;
+
+    ill_jfree(G_JALLOCATOR, element_list->labels);
+    ill_jfree(G_JALLOCATOR, element_list->i_point0);
+    ill_jfree(G_JALLOCATOR, element_list->i_point1);
+    ill_jfree(G_JALLOCATOR, element_list->i_profile);
+    ill_jfree(G_JALLOCATOR, element_list->i_material);
+    ill_jfree(G_JALLOCATOR, element_list->lengths);
+
+    JDM_LEAVE_FUNCTION;
+}

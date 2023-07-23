@@ -387,5 +387,225 @@ jta_reduce_system(
 
 jta_result jta_load_problem(const jta_config_problem* cfg, jta_problem_setup* problem)
 {
+    JDM_ENTER_FUNCTION;
+    jio_result jio_res;
+    jta_result res;
+
+    jta_point_list point_list;
+    jta_material_list material_list;
+    jta_profile_list profile_list;
+    jta_element_list element_list;
+    jta_natural_boundary_condition_list natural_boundary_conditions;
+    jta_numerical_boundary_condition_list numerical_boundary_conditions;
+    memset(problem, 0, sizeof(*problem));
+    jio_memory_file* p_point_file = NULL, * p_material_file = NULL, * p_profile_file = NULL, * p_element_file = NULL,
+                   * p_natural_file = NULL, * p_numerical_file = NULL;
+
+    jio_res = jio_memory_file_create(cfg->definition.points_file, &problem->file_points, 0, 0, 0);
+    if (jio_res != JIO_RESULT_SUCCESS)
+    {
+        JDM_ERROR("Could not open point file \"%s\"", cfg->definition.points_file);
+        res = JTA_RESULT_BAD_IO;
+        goto failed;
+    }
+    p_point_file = &problem->file_points;
+
+
+    jio_res = jio_memory_file_create(cfg->definition.materials_file, &problem->file_materials, 0, 0, 0);
+    if (jio_res != JIO_RESULT_SUCCESS)
+    {
+        JDM_ERROR("Could not open material file \"%s\"", cfg->definition.materials_file);
+        res = JTA_RESULT_BAD_IO;
+        goto failed;
+    }
+    p_material_file = &problem->file_materials;
+    
+    jio_res = jio_memory_file_create(cfg->definition.profiles_file, &problem->file_profiles, 0, 0, 0);
+    if (jio_res != JIO_RESULT_SUCCESS)
+    {
+        JDM_ERROR("Could not open profile file \"%s\"", cfg->definition.profiles_file);
+        res = JTA_RESULT_BAD_IO;
+        goto failed;
+    }
+    p_profile_file = &problem->file_profiles;
+
+
+    jio_res = jio_memory_file_create(cfg->definition.elements_file, &problem->file_elements, 0, 0, 0);
+    if (jio_res != JIO_RESULT_SUCCESS)
+    {
+        JDM_ERROR("Could not open element file \"%s\"", cfg->definition.elements_file);
+        res = JTA_RESULT_BAD_IO;
+        goto failed;
+    }
+    p_element_file = &problem->file_elements;
+
+
+    jio_res = jio_memory_file_create(cfg->definition.natural_bcs_file, &problem->file_nat, 0, 0, 0);
+    if (jio_res != JIO_RESULT_SUCCESS)
+    {
+        JDM_ERROR("Could not open element file \"%s\"", cfg->definition.natural_bcs_file);
+        res = JTA_RESULT_BAD_IO;
+        goto failed;
+    }
+    p_natural_file = &problem->file_nat;
+
+    jio_res = jio_memory_file_create(cfg->definition.numerical_bcs_file, &problem->file_num, 0, 0, 0);
+    if (jio_res != JIO_RESULT_SUCCESS)
+    {
+        JDM_ERROR("Could not open element file \"%s\"", cfg->definition.numerical_bcs_file);
+        res = JTA_RESULT_BAD_IO;
+        goto failed;
+    }
+    p_numerical_file = &problem->file_num;
+
+    res = jta_load_points(p_point_file, &point_list);
+    if (res != JTA_RESULT_SUCCESS)
+    {
+        JDM_ERROR("Could not load points");
+        res = JTA_RESULT_BAD_IO;
+        goto failed;
+    }
+    if (point_list.count < 2)
+    {
+        JDM_ERROR("At least two points should be defined");
+        res = JTA_RESULT_BAD_PROBLEM;
+        goto failed;
+    }
+
+    res = jta_load_materials(p_material_file, &material_list);
+    if (res != JTA_RESULT_SUCCESS)
+    {
+        JDM_ERROR("Could not load material_list");
+        jta_free_points(&point_list);
+        res = JTA_RESULT_BAD_IO;
+        goto failed;
+    }
+    if (material_list.count < 1)
+    {
+        JDM_ERROR("At least one material should be defined");
+        jta_free_points(&point_list);
+        res = JTA_RESULT_BAD_PROBLEM;
+        goto failed;
+    }
+
+    res = jta_load_profiles(p_profile_file, &profile_list);
+    if (res != JTA_RESULT_SUCCESS)
+    {
+        JDM_ERROR("Could not load profiles");
+        jta_free_points(&point_list);
+        jta_free_materials(&material_list);
+        res = JTA_RESULT_BAD_IO;
+        goto failed;
+    }
+    if (profile_list.count < 1)
+    {
+        JDM_ERROR("At least one profile should be defined");
+        jta_free_points(&point_list);
+        jta_free_materials(&material_list);
+        res = JTA_RESULT_BAD_PROBLEM;
+        goto failed;
+    }
+
+    res = jta_load_elements(p_element_file, &point_list, &material_list, &profile_list, &element_list);
+    if (res != JTA_RESULT_SUCCESS)
+    {
+        JDM_ERROR("Could not load element_list");
+        jta_free_points(&point_list);
+        jta_free_materials(&material_list);
+        jta_free_profiles(&profile_list);
+        res = JTA_RESULT_BAD_IO;
+        goto failed;
+    }
+    if (element_list.count < 1)
+    {
+        JDM_ERROR("At least one profile should be defined");
+        jta_free_points(&point_list);
+        jta_free_materials(&material_list);
+        jta_free_profiles(&profile_list);
+        res = JTA_RESULT_BAD_PROBLEM;
+        goto failed;
+    }
+
+    res = jta_load_natural_boundary_conditions(p_natural_file, &point_list, &natural_boundary_conditions);
+    if (res != JTA_RESULT_SUCCESS)
+    {
+        JDM_ERROR("Could not load natural boundary conditions");
+        res = JTA_RESULT_BAD_IO;
+        jta_free_points(&point_list);
+        jta_free_materials(&material_list);
+        jta_free_profiles(&profile_list);
+        jta_free_elements(&element_list);
+        goto failed;
+    }
+
+    res = jta_load_numerical_boundary_conditions(p_numerical_file, &point_list, &numerical_boundary_conditions);
+    if (res != JTA_RESULT_SUCCESS)
+    {
+        JDM_ERROR("Could not load numerical boundary conditions");
+        res = JTA_RESULT_BAD_IO;
+        jta_free_points(&point_list);
+        jta_free_materials(&material_list);
+        jta_free_profiles(&profile_list);
+        jta_free_elements(&element_list);
+        jta_free_natural_boundary_conditions(&natural_boundary_conditions);
+        goto failed;
+    }
+
+    problem->point_list = point_list;
+    problem->material_list = material_list;
+    problem->profile_list = profile_list;
+    problem->element_list = element_list;
+    problem->natural_bcs = natural_boundary_conditions;
+    problem->numerical_bcs = numerical_boundary_conditions;
+
+    problem->gravity = VEC4(cfg->sim_and_sol.gravity[0], cfg->sim_and_sol.gravity[1], cfg->sim_and_sol.gravity[2]);
+
+    JDM_LEAVE_FUNCTION;
     return JTA_RESULT_SUCCESS;
+failed:
+    if (p_numerical_file)
+    {
+        jio_memory_file_destroy(p_numerical_file);
+    }
+    if (p_natural_file)
+    {
+        jio_memory_file_destroy(p_natural_file);
+    }
+    if (p_element_file)
+    {
+        jio_memory_file_destroy(p_element_file);
+    }
+    if (p_profile_file)
+    {
+        jio_memory_file_destroy(p_profile_file);
+    }
+    if (p_material_file)
+    {
+        jio_memory_file_destroy(p_material_file);
+    }
+    if (p_point_file)
+    {
+        jio_memory_file_destroy(p_point_file);
+    }
+    JDM_LEAVE_FUNCTION;
+    return res;
+}
+
+void jta_free_problem(jta_problem_setup* problem)
+{
+    JDM_ENTER_FUNCTION;
+
+    jta_free_points(&problem->point_list);
+    jta_free_materials(&problem->material_list);
+    jta_free_profiles(&problem->profile_list);
+    jta_free_elements(&problem->element_list);
+    jta_free_natural_boundary_conditions(&problem->natural_bcs);
+    jta_free_numerical_boundary_conditions(&problem->numerical_bcs);
+    jio_memory_file_destroy(&problem->file_num);
+    jio_memory_file_destroy(&problem->file_nat);
+    jio_memory_file_destroy(&problem->file_elements);
+    jio_memory_file_destroy(&problem->file_profiles);
+    jio_memory_file_destroy(&problem->file_materials);
+    jio_memory_file_destroy(&problem->file_points);
+    JDM_LEAVE_FUNCTION;
 }

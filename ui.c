@@ -207,46 +207,46 @@ jfw_res truss_key_press(jfw_widget* this, KeySym key_sym)
         {
             jta_draw_state* const state = jfw_widget_get_user_pointer(this);
             assert(state);
-            jta_problem_setup* problem = &state->problem;
+            jta_problem_setup* problem = state->p_problem;
             jta_result res = jta_make_global_matrices(
-                    problem->point_list, problem->element_list, problem->profile_list, problem->materials, problem->stiffness_matrix, problem->point_masses);
+                    &problem->point_list, &problem->element_list, &problem->profile_list, &problem->material_list, problem->stiffness_matrix, problem->point_masses);
             if (res != JTA_RESULT_SUCCESS)
             {
                 JDM_ERROR("Could not build global system matrices, reason: %s", jta_result_to_str(res));
                 goto end;
             }
 
-            res = jta_apply_natural_bcs(problem->point_list->count, problem->natural_bcs, problem->gravity, problem->point_masses, problem->forces);
+            res = jta_apply_natural_bcs(problem->point_list.count, &problem->natural_bcs, problem->gravity, problem->point_masses, problem->forces);
             if (res != JTA_RESULT_SUCCESS)
             {
                 JDM_ERROR("Could not apply natural BCs, reason: %s", jta_result_to_str(res));
                 goto end;
             }
             jmtx_matrix_crs* k_reduced;
-            bool* dofs = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*dofs) * 3 * problem->point_list->count);
+            bool* dofs = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*dofs) * 3 * problem->point_list.count);
             if (!dofs)
             {
-                JDM_ERROR("Could not allocate %zu bytes for the list of free DOFs", sizeof(*dofs) * 3 * problem->point_list->count);
+                JDM_ERROR("Could not allocate %zu bytes for the list of free DOFs", sizeof(*dofs) * 3 * problem->point_list.count);
                 goto end;
             }
-            float* f_r = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*f_r) * 3 * problem->point_list->count);
+            float* f_r = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*f_r) * 3 * problem->point_list.count);
             if (!f_r)
             {
-                JDM_ERROR("Could not allocate %zu bytes for reduced force vector", sizeof(*f_r) * 3 * problem->point_list->count);
+                JDM_ERROR("Could not allocate %zu bytes for reduced force vector", sizeof(*f_r) * 3 * problem->point_list.count);
                 lin_jfree(G_LIN_JALLOCATOR, dofs);
                 goto end;
             }
-            float* u_r = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*u_r) * 3 * problem->point_list->count * 3);
+            float* u_r = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*u_r) * 3 * problem->point_list.count * 3);
             if (!u_r)
             {
-                JDM_ERROR("Could not allocate %zu bytes for reduced force vector", sizeof(*f_r) * 3 * problem->point_list->count);
+                JDM_ERROR("Could not allocate %zu bytes for reduced force vector", sizeof(*f_r) * 3 * problem->point_list.count);
                 lin_jfree(G_LIN_JALLOCATOR, dofs);
                 lin_jfree(G_LIN_JALLOCATOR, f_r);
                 goto end;
             }
 
 
-            res = jta_reduce_system(problem->point_list->count, problem->stiffness_matrix, problem->numerical_bcs, &k_reduced, dofs);
+            res = jta_reduce_system(problem->point_list.count, problem->stiffness_matrix, &problem->numerical_bcs, &k_reduced, dofs);
             if (res != JTA_RESULT_SUCCESS)
             {
                 JDM_ERROR("Could not apply reduce the system of equations to solve, reason: %s", jta_result_to_str(res));
@@ -257,7 +257,7 @@ jfw_res truss_key_press(jfw_widget* this, KeySym key_sym)
             }
 
             uint32_t p_g, p_r;
-            for (p_g = 0, p_r = 0; p_g < problem->point_list->count * 3; ++p_g)
+            for (p_g = 0, p_r = 0; p_g < problem->point_list.count * 3; ++p_g)
             {
                 if (dofs[p_g])
                 {
@@ -277,7 +277,7 @@ jfw_res truss_key_press(jfw_widget* this, KeySym key_sym)
                                                    .67f,
                                                    max_err, max_iters, &iter_count, err_evol, &final_error, NULL);
             f64 time_taken = jta_timer_get(&solver_timer);
-            for (p_g = 0, p_r = 0; p_g < problem->point_list->count * 3; ++p_g)
+            for (p_g = 0, p_r = 0; p_g < problem->point_list.count * 3; ++p_g)
             {
                 if (dofs[p_g])
                 {

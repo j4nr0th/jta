@@ -32,4 +32,6 @@ jta_result jta_load_elements(
         const jio_memory_file* mem_file, const jta_point_list* points, const jta_material_list* materials,
         const jta_profile_list* profiles, jta_element_list* element_list);
 
+void jta_free_elements(jta_element_list* element_list);
+
 #endif //JTA_JTAELEMENTS_H

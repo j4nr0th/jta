@@ -219,7 +219,7 @@ static jta_result load_problem_config(const jio_cfg_section* section, jta_config
     memset(cfg, 0, sizeof(*cfg));
 
     if (!(cfg->definition.points_file = get_str_from_section(definitions_section, "points", false, NULL))
-    ||  !(cfg->definition.materials_file = get_str_from_section(definitions_section, "materials", false, NULL))
+    ||  !(cfg->definition.materials_file = get_str_from_section(definitions_section, "material_list", false, NULL))
     ||  !(cfg->definition.profiles_file = get_str_from_section(definitions_section, "profiles", false, NULL))
     ||  !(cfg->definition.elements_file = get_str_from_section(definitions_section, "elements", false, NULL))
     ||  !(cfg->definition.natural_bcs_file = get_str_from_section(definitions_section, "natural BCs", false, NULL))

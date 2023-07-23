@@ -21,7 +21,7 @@ struct jta_draw_state_struct
     i32 track_move;
     i32 mv_x, mv_y;
     int screenshot;
-    jta_problem_setup problem;
+    jta_problem_setup* p_problem;
 };
 
 

@@ -252,3 +252,15 @@ jta_result jta_load_natural_boundary_conditions(
     JDM_LEAVE_FUNCTION;
     return res;
 }
+
+void jta_free_natural_boundary_conditions(jta_natural_boundary_condition_list* bcs)
+{
+    JDM_ENTER_FUNCTION;
+
+    ill_jfree(G_JALLOCATOR, bcs->i_point);
+    ill_jfree(G_JALLOCATOR, bcs->x);
+    ill_jfree(G_JALLOCATOR, bcs->y);
+    ill_jfree(G_JALLOCATOR, bcs->z);
+
+    JDM_LEAVE_FUNCTION;
+}

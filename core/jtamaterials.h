@@ -22,4 +22,6 @@ struct jta_material_list_struct
 
 jta_result jta_load_materials(const jio_memory_file* mem_file, jta_material_list* material_list);
 
+void jta_free_materials(jta_material_list* material_list);
+
 #endif //JTA_JTAMATERIALS_H

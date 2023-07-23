@@ -171,102 +171,18 @@ int main(int argc, char* argv[argc])
 
 
     jta_problem_setup problem_setup;
-
-    jio_memory_file file_points, file_materials, file_profiles, file_elements, file_nat, file_num;
-    jta_point_list point_list;
-    jta_material_list material_list;
-    jta_profile_list profile_list;
-    jta_element_list elements;
-    jta_natural_boundary_condition_list natural_boundary_conditions;
-    jta_numerical_boundary_condition_list numerical_boundary_conditions;
-
     jta_timer_set(&main_timer);
-    jio_result jio_res = jio_memory_file_create(master_config.problem.definition.points_file, &file_points, 0, 0, 0);
-    if (jio_res != JIO_RESULT_SUCCESS)
-    {
-        JDM_FATAL("Could not open point file \"%s\"", master_config.problem.definition.points_file);
-    }
-    jio_res = jio_memory_file_create(master_config.problem.definition.materials_file, &file_materials, 0, 0, 0);
-    if (jio_res != JIO_RESULT_SUCCESS)
-    {
-        JDM_FATAL("Could not open material file \"%s\"", master_config.problem.definition.materials_file);
-    }
-    jio_res = jio_memory_file_create(master_config.problem.definition.profiles_file, &file_profiles, 0, 0, 0);
-    if (jio_res != JIO_RESULT_SUCCESS)
-    {
-        JDM_FATAL("Could not open profile file \"%s\"", master_config.problem.definition.profiles_file);
-    }
-    jio_res = jio_memory_file_create(master_config.problem.definition.elements_file, &file_elements, 0, 0, 0);
-    if (jio_res != JIO_RESULT_SUCCESS)
-    {
-        JDM_FATAL("Could not open element file \"%s\"", master_config.problem.definition.elements_file);
-    }
-    jio_res = jio_memory_file_create(master_config.problem.definition.natural_bcs_file, &file_nat, 0, 0, 0);
-    if (jio_res != JIO_RESULT_SUCCESS)
-    {
-        JDM_FATAL("Could not open element file \"%s\"", master_config.problem.definition.natural_bcs_file);
-    }
-    jio_res = jio_memory_file_create(master_config.problem.definition.numerical_bcs_file, &file_num, 0, 0, 0);
-    if (jio_res != JIO_RESULT_SUCCESS)
-    {
-        JDM_FATAL("Could not open element file \"%s\"", master_config.problem.definition.numerical_bcs_file);
-    }
-
-    jta_res = jta_load_points(&file_points, &point_list);
+    jta_res = jta_load_problem(&master_config.problem, &problem_setup);
     if (jta_res != JTA_RESULT_SUCCESS)
     {
-        JDM_FATAL("Could not load points");
-    }
-    if (point_list.count < 2)
-    {
-        JDM_FATAL("At least two points should be defined");
-    }
-    jta_res = jta_load_materials(&file_materials, &material_list);
-    if (jta_res != JTA_RESULT_SUCCESS)
-    {
-        JDM_FATAL("Could not load materials");
-    }
-    if (material_list.count < 1)
-    {
-        JDM_FATAL("At least one material should be defined");
-    }
-    jta_res = jta_load_profiles(&file_profiles, &profile_list);
-    if (jta_res != JTA_RESULT_SUCCESS)
-    {
-        JDM_FATAL("Could not load profiles");
-    }
-    if (profile_list.count < 1)
-    {
-        JDM_FATAL("At least one profile should be defined");
-    }
-
-    jta_res = jta_load_elements(&file_elements, &point_list, &material_list, &profile_list, &elements);
-    if (jta_res != JTA_RESULT_SUCCESS)
-    {
-        JDM_FATAL("Could not load elements");
-    }
-    if (elements.count < 1)
-    {
-        JDM_FATAL("At least one profile should be defined");
-    }
-
-    jta_res = jta_load_natural_boundary_conditions(&file_nat, &point_list, &natural_boundary_conditions);
-    if (jta_res != JTA_RESULT_SUCCESS)
-    {
-        JDM_FATAL("Could not load natural boundary conditions");
-    }
-
-    jta_res = jta_load_numerical_boundary_conditions(&file_num, &point_list, &numerical_boundary_conditions);
-    if (jta_res != JTA_RESULT_SUCCESS)
-    {
-        JDM_FATAL("Could not load numerical boundary conditions");
+        JDM_FATAL("Could not load problem, reason: %s", jta_result_to_str(jta_res));
     }
     dt = jta_timer_get(&main_timer);
     JDM_TRACE("Data loading time: %g sec", dt);
     //  Find the bounding box of the geometry
     vec4 geo_base;
     f32 geo_radius;
-    gfx_find_bounding_sphere(&point_list, &geo_base, &geo_radius);
+    gfx_find_bounding_sphere(&problem_setup.point_list, &geo_base, &geo_radius);
 
 
 
@@ -304,7 +220,7 @@ int main(int argc, char* argv[argc])
     jta_mesh truss_mesh;
     jta_mesh sphere_mesh;
     jta_mesh cone_mesh;
-    vulkan_state.point_list = &point_list;
+    vulkan_state.point_list = &problem_setup.point_list;
     if ((gfx_res = mesh_init_truss(&truss_mesh, 1 << 12, &vulkan_state, vk_res)) != GFX_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
@@ -324,29 +240,29 @@ int main(int argc, char* argv[argc])
     jta_timer_set(&main_timer);
     //  This is the truss mesh :)
     f32 radius_factor = 1.0f;  //  This could be a config option
-    for (u32 i = 0; i < elements.count; ++i)
+    for (u32 i = 0; i < problem_setup.element_list.count; ++i)
     {
         if ((gfx_res = truss_mesh_add_between_pts(
                 &truss_mesh, (jfw_color) { .r = 0xD0, .g = 0xD0, .b = 0xD0, .a = 0xFF },
-                radius_factor * profile_list.equivalent_radius[elements.i_profile[i]],
-                VEC4(point_list.p_x[elements.i_point0[i]], point_list.p_y[elements.i_point0[i]],
-                     point_list.p_z[elements.i_point0[i]]), VEC4(point_list.p_x[elements.i_point1[i]],
-                                                             point_list.p_y[elements.i_point1[i]],
-                                                             point_list.p_z[elements.i_point1[i]]), 0.0f, &vulkan_state)) != GFX_RESULT_SUCCESS)
+                radius_factor * problem_setup.profile_list.equivalent_radius[problem_setup.element_list.i_profile[i]],
+                VEC4(problem_setup.point_list.p_x[problem_setup.element_list.i_point0[i]], problem_setup.point_list.p_y[problem_setup.element_list.i_point0[i]],
+                     problem_setup.point_list.p_z[problem_setup.element_list.i_point0[i]]), VEC4(problem_setup.point_list.p_x[problem_setup.element_list.i_point1[i]],
+                                                             problem_setup.point_list.p_y[problem_setup.element_list.i_point1[i]],
+                                                             problem_setup.point_list.p_z[problem_setup.element_list.i_point1[i]]), 0.0f, &vulkan_state)) != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not add element %"PRIu32" to the mesh, reason: %s", i, gfx_result_to_str(gfx_res));
             goto cleanup;
         }
     }
     //  These are the joints
-    uint32_t* bcs_per_point = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*bcs_per_point) * point_list.count);
-    memset(bcs_per_point, 0, sizeof(*bcs_per_point) * point_list.count);
-    for (u32 i = 0; i < numerical_boundary_conditions.count; ++i)
+    uint32_t* bcs_per_point = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*bcs_per_point) * problem_setup.point_list.count);
+    memset(bcs_per_point, 0, sizeof(*bcs_per_point) * problem_setup.point_list.count);
+    for (u32 i = 0; i < problem_setup.numerical_bcs.count; ++i)
     {
-        bcs_per_point[numerical_boundary_conditions.i_point[i]] +=
-                ((numerical_boundary_conditions.type[i] & JTA_NUMERICAL_BC_TYPE_X) != 0) +
-                ((numerical_boundary_conditions.type[i] & JTA_NUMERICAL_BC_TYPE_Y) != 0) +
-                ((numerical_boundary_conditions.type[i] & JTA_NUMERICAL_BC_TYPE_Z) != 0);
+        bcs_per_point[problem_setup.numerical_bcs.i_point[i]] +=
+                ((problem_setup.numerical_bcs.type[i] & JTA_NUMERICAL_BC_TYPE_X) != 0) +
+                ((problem_setup.numerical_bcs.type[i] & JTA_NUMERICAL_BC_TYPE_Y) != 0) +
+                ((problem_setup.numerical_bcs.type[i] & JTA_NUMERICAL_BC_TYPE_Z) != 0);
     }
     //  These could be a config options
     const jfw_color point_colors[4] =
@@ -365,7 +281,7 @@ int main(int argc, char* argv[argc])
                 2.0f,//  3 (or somehow more) - red
             };
 
-    for (u32 i = 0; i < point_list.count; ++i)
+    for (u32 i = 0; i < problem_setup.point_list.count; ++i)
     {
         jfw_color c;
         f32 r;
@@ -384,7 +300,7 @@ int main(int argc, char* argv[argc])
             r = point_scales[2];
             break;
         default:
-            JDM_WARN("Point \"%.*s\" has %u numerical boundary conditions applied to it", (int)point_list.label[i].len, point_list.label[i].begin, bcs_per_point[i]);
+            JDM_WARN("Point \"%.*s\" has %u numerical boundary conditions applied to it", (int)problem_setup.point_list.label[i].len, problem_setup.point_list.label[i].begin, bcs_per_point[i]);
             [[fallthrough]];
         case 3:
             c = point_colors[3];
@@ -392,7 +308,7 @@ int main(int argc, char* argv[argc])
             break;
         }
 
-        if ((gfx_res = sphere_mesh_add(&sphere_mesh, c, r * point_list.max_radius[i], VEC4(point_list.p_x[i], point_list.p_y[i], point_list.p_z[i]), &vulkan_state)) != GFX_RESULT_SUCCESS)
+        if ((gfx_res = sphere_mesh_add(&sphere_mesh, c, r * problem_setup.point_list.max_radius[i], VEC4(problem_setup.point_list.p_x[i], problem_setup.point_list.p_y[i], problem_setup.point_list.p_z[i]), &vulkan_state)) != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not add node %"PRIu32" to the mesh, reason: %s", i, gfx_result_to_str(gfx_res));
             goto cleanup;
@@ -403,25 +319,25 @@ int main(int argc, char* argv[argc])
     const f32 max_radius_scale = 0.3f;    //  This could be a config option
     const f32 arrow_cone_ratio = 0.5f;    //  This could be a config option
     const f32 max_length_scale = 0.3f;    //  This could be a config option
-    for (u32 i = 0; i < natural_boundary_conditions.count; ++i)
+    for (u32 i = 0; i < problem_setup.natural_bcs.count; ++i)
     {
-        vec4 base = VEC4(point_list.p_x[natural_boundary_conditions.i_point[i]],
-                         point_list.p_y[natural_boundary_conditions.i_point[i]],
-                         point_list.p_z[natural_boundary_conditions.i_point[i]]);
+        vec4 base = VEC4(problem_setup.point_list.p_x[problem_setup.natural_bcs.i_point[i]],
+                         problem_setup.point_list.p_y[problem_setup.natural_bcs.i_point[i]],
+                         problem_setup.point_list.p_z[problem_setup.natural_bcs.i_point[i]]);
         float mag = hypotf(
-                hypotf(natural_boundary_conditions.x[i], natural_boundary_conditions.y[i]),
-                natural_boundary_conditions.z[i]);
-        const f32 real_length = mag / natural_boundary_conditions.max_mag * elements.max_len * max_length_scale;
-        vec4 direction = vec4_div_one(VEC4(natural_boundary_conditions.x[i], natural_boundary_conditions.y[i], natural_boundary_conditions.z[i]), mag);
+                hypotf(problem_setup.natural_bcs.x[i], problem_setup.natural_bcs.y[i]),
+                problem_setup.natural_bcs.z[i]);
+        const f32 real_length = mag / problem_setup.natural_bcs.max_mag * problem_setup.element_list.max_len * max_length_scale;
+        vec4 direction = vec4_div_one(VEC4(problem_setup.natural_bcs.x[i], problem_setup.natural_bcs.y[i], problem_setup.natural_bcs.z[i]), mag);
         vec4 second = vec4_add(base, vec4_mul_one(direction, real_length * (1 - arrow_cone_ratio)));
         vec4 third = vec4_add(base, vec4_mul_one(direction, real_length));
-        if ((gfx_res = cone_mesh_add_between_pts(&cone_mesh, (jfw_color){.b = 0xD0, .a = 0xFF}, 2 * max_radius_scale * profile_list.max_equivalent_radius,
+        if ((gfx_res = cone_mesh_add_between_pts(&cone_mesh, (jfw_color){.b = 0xD0, .a = 0xFF}, 2 * max_radius_scale * problem_setup.profile_list.max_equivalent_radius,
                                                  second, third, &vulkan_state)) != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not add force %"PRIu32" to the mesh, reason: %s", i, gfx_result_to_str(gfx_res));
             goto cleanup;
         }
-        if ((gfx_res = truss_mesh_add_between_pts(&truss_mesh, (jfw_color){.b = 0xD0, .a = 0xFF}, max_radius_scale * profile_list.max_equivalent_radius,
+        if ((gfx_res = truss_mesh_add_between_pts(&truss_mesh, (jfw_color){.b = 0xD0, .a = 0xFF}, max_radius_scale * problem_setup.profile_list.max_equivalent_radius,
                                                  base, second, 0.0f, &vulkan_state)) != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not add force %"PRIu32" to the mesh, reason: %s", i, gfx_result_to_str(gfx_res));
@@ -480,34 +396,29 @@ int main(int argc, char* argv[argc])
             .vulkan_resources = vk_res,
             };
 
-    draw_state.problem.numerical_bcs = &numerical_boundary_conditions;
-    draw_state.problem.natural_bcs = &natural_boundary_conditions;
-    draw_state.problem.point_list = &point_list;
-    draw_state.problem.element_list = &elements;
-    draw_state.problem.materials = &material_list;
-    draw_state.problem.profile_list = &profile_list;
-    draw_state.problem.deformations = ill_jalloc(G_JALLOCATOR, sizeof(*draw_state.problem.deformations) * 3 * point_list.count);
-    draw_state.problem.forces = ill_jalloc(G_JALLOCATOR, sizeof(*draw_state.problem.forces) * 3 * point_list.count);
-    draw_state.problem.point_masses = ill_jalloc(G_JALLOCATOR, sizeof(*draw_state.problem.point_masses) * point_list.count);
-    draw_state.problem.gravity = VEC4(0, 0, -9.81);
+    draw_state.p_problem = &problem_setup;
+    draw_state.p_problem->deformations = ill_jalloc(G_JALLOCATOR, sizeof(*draw_state.p_problem->deformations) * 3 * problem_setup.point_list.count);
+    draw_state.p_problem->forces = ill_jalloc(G_JALLOCATOR, sizeof(*draw_state.p_problem->forces) * 3 * problem_setup.point_list.count);
+    draw_state.p_problem->point_masses = ill_jalloc(G_JALLOCATOR, sizeof(*draw_state.p_problem->point_masses) * problem_setup.point_list.count);
 
-    if (!draw_state.problem.deformations)
+
+    if (!draw_state.p_problem->deformations)
     {
         JDM_FATAL("Could not allocate memory for deformation results");
     }
-    if (!draw_state.problem.forces)
+    if (!draw_state.p_problem->forces)
     {
         JDM_FATAL("Could not allocate memory for force values");
     }
-    if (!draw_state.problem.point_masses)
+    if (!draw_state.p_problem->point_masses)
     {
         JDM_FATAL("Could not allocate memory for point masses");
     }
-    memset(draw_state.problem.deformations, 0, sizeof(*draw_state.problem.deformations) * point_list.count);
-    memset(draw_state.problem.forces, 0, sizeof(*draw_state.problem.forces) * point_list.count);
-    memset(draw_state.problem.point_masses, 0, sizeof(*draw_state.problem.point_masses) * point_list.count);
+    memset(draw_state.p_problem->deformations, 0, sizeof(*draw_state.p_problem->deformations) * problem_setup.point_list.count);
+    memset(draw_state.p_problem->forces, 0, sizeof(*draw_state.p_problem->forces) * problem_setup.point_list.count);
+    memset(draw_state.p_problem->point_masses, 0, sizeof(*draw_state.p_problem->point_masses) * problem_setup.point_list.count);
 
-    jmtx_result jmtx_res = jmtx_matrix_crs_new(&draw_state.problem.stiffness_matrix, 3 * point_list.count, 3 * point_list.count, 36 * point_list.count, NULL);
+    jmtx_result jmtx_res = jmtx_matrix_crs_new(&draw_state.p_problem->stiffness_matrix, 3 * problem_setup.point_list.count, 3 * problem_setup.point_list.count, 36 * problem_setup.point_list.count, NULL);
     if (jmtx_res != JMTX_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not allocate memory for problem stiffness matrix, reason: %s", jmtx_result_to_str(jmtx_res));
@@ -530,53 +441,21 @@ int main(int argc, char* argv[argc])
 //    vk_state_destroy(&vulkan_state, vk_res);
     jwnd = NULL;
 
-    ill_jfree(G_JALLOCATOR, draw_state.problem.point_masses);
-    ill_jfree(G_JALLOCATOR, draw_state.problem.forces);
-    ill_jfree(G_JALLOCATOR, draw_state.problem.deformations);
-    jmtx_matrix_crs_destroy(draw_state.problem.stiffness_matrix);
+    ill_jfree(G_JALLOCATOR, draw_state.p_problem->point_masses);
+    ill_jfree(G_JALLOCATOR, draw_state.p_problem->forces);
+    ill_jfree(G_JALLOCATOR, draw_state.p_problem->deformations);
+    jmtx_matrix_crs_destroy(draw_state.p_problem->stiffness_matrix);
 
 cleanup:
     mesh_uninit(&truss_mesh);
     mesh_uninit(&sphere_mesh);
     mesh_uninit(&cone_mesh);
-    ill_jfree(G_JALLOCATOR, numerical_boundary_conditions.type);
-    ill_jfree(G_JALLOCATOR, numerical_boundary_conditions.i_point);
-    ill_jfree(G_JALLOCATOR, numerical_boundary_conditions.x);
-    ill_jfree(G_JALLOCATOR, numerical_boundary_conditions.y);
-    ill_jfree(G_JALLOCATOR, numerical_boundary_conditions.z);
-    ill_jfree(G_JALLOCATOR, natural_boundary_conditions.i_point);
-    ill_jfree(G_JALLOCATOR, natural_boundary_conditions.x);
-    ill_jfree(G_JALLOCATOR, natural_boundary_conditions.y);
-    ill_jfree(G_JALLOCATOR, natural_boundary_conditions.z);
-    ill_jfree(G_JALLOCATOR, elements.lengths);
-    ill_jfree(G_JALLOCATOR, elements.labels);
-    ill_jfree(G_JALLOCATOR, elements.i_material);
-    ill_jfree(G_JALLOCATOR, elements.i_profile);
-    ill_jfree(G_JALLOCATOR, elements.i_point0);
-    ill_jfree(G_JALLOCATOR, elements.i_point1);
-    ill_jfree(G_JALLOCATOR, profile_list.equivalent_radius);
-    ill_jfree(G_JALLOCATOR, profile_list.area);
-    ill_jfree(G_JALLOCATOR, profile_list.second_moment_of_area);
-    ill_jfree(G_JALLOCATOR, profile_list.labels);
-    ill_jfree(G_JALLOCATOR, material_list.labels);
-    ill_jfree(G_JALLOCATOR, material_list.compressive_strength);
-    ill_jfree(G_JALLOCATOR, material_list.tensile_strength);
-    ill_jfree(G_JALLOCATOR, material_list.density);
-    ill_jfree(G_JALLOCATOR, material_list.elastic_modulus);
-    ill_jfree(G_JALLOCATOR, point_list.p_x);
-    ill_jfree(G_JALLOCATOR, point_list.p_y);
-    ill_jfree(G_JALLOCATOR, point_list.p_z);
-    ill_jfree(G_JALLOCATOR, point_list.label);
-    ill_jfree(G_JALLOCATOR, point_list.max_radius);
-    jio_memory_file_destroy(&file_elements);
-    jio_memory_file_destroy(&file_profiles);
-    jio_memory_file_destroy(&file_materials);
-    jio_memory_file_destroy(&file_points);
     if (jctx)
     {
         jfw_context_destroy(jctx);
         jctx = NULL;
     }
+    jta_free_problem(&problem_setup);
     jta_free_configuration(&master_config);
     JDM_LEAVE_FUNCTION;
     jdm_cleanup_thread();

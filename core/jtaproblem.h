@@ -17,12 +17,14 @@
 typedef struct jta_problem_setup_struct jta_problem_setup;
 struct jta_problem_setup_struct
 {
-    const jta_point_list* point_list;                           //  Point list parsed from input file
-    const jta_element_list* element_list;                       //  Element list parsed from input file
-    const jta_profile_list* profile_list;                       //  Profile list parsed from input file
-    const jta_material_list* materials;                         //  Material list parsed from input file
-    const jta_natural_boundary_condition_list* natural_bcs;     //  Natural BC list parsed from input file
-    const jta_numerical_boundary_condition_list* numerical_bcs; //  Numerical BC list parsed from input file
+    jio_memory_file file_points, file_materials, file_profiles,
+                    file_elements, file_nat, file_num;          //  Files from which data was loaded (used to store labels)
+    jta_point_list point_list;                           //  Point list parsed from input file
+    jta_element_list element_list;                       //  Element list parsed from input file
+    jta_profile_list profile_list;                       //  Profile list parsed from input file
+    jta_material_list material_list;                         //  Material list parsed from input file
+    jta_natural_boundary_condition_list natural_bcs;     //  Natural BC list parsed from input file
+    jta_numerical_boundary_condition_list numerical_bcs; //  Numerical BC list parsed from input file
     vec4 gravity;                                               //  Gravitational acceleration vector set in the input file
     jmtx_matrix_crs* stiffness_matrix;                          //  Stiffness matrix K (size is 3 * length of point list in each dimension)
     f32* point_masses;                                          //  Array of masses lumped at each point (length is same as point list)
@@ -31,6 +33,8 @@ struct jta_problem_setup_struct
 };
 
 jta_result jta_load_problem(const jta_config_problem* cfg, jta_problem_setup* problem);
+
+void jta_free_problem(jta_problem_setup* problem);
 
 mtx4 jta_element_transform_matrix(f32 dx, f32 dy, f32 dz);
 
