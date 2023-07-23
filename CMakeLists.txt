@@ -6,10 +6,10 @@ set(CMAKE_C_STANDARD 23)
 
 add_compile_options("-march=native")
 
-list(APPEND JFW_SOURCE_FILES gfx/gfx_math.c jfw/jfw_common.c jfw/unicode_block_lookup_table.c jfw/widget-base.c
-        jfw/window.c jfw/error_system/error_codes.c jfw/vk/platform.c)
-list(APPEND JFW_HEADER_FILES gfx/gfx_math.h jfw/jfw_common.h jfw/unicode_block_lookup_table.h jfw/widget-base.h
-        jfw/window.h jfw/error_system/error_codes.h jfw/vk/platform.h)
+list(APPEND JFW_SOURCE_FILES gfx/gfx_math.c jfw/jfw_common.c
+        jfw/window.c jfw/jfw_error.c jfw/platform.c)
+list(APPEND JFW_HEADER_FILES gfx/gfx_math.h jfw/jfw_common.h
+        jfw/window.h jfw/jfw_error.h jfw/platform.h)
 
 list(APPEND ALLOCATORS_SOURCE_FILES mem/vk_mem_allocator.c mem/aligned_jalloc.c)
 list(APPEND ALLOCATORS_HEADER_FILES mem/vk_mem_allocator.h mem/aligned_jalloc.h)
@@ -52,8 +52,6 @@ configure_file(test_configuration.cfg "${CMAKE_BINARY_DIR}/test_configuration.cf
 target_include_directories(jta PRIVATE jio/include jdm/include jmem/source/include jmtx/source)
 target_link_libraries(jta PRIVATE vulkan X11 m jmem jfmt jdm jio jmtx)
 
-add_executable(jfw_test ${JFW_SOURCE_FILES} ${JFW_HEADER_FILES} jfw/main.c)
-target_link_libraries(jfw_test PRIVATE vulkan X11 m jmem jfmt jdm)
 enable_testing()
 add_executable(geo_test gfx/gfx_math.h gfx/gfx_math.c geo_test.c gfx/camera.c gfx/camera.h gfx/drawing_3d.h gfx/drawing_3d.c ${JFW_SOURCE_FILES} ${JFW_HEADER_FILES} gfx/rotation_camera_test.c)
 target_link_libraries(geo_test PRIVATE m X11 vulkan jdm)

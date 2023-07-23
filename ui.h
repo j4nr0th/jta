@@ -25,14 +25,14 @@ struct jta_draw_state_struct
 };
 
 
-jfw_res truss_mouse_button_press(jfw_widget* this, i32 x, i32 y, u32 button, u32 mods);
+jfw_result truss_mouse_button_press(jfw_window* this, i32 x, i32 y, u32 button, u32 mods);
 
-jfw_res truss_mouse_button_double_press(jfw_widget* this, i32 x, i32 y, u32 button, u32 mods);
+jfw_result truss_mouse_button_double_press(jfw_window* this, i32 x, i32 y, u32 button, u32 mods);
 
-jfw_res truss_mouse_button_release(jfw_widget* this, i32 x, i32 y, u32 button, u32 mods);
+jfw_result truss_mouse_button_release(jfw_window* this, i32 x, i32 y, u32 button, u32 mods);
 
-jfw_res truss_mouse_motion(jfw_widget* this, i32 x, i32 y, u32 mods);
+jfw_result truss_mouse_motion(jfw_window* this, i32 x, i32 y, u32 mods);
 
-jfw_res truss_key_press(jfw_widget* this, KeySym key_sym);
+jfw_result truss_key_press(jfw_window* this, KeySym key_sym);
 
 #endif //JTA_UI_H

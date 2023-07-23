@@ -12,8 +12,7 @@
 
 
 #include "jfw/window.h"
-#include "jfw/widget-base.h"
-#include "jfw/error_system/error_codes.h"
+#include "jfw/jfw_error.h"
 
 
 #include "gfx/vk_state.h"
@@ -27,12 +26,12 @@
 #include "config/config_loading.h"
 
 
-static jfw_res widget_draw(jfw_widget* this)
+static jfw_result wnd_draw(jfw_window* this)
 {
-    jta_draw_state* const draw_state = jfw_widget_get_user_pointer(this);
+    jta_draw_state* const draw_state = jfw_window_get_usr_ptr(this);
     vk_state* const state = draw_state->vulkan_state;
     bool draw_good = draw_frame(
-            state, jfw_window_get_vk_resources(this->window), state->mesh_count, state->mesh_array,
+            state, jfw_window_get_vk_resources(this), state->mesh_count, state->mesh_array,
             &draw_state->camera) == GFX_RESULT_SUCCESS;
     if (draw_good && draw_state->screenshot)
     {
@@ -41,17 +40,16 @@ static jfw_res widget_draw(jfw_widget* this)
 
         draw_state->screenshot = 0;
     }
-    return draw_good ? jfw_res_success : jfw_res_error;
+    return draw_good ? JFW_RESULT_SUCCESS : JFW_RESULT_ERROR;
 }
 
-static jfw_res widget_dtor(jfw_widget* this)
+static jfw_result wnd_dtor(jfw_window* this)
 {
-    jfw_window* wnd = this->window;
-    void* state = jfw_window_get_usr_ptr(wnd);
-    jfw_window_vk_resources* vk_res = jfw_window_get_vk_resources(wnd);
+    jta_draw_state* const state = jfw_window_get_usr_ptr(this);
+    jfw_window_vk_resources* vk_res = jfw_window_get_vk_resources(this);
     vkDeviceWaitIdle(vk_res->device);
-    vk_state_destroy(state, vk_res);
-    return jfw_res_success;
+    vk_state_destroy(state->vulkan_state, vk_res);
+    return JFW_RESULT_SUCCESS;
 }
 
 static i32 jdm_error_hook_callback_function(const char* thread_name, u32 stack_trace_count, const char*const* stack_trace, jdm_message_level level, u32 line, const char* file, const char* function, const char* message, void* param)
@@ -191,10 +189,10 @@ int main(int argc, char* argv[argc])
     jfw_window* jwnd = NULL;
     jta_timer_set(&main_timer);
 
-    jfw_res jfw_result = jfw_context_create(&jctx,
-                                            NULL
-                                           );
-    if (!jfw_success(jfw_result))
+    jfw_result jfw_result = jfw_context_create(&jctx,
+                                               NULL
+                                              );
+    if (JFW_RESULT_SUCCESS !=(jfw_result))
     {
         JDM_ERROR("Could not create jfw context, reason: %s", jfw_error_message(jfw_result));
         goto cleanup;
@@ -202,7 +200,7 @@ int main(int argc, char* argv[argc])
     jfw_result = jfw_window_create(
             jctx, 1600, 900, "JANSYS - jta - 0.0.1", (jfw_color) { .a = 0xFF, .r = 0x80, .g = 0x80, .b = 0x80 },
             &jwnd, 0);
-    if (!jfw_success(jfw_result))
+    if (JFW_RESULT_SUCCESS !=(jfw_result))
     {
         JDM_ERROR("Could not create window");
         goto cleanup;
@@ -359,21 +357,19 @@ int main(int argc, char* argv[argc])
 
     printf("Total of %"PRIu64" triangles in the mesh\n", mesh_polygon_count(&truss_mesh) + mesh_polygon_count(&sphere_mesh) + mesh_polygon_count(&cone_mesh));
 
-    jfw_window_set_usr_ptr(jwnd, &vulkan_state);
-    jfw_widget* jwidget;
-    jfw_result = jfw_widget_create_as_base(jwnd, 1600, 900, 0, 0, &jwidget);
-    if (!jfw_success(jfw_result))
+
+    if (JFW_RESULT_SUCCESS !=(jfw_result))
     {
         JDM_ERROR("Could not create window's base widget");
         goto cleanup;
     }
-    jwidget->dtor_fn = widget_dtor;
-    jwidget->draw_fn = widget_draw;
-    jwidget->functions.mouse_button_press = truss_mouse_button_press;
-    jwidget->functions.mouse_button_release = truss_mouse_button_release;
-    jwidget->functions.mouse_motion = truss_mouse_motion;
-    jwidget->functions.button_up = truss_key_press;
-    jwidget->functions.mouse_button_double_press = truss_mouse_button_double_press;
+    jwnd->functions.dtor_fn = wnd_dtor;
+    jwnd->functions.draw = wnd_draw;
+    jwnd->functions.mouse_button_press = truss_mouse_button_press;
+    jwnd->functions.mouse_button_release = truss_mouse_button_release;
+    jwnd->functions.mouse_motion = truss_mouse_motion;
+    jwnd->functions.button_up = truss_key_press;
+    jwnd->functions.mouse_button_double_press = truss_mouse_button_double_press;
     jta_camera_3d camera;
     jta_camera_set(
             &camera,                                    //  Camera
@@ -423,15 +419,15 @@ int main(int argc, char* argv[argc])
     {
         JDM_FATAL("Could not allocate memory for problem stiffness matrix, reason: %s", jmtx_result_to_str(jmtx_res));
     }
-    jfw_widget_set_user_pointer(jwidget, &draw_state);
+    jfw_window_set_usr_ptr(jwnd, &draw_state);
     vulkan_state.view = jta_camera_to_view_matrix(&camera);
 
     i32 close = 0;
-    while (jfw_success(jfw_context_wait_for_events(jctx)) && !close)
+    while ((JFW_RESULT_SUCCESS == jfw_context_wait_for_events(jctx)) && !close)
     {
         while (jfw_context_has_events(jctx) && !close)
         {
-            close = !jfw_success(jfw_context_process_events(jctx));
+            close = JFW_RESULT_SUCCESS !=(jfw_context_process_events(jctx));
         }
         if (!close)
         {

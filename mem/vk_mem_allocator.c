@@ -186,7 +186,7 @@ i32 vk_buffer_allocate(
 
 //    u32* v_qfi;
 //    jfw_result =  jfw_calloc(n_queue_family_indices, sizeof(*v_qfi), &v_qfi);
-//    if (!jfw_success(jfw_result))
+//    if (JFW_RESULT_SUCCESS !=(jfw_result))
 //    {
 //        JDM_ERROR("Failed allocating memory for the pool's queue list");
 //        ill_jfree(G_JALLOCATOR, pool);

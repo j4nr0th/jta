@@ -5,7 +5,7 @@
 
 #ifndef JFW_PLATFORM_H
 #define JFW_PLATFORM_H
-#include "../jfw_common.h"
+#include "jfw_common.h"
 #ifdef linux
 #include <X11/Xlib.h>
 #include <vulkan/vulkan.h>
@@ -89,46 +89,40 @@ struct jfw_window_platform_struct
 #error Not implimented
 #endif
 
-jfw_res jfw_context_create(jfw_ctx** p_ctx, VkAllocationCallbacks* alloc_callbacks);
+jfw_result jfw_context_create(jfw_ctx** p_ctx, VkAllocationCallbacks* alloc_callbacks);
 
-jfw_res jfw_context_destroy(jfw_ctx* ctx);
+jfw_result jfw_context_destroy(jfw_ctx* ctx);
 
-jfw_res jfw_platform_create(
+jfw_result jfw_platform_create(
         jfw_ctx* ctx, jfw_platform* platform, u32 w, u32 h, size_t title_len, const char* title, u32 n_frames_in_filght,
         i32 fixed, jfw_color color);
 
 jfw_window_vk_resources* jfw_window_get_vk_resources(jfw_window* p_window);
 
-jfw_res jfw_platform_destroy(jfw_platform* platform);
+jfw_result jfw_platform_destroy(jfw_platform* platform);
 
-jfw_res jfw_context_add_window(jfw_ctx* ctx, jfw_window* p_window);
+jfw_result jfw_context_add_window(jfw_ctx* ctx, jfw_window* p_window);
 
-jfw_res jfw_context_remove_window(jfw_ctx* ctx, jfw_window* p_window);
+jfw_result jfw_context_remove_window(jfw_ctx* ctx, jfw_window* p_window);
 
-jfw_res jfw_context_process_events(jfw_ctx* ctx);
+jfw_result jfw_context_process_events(jfw_ctx* ctx);
 
 int jfw_context_has_events(jfw_ctx* ctx);
 
-jfw_res jfw_context_wait_for_events(jfw_ctx* ctx);
+jfw_result jfw_context_wait_for_events(jfw_ctx* ctx);
 
 int jfw_context_status(jfw_ctx* ctx);
 
 int jfw_context_set_status(jfw_ctx* ctx, int status);
 
-jfw_res jfw_platform_show(jfw_ctx* ctx, jfw_platform* wnd);
+jfw_result jfw_platform_show(jfw_ctx* ctx, jfw_platform* wnd);
 
-jfw_res jfw_platform_hide(jfw_ctx* ctx, jfw_platform* wnd);
-
-jfw_res jfw_platform_draw_bind(jfw_ctx* ctx, jfw_platform* wnd);
-
-jfw_res jfw_platform_unbind(jfw_ctx* ctx);
-
-jfw_res jfw_platform_swap(jfw_ctx* ctx, jfw_platform* wnd);
+jfw_result jfw_platform_hide(jfw_ctx* ctx, jfw_platform* wnd);
 
 u32 jfw_context_window_count(jfw_ctx* ctx);
 
-jfw_res jfw_platform_clear_window(jfw_ctx* ctx, jfw_platform* wnd);
+jfw_result jfw_platform_clear_window(jfw_ctx* ctx, jfw_platform* wnd);
 
-jfw_res jfw_window_update_swapchain(jfw_window* p_window);
+jfw_result jfw_window_update_swapchain(jfw_window* p_window);
 
 #endif //JFW_PLATFORM_H

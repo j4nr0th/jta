@@ -53,7 +53,6 @@ typedef union jta_color_union jta_color;
 
 #include "../jfw/jfw_common.h"
 #include "../jfw/window.h"
-#include "../jfw/widget-base.h"
 #include <jmem/jmem.h>
 #include "../mem/aligned_jalloc.h"
 

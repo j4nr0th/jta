@@ -647,8 +647,8 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
     //  Create the framebuffer(s)
     {
         VkFramebuffer* framebuffer_array;
-        jfw_res jfw_result = jfw_calloc(vk_resources->n_images, sizeof(VkFramebuffer), &framebuffer_array);
-        if (!jfw_success(jfw_result))
+        jfw_result jfw_result = jfw_calloc(vk_resources->n_images, sizeof(VkFramebuffer), &framebuffer_array);
+        if (JFW_RESULT_SUCCESS !=(jfw_result))
         {
             JDM_ERROR("Could not allocate memory for framebuffer array");
             gfx_res = GFX_RESULT_BAD_ALLOC;
@@ -707,7 +707,7 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
 //        if (ret_v != 0)
 //        {
 //            JDM_ERROR("Could not reserve device memory for transfer buffer(s)");
-//            jfw_result = jfw_res_vk_fail;
+//            jfw_result = JFW_RES_VK_FAIL;
 //            goto after_3d_framebuffers;
 //        }
         //  Reserve space for uniform buffer(s)
@@ -747,8 +747,8 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
     //  Create (and map uniform buffer)
     {
         ubo_3d** mapped_array;
-        jfw_res jfw_result = jfw_calloc(vk_resources->n_frames_in_flight, sizeof(void*), &mapped_array);
-        if (!jfw_success(jfw_result))
+        jfw_result jfw_result = jfw_calloc(vk_resources->n_frames_in_flight, sizeof(void*), &mapped_array);
+        if (JFW_RESULT_SUCCESS !=(jfw_result))
         {
             JDM_ERROR("Could not allocate memory for UBO mapping pointers");
             gfx_res = GFX_RESULT_BAD_ALLOC;
@@ -794,8 +794,8 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
             goto after_mapped_array;
         }
         VkDescriptorSetLayout* layouts;
-        jfw_res jfw_result = jfw_calloc(vk_resources->n_frames_in_flight, sizeof(*layouts), &layouts);
-        if (!jfw_success(jfw_result))
+        jfw_result jfw_result = jfw_calloc(vk_resources->n_frames_in_flight, sizeof(*layouts), &layouts);
+        if (JFW_RESULT_SUCCESS !=(jfw_result))
         {
             JDM_ERROR("Could not allocate memory for descriptor sets");
             vkDestroyDescriptorPool(vk_resources->device, desc_pool, NULL);
@@ -803,7 +803,7 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
             goto after_mapped_array;
         }
         jfw_result = jfw_calloc(vk_resources->n_frames_in_flight, sizeof(*desc_sets), &desc_sets);
-        if (!jfw_success(jfw_result))
+        if (JFW_RESULT_SUCCESS !=(jfw_result))
         {
             JDM_ERROR("Could not allocate memory for descriptor sets");
             jfw_free(&layouts);

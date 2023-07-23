@@ -10,11 +10,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
-#include "error_system/error_codes.h"
+#include "jfw_error.h"
 
 typedef struct jfw_context_struct jfw_ctx;
 typedef struct jfw_window_struct jfw_window;
-typedef struct jfw_widget_struct jfw_widget;
 typedef struct jfw_window_platform_struct jfw_platform;
 
 
@@ -31,7 +30,7 @@ typedef void u0;
 typedef float f32;
 typedef double f64;
 
-//typedef enum jfw_res_enum jfw_res;
+//typedef enum jfw_result_enum jfw_result;
 
 typedef struct rect32u_struct
 {
@@ -80,18 +79,17 @@ static inline i32 clamp_i32(i32 x, i32 min, i32 max)
     return x < min ? min : x > max ? max : x;
 }
 
-jfw_res jfw_malloc(size_t size, void** pptr);
+jfw_result jfw_malloc(size_t size, void** pptr);
 #define jfw_malloc(size, pptr) jfw_malloc(size, (void**)(pptr))
 
-jfw_res jfw_calloc(size_t nmemb, size_t size, void** (pptr));
+jfw_result jfw_calloc(size_t nmemb, size_t size, void** (pptr));
 #define jfw_calloc(nmemb, size, pptr) jfw_calloc(nmemb, size, (void**)(pptr))
 
-jfw_res jfw_realloc(size_t new_size, void** ptr);
+jfw_result jfw_realloc(size_t new_size, void** ptr);
 #define jfw_realloc(new_size, ptr) jfw_realloc(new_size, (void**)(ptr))
 
-jfw_res jfw_free(void** ptr);
+jfw_result jfw_free(void** ptr);
 #define jfw_free(ptr) jfw_free((void**)(ptr))
 
-int jfw_success(jfw_res res);
 
 #endif //JFW_COMMON_H

@@ -2,25 +2,25 @@
 // Created by jan on 2.4.2023.
 //
 
-#include "error_codes.h"
-#include "../jfw_common.h"
+#include "jfw_error.h"
+#include "jfw_common.h"
 
-static const char* const ERROR_MESSAGES[jfw_count] =
+static const char* const ERROR_MESSAGES[JFW_RESULT_COUNT] =
         {
-                [jfw_res_success] = "NO ERROR",
-                [jfw_res_error] = "GENERIC ERROR",
+                [JFW_RESULT_SUCCESS] = "NO ERROR",
+                [JFW_RESULT_ERROR] = "GENERIC ERROR",
         };
 
-const char* jfw_error_message(jfw_res err)
+const char* jfw_error_message(jfw_result err)
 {
-    if (err >= 0 && err < jfw_count) return ERROR_MESSAGES[err];
+    if (err >= 0 && err < JFW_RESULT_COUNT) return ERROR_MESSAGES[err];
     return "Invalid error code";
 }
 
-jfw_res jfw_error_message_r(jfw_res error_code, size_t buffer_size, char* buffer)
+jfw_result jfw_error_message_r(jfw_result error_code, size_t buffer_size, char* buffer)
 {
     const char* message =  NULL;
-    if (error_code >= 0 && error_code < jfw_count)
+    if (error_code >= 0 && error_code < JFW_RESULT_COUNT)
     {
         message = ERROR_MESSAGES[error_code];
         const size_t len =strlen(message);
@@ -34,12 +34,12 @@ jfw_res jfw_error_message_r(jfw_res error_code, size_t buffer_size, char* buffer
             memcpy(buffer, message, buffer_size);
             buffer[buffer_size - 1] = 0;
         }
-        return jfw_res_success;
+        return JFW_RESULT_SUCCESS;
     }
 
 
     snprintf(buffer, buffer_size, "Unknown Error Code: %u", error_code);
-    return jfw_res_bad_error;
+    return JFW_RESULT_BAD_ERROR;
 }
 
 
@@ -96,14 +96,6 @@ const char* jfw_vk_error_msg(size_t vk_code)
         ADD_CODE_TO_SWITCH(VK_OPERATION_NOT_DEFERRED_KHR)
         ADD_CODE_TO_SWITCH(VK_ERROR_COMPRESSION_EXHAUSTED_EXT)
         ADD_CODE_TO_SWITCH(VK_ERROR_INCOMPATIBLE_SHADER_BINARY_EXT)
-//        ADD_CODE_TO_SWITCH(VK_ERROR_OUT_OF_POOL_MEMORY_KHR)
-//        ADD_CODE_TO_SWITCH(VK_ERROR_INVALID_EXTERNAL_HANDLE_KHR)
-//        ADD_CODE_TO_SWITCH(VK_ERROR_FRAGMENTATION_EXT)
-//        ADD_CODE_TO_SWITCH(VK_ERROR_NOT_PERMITTED_EXT)
-//        ADD_CODE_TO_SWITCH(VK_ERROR_INVALID_DEVICE_ADDRESS_EXT)
-//        ADD_CODE_TO_SWITCH(VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS_KHR)
-//        ADD_CODE_TO_SWITCH(VK_PIPELINE_COMPILE_REQUIRED_EXT)
-//        ADD_CODE_TO_SWITCH(VK_ERROR_PIPELINE_COMPILE_REQUIRED_EXT)
         ADD_CODE_TO_SWITCH(VK_RESULT_MAX_ENUM)
     
     }

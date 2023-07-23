@@ -9,44 +9,44 @@
 #undef jfw_free
 #include <errno.h>
 
-jfw_res jfw_malloc(size_t size, void** pptr)
+jfw_result jfw_malloc(size_t size, void** pptr)
 {
     assert(pptr);
-    jfw_res result = jfw_res_success;
+    jfw_result result = JFW_RESULT_SUCCESS;
     void* ptr = malloc(size);
     if (!ptr)
     {
         JDM_ERROR("Failed call malloc(%zu), reason: %s", size, strerror(errno));
-        result = jfw_res_bad_malloc;
+        result = JFW_RESULT_BAD_MALLOC;
     }
     memset(ptr, 0, size);
     *pptr = ptr;
     return result;
 }
 
-jfw_res jfw_calloc(size_t nmemb, size_t size, void** pptr)
+jfw_result jfw_calloc(size_t nmemb, size_t size, void** pptr)
 {
     assert(pptr);
-    jfw_res result = jfw_res_success;
+    jfw_result result = JFW_RESULT_SUCCESS;
     void* ptr = calloc(nmemb, size);
     if (!ptr)
     {
         JDM_ERROR("Failed call calloc(%zu, %zu), reason: %s", nmemb, size, strerror(errno));
-        result = jfw_res_bad_malloc;
+        result = JFW_RESULT_BAD_MALLOC;
     }
     *pptr = ptr;
     return result;
 }
 
-jfw_res jfw_realloc(size_t new_size, void** ptr)
+jfw_result jfw_realloc(size_t new_size, void** ptr)
 {
     assert(ptr);
-    jfw_res result = jfw_res_success;
+    jfw_result result = JFW_RESULT_SUCCESS;
     void* new_ptr = realloc(*ptr, new_size);
     if (!new_ptr)
     {
         JDM_ERROR("Failed call realloc(%zu, %p), reason: %s", new_size, ptr, strerror(errno));
-        result = jfw_res_bad_realloc;
+        result = JFW_RESULT_BAD_REALLOC;
     }
     else
     {
@@ -55,15 +55,11 @@ jfw_res jfw_realloc(size_t new_size, void** ptr)
     return result;
 }
 
-jfw_res jfw_free(void** ptr)
+jfw_result jfw_free(void** ptr)
 {
     assert(ptr);
     free(*ptr);
     *ptr = NULL;
-    return jfw_res_success;
+    return JFW_RESULT_SUCCESS;
 }
 
-int jfw_success(jfw_res res)
-{
-    return res == jfw_res_success;
-}

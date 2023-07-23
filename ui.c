@@ -8,9 +8,9 @@
 #include <solvers/jacobi_point_iteration.h>
 #include <solvers/bicgstab_iteration.h>
 
-jfw_res truss_mouse_button_press(jfw_widget* this, i32 x, i32 y, u32 button, u32 mods)
+jfw_result truss_mouse_button_press(jfw_window* this, i32 x, i32 y, u32 button, u32 mods)
 {
-    jta_draw_state* const state = jfw_widget_get_user_pointer(this);
+    jta_draw_state* const state = jfw_window_get_usr_ptr(this);
     assert(state);
     switch (button)
     {
@@ -29,24 +29,24 @@ jfw_res truss_mouse_button_press(jfw_widget* this, i32 x, i32 y, u32 button, u32
         //  Scroll up
         jta_camera_zoom(&state->camera, +0.05f);
         state->vulkan_state->view = jta_camera_to_view_matrix(&state->camera);
-        jfw_widget_ask_for_redraw(this);
+        jfw_window_ask_for_redraw(this);
         break;
     case Button5:
         //  Scroll down
         jta_camera_zoom(&state->camera, -0.05f);
         state->vulkan_state->view = jta_camera_to_view_matrix(&state->camera);
-        jfw_widget_ask_for_redraw(this);
+        jfw_window_ask_for_redraw(this);
         break;
 
     default:break;
     }
 
-    return jfw_res_success;
+    return JFW_RESULT_SUCCESS;
 }
 
-jfw_res truss_mouse_button_release(jfw_widget* this, i32 x, i32 y, u32 button, u32 mods)
+jfw_result truss_mouse_button_release(jfw_window* this, i32 x, i32 y, u32 button, u32 mods)
 {
-    jta_draw_state* const state = jfw_widget_get_user_pointer(this);
+    jta_draw_state* const state = jfw_window_get_usr_ptr(this);
     switch (button)
     {
     case Button2:
@@ -61,12 +61,12 @@ jfw_res truss_mouse_button_release(jfw_widget* this, i32 x, i32 y, u32 button, u
     }
     state->mv_x = x;
     state->mv_y = y;
-    return jfw_res_success;
+    return JFW_RESULT_SUCCESS;
 }
 
-jfw_res truss_mouse_motion(jfw_widget* const this, i32 x, i32 y, const u32 mods)
+jfw_result truss_mouse_motion(jfw_window* const this, i32 x, i32 y, const u32 mods)
 {
-    jta_draw_state* const state = jfw_widget_get_user_pointer(this);
+    jta_draw_state* const state = jfw_window_get_usr_ptr(this);
     assert(state);
     if (mods & Button2Mask && state && state->track_turn)
     {
@@ -75,20 +75,20 @@ jfw_res truss_mouse_motion(jfw_widget* const this, i32 x, i32 y, const u32 mods)
         {
             x = 0;
         }
-        else if (x > (i32)this->width)
+        else if (x > (i32)this->w)
         {
-            x = (i32)this->width - 1;
+            x = (i32)this->w - 1;
         }
         if (y < 0)
         {
             y = 0;
         }
-        else if (y > (i32)this->height)
+        else if (y > (i32)this->h)
         {
-            y = (i32)this->height - 1;
+            y = (i32)this->h - 1;
         }
 
-        const f32 w = (f32)this->width, h = (f32)this->height;
+        const f32 w = (f32)this->w, h = (f32)this->h;
         //  Update camera
         jta_camera_3d* const camera = &state->camera;
         const i32 old_x = state->mv_x, old_y = state->mv_y;
@@ -128,7 +128,7 @@ jfw_res truss_mouse_motion(jfw_widget* const this, i32 x, i32 y, const u32 mods)
         state->mv_y = y;
 
         state->vulkan_state->view = jta_camera_to_view_matrix(camera);
-        jfw_widget_ask_for_redraw(this);
+        jfw_window_ask_for_redraw(this);
     }
     if (mods & Button3Mask && state && state->track_move)
     {
@@ -137,20 +137,20 @@ jfw_res truss_mouse_motion(jfw_widget* const this, i32 x, i32 y, const u32 mods)
         {
             x = 0;
         }
-        else if (x > (i32)this->width)
+        else if (x > (i32)this->w)
         {
-            x = (i32)this->width - 1;
+            x = (i32)this->w - 1;
         }
         if (y < 0)
         {
             y = 0;
         }
-        else if (y > (i32)this->height)
+        else if (y > (i32)this->h)
         {
-            y = (i32)this->height - 1;
+            y = (i32)this->h - 1;
         }
 
-        const f32 w = (f32)this->width, h = (f32)this->height;
+        const f32 w = (f32)this->w, h = (f32)this->h;
         //  Update camera
         jta_camera_3d* const camera = &state->camera;
         const i32 old_x = state->mv_x, old_y = state->mv_y;
@@ -180,24 +180,24 @@ jfw_res truss_mouse_motion(jfw_widget* const this, i32 x, i32 y, const u32 mods)
         jta_camera_move(camera, vec4_mul_one(real_axis, move_mag));
 
         state->vulkan_state->view = jta_camera_to_view_matrix(camera);
-        jfw_widget_ask_for_redraw(this);
+        jfw_window_ask_for_redraw(this);
     }
     assert(state);
     state->mv_x = x;
     state->mv_y = y;
 end:
-    return jfw_res_success;
+    return JFW_RESULT_SUCCESS;
 }
 
-jfw_res truss_key_press(jfw_widget* this, KeySym key_sym)
+jfw_result truss_key_press(jfw_window* this, KeySym key_sym)
 {
     JDM_ENTER_FUNCTION;
 
     if (key_sym == XK_F12)
     {
         //  Take a screenshot
-        jfw_widget_ask_for_redraw(this);
-        jta_draw_state* const state = jfw_widget_get_user_pointer(this);
+        jfw_window_ask_for_redraw(this);
+        jta_draw_state* const state = jfw_window_get_usr_ptr(this);
         state->screenshot = 1;
     }
     else if (key_sym == XK_space)
@@ -205,7 +205,7 @@ jfw_res truss_key_press(jfw_widget* this, KeySym key_sym)
         static int solved = 0;
         if (!solved)
         {
-            jta_draw_state* const state = jfw_widget_get_user_pointer(this);
+            jta_draw_state* const state = jfw_window_get_usr_ptr(this);
             assert(state);
             jta_problem_setup* problem = state->p_problem;
             jta_result res = jta_make_global_matrices(
@@ -312,17 +312,17 @@ jfw_res truss_key_press(jfw_widget* this, KeySym key_sym)
 
 end:
     JDM_LEAVE_FUNCTION;
-    return jfw_res_success;
+    return JFW_RESULT_SUCCESS;
 }
 
-jfw_res truss_mouse_button_double_press(jfw_widget* this, i32 x, i32 y, u32 button, u32 mods)
+jfw_result truss_mouse_button_double_press(jfw_window* this, i32 x, i32 y, u32 button, u32 mods)
 {
     if (button == Button2)
     {
-        jta_draw_state* const state = jfw_widget_get_user_pointer(this);
+        jta_draw_state* const state = jfw_window_get_usr_ptr(this);
         state->camera = state->original_camera;
         state->vulkan_state->view = jta_camera_to_view_matrix(&state->camera);
-        jfw_widget_ask_for_redraw(this);
+        jfw_window_ask_for_redraw(this);
     }
-    return jfw_res_success;
+    return JFW_RESULT_SUCCESS;
 }
