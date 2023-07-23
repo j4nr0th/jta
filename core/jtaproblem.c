@@ -3,7 +3,7 @@
 //
 
 #include <math.h>
-#include "jtamatrices.h"
+#include "jtaproblem.h"
 #include <matrices/sparse_row_compressed_internal.h>
 
 static inline void jta_add_to_global_entries_3x3(const mtx4* mtx, uint32_t first_row, uint32_t first_col, jmtx_matrix_crs* out)
@@ -382,5 +382,10 @@ jta_reduce_system(
     *k_r = k;
 
     JDM_LEAVE_FUNCTION;
+    return JTA_RESULT_SUCCESS;
+}
+
+jta_result jta_load_problem(const jta_config_problem* cfg, jta_problem_setup* problem)
+{
     return JTA_RESULT_SUCCESS;
 }

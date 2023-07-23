@@ -24,6 +24,7 @@
 #include "core/jtaelements.h"
 #include "core/jtanaturalbcs.h"
 #include "core/jtanumericalbcs.h"
+#include "config/config_loading.h"
 
 
 static jfw_res widget_draw(jfw_widget* this)
@@ -101,32 +102,6 @@ static void jmem_trap(uint32_t idx, void* param)
     __builtin_trap();
 }
 
-static char* get_string_value_from_the_section(const jio_cfg_section* section, const char* const name)
-{
-    jio_cfg_value v;
-    jio_result jio_res = jio_cfg_get_value_by_key(section, name, &v);
-    if (jio_res != JIO_RESULT_SUCCESS)
-    {
-        JDM_ERROR("Could not get value of key \"%s\" from section \"%.*s\", reason: %s", name, (int)section->name.len, section->name.begin,
-                  jio_result_to_str(jio_res));
-        return NULL;
-    }
-    if (v.type != JIO_CFG_TYPE_STRING)
-    {
-        JDM_ERROR("Type of value of key \"%s\" of section \"%.*s\" was not \"String\", instead it was \"%s\"", name, (int)section->name.len, section->name.begin, "Unknown");
-        return NULL;
-    }
-    char* str = lin_jalloc(G_LIN_JALLOCATOR, v.value.value_string.len + 1);
-    if (!str)
-    {
-        JDM_ERROR("Could not allocate %zu bytes of memory to copy value of key \"%s\" from section \"%.*s\"", (size_t)v.value.value_string.len + 1, name, (int)section->name.len, section->name.begin);
-        return NULL;
-    }
-    memcpy(str, v.value.value_string.begin, v.value.value_string.len);
-    str[v.value.value_string.len] = 0;
-    return str;
-}
-
 int main(int argc, char* argv[argc])
 {
     jta_timer main_timer;
@@ -153,7 +128,7 @@ int main(int argc, char* argv[argc])
     }
     G_JALLOCATOR->double_free_callback = double_free_hook;
     G_JALLOCATOR->bad_alloc_callback = invalid_alloc;
-
+//    ill_jallocator_set_debug_trap(G_JALLOCATOR, 6, jmem_trap, NULL);
     {
         jdm_allocator_callbacks jdm_callbacks =
                 {
@@ -183,125 +158,19 @@ int main(int argc, char* argv[argc])
     JDM_TRACE("Initialization time: %g sec", dt);
 
     //  Load up the configuration
-    char* pts_file_name;
-    char* mat_file_name;
-    char* pro_file_name;
-    char* elm_file_name;
-    char* nat_file_name;
-    char* num_file_name;
 
     jta_timer_set(&main_timer);
+    jta_config master_config;
+    jta_result jta_res = jta_load_configuration(argv[1], &master_config);
+    if (jta_res != JTA_RESULT_SUCCESS)
     {
-        jio_memory_file cfg_file;
-        jio_result jio_res = jio_memory_file_create(argv[1], &cfg_file, 0, 0, 0);
-        if (jio_res != JIO_RESULT_SUCCESS)
-        {
-            JDM_FATAL("Could not open configuration file \"%s\", reason: %s", argv[1], jio_result_to_str(jio_res));
-        }
-
-        jio_cfg_section* cfg_root;
-        {
-            jio_allocator_callbacks cfg_callbacks =
-                    {
-                    .param = G_JALLOCATOR,
-                    .free = (void (*)(void*, void*)) ill_jfree,
-                    .realloc = (void* (*)(void*, void*, uint64_t)) ill_jrealloc,
-                    .alloc = (void* (*)(void*, uint64_t)) ill_jalloc,
-                    };
-            jio_res = jio_cfg_parse(&cfg_file, &cfg_root, &cfg_callbacks);
-            if (jio_res != JIO_RESULT_SUCCESS)
-            {
-                JDM_FATAL("Could not parse configuration file \"%s\", reason: %s", argv[1], jio_result_to_str(jio_res));
-            }
-        }
-
-
-        //  Parse the config file
-        {
-            jio_cfg_section* setup_section;
-            jio_res = jio_cfg_get_subsection(cfg_root, "problem setup", &setup_section);
-            if (jio_res != JIO_RESULT_SUCCESS)
-            {
-                JDM_FATAL("Could not find the configuration file's \"problem setup\" section, reason: %s",
-                          jio_result_to_str(jio_res));
-            }
-
-
-            {
-                jio_cfg_section* input_section;
-                jio_res = jio_cfg_get_subsection(setup_section, "input files", &input_section);
-                if (jio_res != JIO_RESULT_SUCCESS)
-                {
-                    JDM_FATAL(
-                            "Could not find the configuration file's \"problem setup.input files\" section, reason: %s",
-                            jio_result_to_str(jio_res));
-                }
-                //  Get the points file
-                pts_file_name = get_string_value_from_the_section(input_section, "points");
-                if (!pts_file_name)
-                {
-                    JDM_FATAL("Could not load points");
-                }
-                //  Get the material file
-                mat_file_name = get_string_value_from_the_section(input_section, "materials");
-                if (!mat_file_name)
-                {
-                    JDM_FATAL("Could not load materials");
-                }
-                //  Get the profile file
-                pro_file_name = get_string_value_from_the_section(input_section, "profiles");
-                if (!pro_file_name)
-                {
-                    JDM_FATAL("Could not load profiles");
-                }
-                //  Get the element file
-                elm_file_name = get_string_value_from_the_section(input_section, "elements");
-                if (!elm_file_name)
-                {
-                    JDM_FATAL("Could not load elements");
-                }
-                //  Get the natural boundary condition file
-                nat_file_name = get_string_value_from_the_section(input_section, "natural_bcs");
-                if (!nat_file_name)
-                {
-                    JDM_FATAL("Could not load natural bcs");
-                }
-                //  Get the numerical boundary condition file
-                num_file_name = get_string_value_from_the_section(input_section, "numerical_bcs");
-                if (!num_file_name)
-                {
-                    JDM_FATAL("Could not load numerical bcs");
-                }
-            }
-
-            {
-                jio_cfg_section* parameter_section;
-                jio_res = jio_cfg_get_subsection(setup_section, "parameters", &parameter_section);
-                if (jio_res != JIO_RESULT_SUCCESS)
-                {
-                    JDM_FATAL(
-                            "Could not find the configuration file's \"problem setup.parameters\" section, reason: %s",
-                            jio_result_to_str(jio_res));
-                }
-            }
-
-            {
-                jio_cfg_section* output_section;
-                jio_res = jio_cfg_get_subsection(setup_section, "output files", &output_section);
-                if (jio_res != JIO_RESULT_SUCCESS)
-                {
-                    JDM_FATAL(
-                            "Could not find the configuration file's \"problem setup.output files\" section, reason: %s",
-                            jio_result_to_str(jio_res));
-                }
-            }
-        }
-
-        jio_cfg_section_destroy(cfg_root);
-        jio_memory_file_destroy(&cfg_file);
+        JDM_FATAL("Could not load program configuration, reason: %s", jta_result_to_str(jta_res));
     }
     dt = jta_timer_get(&main_timer);
     JDM_TRACE("Config parsing time: %g sec", dt);
+
+
+    jta_problem_setup problem_setup;
 
     jio_memory_file file_points, file_materials, file_profiles, file_elements, file_nat, file_num;
     jta_point_list point_list;
@@ -312,44 +181,38 @@ int main(int argc, char* argv[argc])
     jta_numerical_boundary_condition_list numerical_boundary_conditions;
 
     jta_timer_set(&main_timer);
-    jio_result jio_res = jio_memory_file_create(pts_file_name, &file_points, 0, 0, 0);
+    jio_result jio_res = jio_memory_file_create(master_config.problem.definition.points_file, &file_points, 0, 0, 0);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
-        JDM_FATAL("Could not open point file \"%s\"", pts_file_name);
+        JDM_FATAL("Could not open point file \"%s\"", master_config.problem.definition.points_file);
     }
-    jio_res = jio_memory_file_create(mat_file_name, &file_materials, 0, 0, 0);
+    jio_res = jio_memory_file_create(master_config.problem.definition.materials_file, &file_materials, 0, 0, 0);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
-        JDM_FATAL("Could not open material file \"%s\"", mat_file_name);
+        JDM_FATAL("Could not open material file \"%s\"", master_config.problem.definition.materials_file);
     }
-    jio_res = jio_memory_file_create(pro_file_name, &file_profiles, 0, 0, 0);
+    jio_res = jio_memory_file_create(master_config.problem.definition.profiles_file, &file_profiles, 0, 0, 0);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
-        JDM_FATAL("Could not open profile file \"%s\"", pro_file_name);
+        JDM_FATAL("Could not open profile file \"%s\"", master_config.problem.definition.profiles_file);
     }
-    jio_res = jio_memory_file_create(elm_file_name, &file_elements, 0, 0, 0);
+    jio_res = jio_memory_file_create(master_config.problem.definition.elements_file, &file_elements, 0, 0, 0);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
-        JDM_FATAL("Could not open element file \"%s\"", elm_file_name);
+        JDM_FATAL("Could not open element file \"%s\"", master_config.problem.definition.elements_file);
     }
-    jio_res = jio_memory_file_create(nat_file_name, &file_nat, 0, 0, 0);
+    jio_res = jio_memory_file_create(master_config.problem.definition.natural_bcs_file, &file_nat, 0, 0, 0);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
-        JDM_FATAL("Could not open element file \"%s\"", nat_file_name);
+        JDM_FATAL("Could not open element file \"%s\"", master_config.problem.definition.natural_bcs_file);
     }
-    jio_res = jio_memory_file_create(num_file_name, &file_num, 0, 0, 0);
+    jio_res = jio_memory_file_create(master_config.problem.definition.numerical_bcs_file, &file_num, 0, 0, 0);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
-        JDM_FATAL("Could not open element file \"%s\"", num_file_name);
+        JDM_FATAL("Could not open element file \"%s\"", master_config.problem.definition.numerical_bcs_file);
     }
-    lin_jfree(G_LIN_JALLOCATOR, num_file_name);
-    lin_jfree(G_LIN_JALLOCATOR, nat_file_name);
-    lin_jfree(G_LIN_JALLOCATOR, elm_file_name);
-    lin_jfree(G_LIN_JALLOCATOR, pro_file_name);
-    lin_jfree(G_LIN_JALLOCATOR, mat_file_name);
-    lin_jfree(G_LIN_JALLOCATOR, pts_file_name);
 
-    jta_result jta_res = jta_load_points(&file_points, &point_list);
+    jta_res = jta_load_points(&file_points, &point_list);
     if (jta_res != JTA_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not load points");
@@ -493,6 +356,7 @@ int main(int argc, char* argv[argc])
                     {.r = 0xFF, .g = 0x00, .b = 0xFF, .a = 0xFF},   //  2 - purple
                     {.r = 0xFF, .g = 0x00, .b = 0x00, .a = 0xFF},   //  3 (or somehow more) - red
             };
+    //  These could be a config options
     const f32 point_scales[4] =
             {
                 1.0f,//  0 - just gray
@@ -713,6 +577,7 @@ cleanup:
         jfw_context_destroy(jctx);
         jctx = NULL;
     }
+    jta_free_configuration(&master_config);
     JDM_LEAVE_FUNCTION;
     jdm_cleanup_thread();
     //  Clean up the allocators

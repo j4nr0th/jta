@@ -41,6 +41,15 @@ typedef unsigned char c8;
 typedef uint_least16_t c16;
 typedef uint_least32_t c32;
 
+union jta_color_union
+{
+    struct
+    {
+        unsigned char r, g, b, a;
+    };
+    unsigned char data[4];
+};
+typedef union jta_color_union jta_color;
 
 #include "../jfw/jfw_common.h"
 #include "../jfw/window.h"

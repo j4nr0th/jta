@@ -2,19 +2,20 @@
 // Created by jan on 13.7.2023.
 //
 
-#ifndef JTA_JTAMATRICES_H
-#define JTA_JTAMATRICES_H
+#ifndef JTA_JTAPROBLEM_H
+#define JTA_JTAPROBLEM_H
 #include "jtaerr.h"
 #include "jtaelements.h"
 #include "jtapoints.h"
 #include "jtanaturalbcs.h"
 #include "jtanumericalbcs.h"
 #include "../gfx/gfx_math.h"
+#include "../config/config_loading.h"
 #include <matrices/dense_col_major.h>
 #include <matrices/sparse_row_compressed.h>
 
-typedef struct jta_problem_setup_data_struct jta_problem_setup_data;
-struct jta_problem_setup_data_struct
+typedef struct jta_problem_setup_struct jta_problem_setup;
+struct jta_problem_setup_struct
 {
     const jta_point_list* point_list;                           //  Point list parsed from input file
     const jta_element_list* element_list;                       //  Element list parsed from input file
@@ -28,6 +29,8 @@ struct jta_problem_setup_data_struct
     f32* forces;                                                //  Forces vector f (size 3 * length of point list)
     f32* deformations;                                          //  Deformation vector d (size 3 * length of point list)
 };
+
+jta_result jta_load_problem(const jta_config_problem* cfg, jta_problem_setup* problem);
 
 mtx4 jta_element_transform_matrix(f32 dx, f32 dy, f32 dz);
 
@@ -48,4 +51,4 @@ jta_reduce_system(
         uint32_t n_pts, const jmtx_matrix_crs* k_g, const jta_numerical_boundary_condition_list* numerical_bcs,
         jmtx_matrix_crs** k_r, bool* dof_is_free);
 
-#endif //JTA_JTAMATRICES_H
+#endif //JTA_JTAPROBLEM_H

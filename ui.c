@@ -207,7 +207,7 @@ jfw_res truss_key_press(jfw_widget* this, KeySym key_sym)
         {
             jta_draw_state* const state = jfw_widget_get_user_pointer(this);
             assert(state);
-            jta_problem_setup_data* problem = &state->problem;
+            jta_problem_setup* problem = &state->problem;
             jta_result res = jta_make_global_matrices(
                     problem->point_list, problem->element_list, problem->profile_list, problem->materials, problem->stiffness_matrix, problem->point_masses);
             if (res != JTA_RESULT_SUCCESS)
@@ -268,13 +268,13 @@ jfw_res truss_key_press(jfw_widget* this, KeySym key_sym)
 
             uint32_t iter_count;
             const uint32_t max_iters = 1 << 16;    //  This could be config parameter
-            float max_err = 1e-7f;              //  This could be config parameter
+            float max_err = 1e-5f;              //  This could be config parameter
             float err_evol[max_iters];
             float final_error;
             jta_timer solver_timer;
             jta_timer_set(&solver_timer);
             jmtx_result jmtx_res = jmtx_jacobi_relaxed_crs(k_reduced, f_r, u_r,
-                                                   0.1f,
+                                                   .67f,
                                                    max_err, max_iters, &iter_count, err_evol, &final_error, NULL);
             f64 time_taken = jta_timer_get(&solver_timer);
             for (p_g = 0, p_r = 0; p_g < problem->point_list->count * 3; ++p_g)
@@ -291,7 +291,7 @@ jfw_res truss_key_press(jfw_widget* this, KeySym key_sym)
 //                    problem->deformations[p_g] = 0;
 //                }
             }
-            JDM_TRACE("Time taken for %"PRIu32" iterations of Jacobi was %g seconds", iter_count, time_taken);
+            JDM_TRACE("Time taken for %"PRIu32" iterations of Jacobi was %g seconds, with a final error of %e", iter_count, time_taken, final_error);
             if (jmtx_res != JMTX_RESULT_SUCCESS && jmtx_res != JMTX_RESULT_NOT_CONVERGED)
             {
                 JDM_ERROR("Failed solving the problem using Jacobi's method, reason: %s", jmtx_result_to_str(jmtx_res));
@@ -306,6 +306,7 @@ jfw_res truss_key_press(jfw_widget* this, KeySym key_sym)
             lin_jfree(G_LIN_JALLOCATOR, u_r);
             lin_jfree(G_LIN_JALLOCATOR, f_r);
             lin_jfree(G_LIN_JALLOCATOR, dofs);
+            exit(EXIT_SUCCESS);
         }
     }
 

@@ -15,6 +15,7 @@ enum jta_result_enum
     JTA_RESULT_BAD_IO,
     JTA_RESULT_BAD_INPUT,
     JTA_RESULT_BAD_NUM_BC,
+    JTA_RESULT_BAD_CFG_ENTRY,
 
     JTA_RESULT_COUNT,
 };
