@@ -646,9 +646,8 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
 
     //  Create the framebuffer(s)
     {
-        VkFramebuffer* framebuffer_array;
-        jfw_result jfw_result = jfw_calloc(vk_resources->n_images, sizeof(VkFramebuffer), &framebuffer_array);
-        if (JFW_RESULT_SUCCESS !=(jfw_result))
+        VkFramebuffer* framebuffer_array = ill_jalloc(G_JALLOCATOR, vk_resources->n_images * sizeof(VkFramebuffer));
+        if (!framebuffer_array)
         {
             JDM_ERROR("Could not allocate memory for framebuffer array");
             gfx_res = GFX_RESULT_BAD_ALLOC;
@@ -678,7 +677,7 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
                 JDM_ERROR("Could not create framebuffer %u out of %u, reason: %s", i + 1, vk_resources->n_images,
                           jfw_vk_error_msg(vk_res));
                 gfx_res = GFX_RESULT_NO_FRAMEBUFFER;
-                jfw_free(&framebuffer_array);
+                ill_jfree(G_JALLOCATOR, framebuffer_array);
                 goto after_3d_pipeline;
             }
         }
@@ -746,9 +745,8 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
 
     //  Create (and map uniform buffer)
     {
-        ubo_3d** mapped_array;
-        jfw_result jfw_result = jfw_calloc(vk_resources->n_frames_in_flight, sizeof(void*), &mapped_array);
-        if (JFW_RESULT_SUCCESS !=(jfw_result))
+        ubo_3d** mapped_array = ill_jalloc(G_JALLOCATOR, vk_resources->n_frames_in_flight * sizeof(void*));
+        if (!mapped_array)
         {
             JDM_ERROR("Could not allocate memory for UBO mapping pointers");
             gfx_res = GFX_RESULT_BAD_ALLOC;
@@ -758,7 +756,7 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
         if (ret_v != 0)
         {
             JDM_ERROR("Could not allocate 3d UBO");
-            jfw_free(&mapped_array);
+            ill_jfree(G_JALLOCATOR, mapped_array);
             gfx_res = GFX_RESULT_BAD_ALLOC;
             goto after_transfer_fence;
         }
@@ -793,20 +791,19 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
             gfx_res = GFX_RESULT_NO_DESC_POOL;
             goto after_mapped_array;
         }
-        VkDescriptorSetLayout* layouts;
-        jfw_result jfw_result = jfw_calloc(vk_resources->n_frames_in_flight, sizeof(*layouts), &layouts);
-        if (JFW_RESULT_SUCCESS !=(jfw_result))
+        VkDescriptorSetLayout* layouts = ill_jalloc(G_JALLOCATOR, vk_resources->n_frames_in_flight * sizeof(*layouts));
+        if (!layouts)
         {
             JDM_ERROR("Could not allocate memory for descriptor sets");
             vkDestroyDescriptorPool(vk_resources->device, desc_pool, NULL);
             gfx_res = GFX_RESULT_BAD_ALLOC;
             goto after_mapped_array;
         }
-        jfw_result = jfw_calloc(vk_resources->n_frames_in_flight, sizeof(*desc_sets), &desc_sets);
-        if (JFW_RESULT_SUCCESS !=(jfw_result))
+        desc_sets = ill_jalloc(G_JALLOCATOR, vk_resources->n_frames_in_flight * sizeof(*desc_sets));
+        if (!desc_sets)
         {
             JDM_ERROR("Could not allocate memory for descriptor sets");
-            jfw_free(&layouts);
+            ill_jfree(G_JALLOCATOR, layouts);
             vkDestroyDescriptorPool(vk_resources->device, desc_pool, NULL);
             gfx_res = GFX_RESULT_BAD_ALLOC;
             goto after_mapped_array;
@@ -824,11 +821,11 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
                 .pSetLayouts = layouts,
                 };
         vk_res = vkAllocateDescriptorSets(vk_resources->device, &allocate_info, desc_sets);
-        jfw_free(&layouts);
+        ill_jfree(G_JALLOCATOR, layouts);
         if (vk_res != VK_SUCCESS)
         {
             JDM_ERROR("Could not allocate descriptor sets, reason: %s", jfw_vk_error_msg(vk_res));
-            jfw_free(&desc_sets);
+            ill_jfree(G_JALLOCATOR, desc_sets);
             vkDestroyDescriptorPool(vk_resources->device, desc_pool, NULL);
             gfx_res = GFX_RESULT_BAD_ALLOC;
             goto after_mapped_array;
@@ -899,9 +896,9 @@ after_transfer_buffers:
     vkDestroyCommandPool(vk_resources->device, p_state->transfer_cmd_pool, NULL);
 after_descriptor_sets:
     vkDestroyDescriptorPool(vk_resources->device, p_state->desc_pool, NULL);
-    jfw_free(&p_state->desc_set);
+    ill_jfree(G_JALLOCATOR, p_state->desc_set);
 after_mapped_array:
-    jfw_free(&p_state->p_mapped_array);
+    ill_jfree(G_JALLOCATOR, p_state->p_mapped_array);
 after_transfer_fence:
     vkDestroyFence(vk_resources->device, p_state->fence_transfer_free, NULL);
 after_3d_framebuffers:
@@ -909,7 +906,7 @@ after_3d_framebuffers:
     {
         vkDestroyFramebuffer(vk_resources->device, p_state->framebuffers[i], NULL);
     }
-    jfw_free(&p_state->framebuffers);
+    ill_jfree(G_JALLOCATOR, p_state->framebuffers);
 after_3d_pipeline:
     vkDestroyPipeline(vk_resources->device, p_state->gfx_pipeline_3D, NULL);
     vkDestroyPipelineLayout(vk_resources->device, p_state->layout_3D, NULL);
@@ -994,14 +991,14 @@ void vk_state_destroy(vk_state* p_state, jfw_window_vk_resources* vk_resources)
 {
     vkDestroyCommandPool(vk_resources->device, p_state->transfer_cmd_pool, NULL);
     vkDestroyDescriptorPool(vk_resources->device, p_state->desc_pool, NULL);
-    jfw_free(&p_state->desc_set);
-    jfw_free(&p_state->p_mapped_array);
+    ill_jfree(G_JALLOCATOR, p_state->desc_set);
+    ill_jfree(G_JALLOCATOR, p_state->p_mapped_array);
     vkDestroyFence(vk_resources->device, p_state->fence_transfer_free, NULL);
     for (u32 i = 0; i < p_state->framebuffer_count; ++i)
     {
         vkDestroyFramebuffer(vk_resources->device, p_state->framebuffers[i], NULL);
     }
-    jfw_free(&p_state->framebuffers);
+    ill_jfree(G_JALLOCATOR, p_state->framebuffers);
     vkDestroyPipeline(vk_resources->device, p_state->gfx_pipeline_3D, NULL);
     vkDestroyPipelineLayout(vk_resources->device, p_state->layout_3D, NULL);
     vkDestroyDescriptorSetLayout(vk_resources->device, p_state->ubo_layout, NULL);

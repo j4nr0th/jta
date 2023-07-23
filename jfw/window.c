@@ -5,16 +5,16 @@
 #include "window.h"
 //#include "shaders/shader_src.h"
 
-jfw_result jfw_window_create(jfw_ctx* ctx, u32 w, u32 h, char* title, jfw_color color, jfw_window** p_wnd, i32 fixed)
+jfw_result jfw_window_create(jfw_ctx* ctx, uint32_t w, uint32_t h, char* title, jfw_color color, jfw_window** p_wnd, int32_t fixed)
 {
     JDM_ENTER_FUNCTION;
     jfw_result result;
-    jfw_window* this;
-    if (JFW_RESULT_SUCCESS !=(result = jfw_malloc(sizeof(*this), &this)))
+    jfw_window* this = ctx->allocator_callbacks.alloc(ctx->allocator_callbacks.state, sizeof(*this));
+    if (!this)
     {
         JDM_ERROR("Memory allocation for window failed");
         JDM_LEAVE_FUNCTION;
-        return result;
+        return JFW_RESULT_BAD_ALLOC;
     }
     memset(this, 0, sizeof(*this));
 //    this->color_scheme = JDM_DEFAULT_COLOR_SCHEME;
@@ -23,20 +23,20 @@ jfw_result jfw_window_create(jfw_ctx* ctx, u32 w, u32 h, char* title, jfw_color 
     {
         title = "jfw_window";
     }
-    this->title = NULL;
     size_t title_len = strlen(title);
-    if (JFW_RESULT_SUCCESS !=(result = jfw_malloc(title_len + 1, &this->title)))
+    this->title = ctx->allocator_callbacks.alloc(ctx->allocator_callbacks.state, title_len + 1);
+    if (!this->title)
     {
-        jfw_free(&this);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, this);
         JDM_ERROR("Memory allocation for window title failed");
         JDM_LEAVE_FUNCTION;
-        return result;
+        return JFW_RESULT_BAD_ALLOC;
     }
     memcpy(this->title, title, title_len + 1);
     if (JFW_RESULT_SUCCESS !=(result = jfw_platform_create(ctx, &this->platform, w, h, title_len, title, 2, fixed, color)))
     {
-        jfw_free(&this->title);
-        jfw_free(&this);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, this->title);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, this);
         JDM_ERROR("Window platform interface creation failed");
         JDM_LEAVE_FUNCTION;
         return result;
@@ -48,9 +48,9 @@ jfw_result jfw_window_create(jfw_ctx* ctx, u32 w, u32 h, char* title, jfw_color 
     //  Register window to the context's list of all windows
     if (JFW_RESULT_SUCCESS !=(result = jfw_context_add_window(ctx, this)))
     {
-        jfw_free(&this->title);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, this->title);
         jfw_platform_destroy(&this->platform);
-        jfw_free(&this);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, this);
         JDM_ERROR("Registering window to the library context failed");
         JDM_LEAVE_FUNCTION;
         return result;
@@ -78,10 +78,10 @@ jfw_result jfw_window_destroy(jfw_ctx* ctx, jfw_window* wnd)
     }
     assert(ctx == wnd->ctx);
     //  Destroy window's widgets
-    jfw_free(&wnd->title);
+    ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, wnd->title);
     jfw_platform_destroy(&wnd->platform);
     memset(wnd, 0, sizeof(*wnd));
-    jfw_free(&wnd);
+    ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, wnd);
 
     JDM_LEAVE_FUNCTION;
     return JFW_RESULT_WINDOW_CLOSE;

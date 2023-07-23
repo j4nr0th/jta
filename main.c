@@ -188,22 +188,30 @@ int main(int argc, char* argv[argc])
     jfw_ctx* jctx = NULL;
     jfw_window* jwnd = NULL;
     jta_timer_set(&main_timer);
-
-    jfw_result jfw_result = jfw_context_create(&jctx,
-                                               NULL
-                                              );
-    if (JFW_RESULT_SUCCESS !=(jfw_result))
     {
-        JDM_ERROR("Could not create jfw context, reason: %s", jfw_error_message(jfw_result));
-        goto cleanup;
-    }
-    jfw_result = jfw_window_create(
-            jctx, 1600, 900, "JANSYS - jta - 0.0.1", (jfw_color) { .a = 0xFF, .r = 0x80, .g = 0x80, .b = 0x80 },
-            &jwnd, 0);
-    if (JFW_RESULT_SUCCESS !=(jfw_result))
-    {
-        JDM_ERROR("Could not create window");
-        goto cleanup;
+        const jfw_allocator_callbacks allocator_callbacks =
+                {
+                .alloc = (void* (*)(void*, uint64_t)) ill_jalloc,
+                .realloc = (void* (*)(void*, void*, uint64_t)) ill_jrealloc,
+                .free = (void (*)(void*, void*)) ill_jfree,
+                .state = G_JALLOCATOR,
+                };
+        jfw_result jfw_result = jfw_context_create(
+                &jctx,
+                NULL, &allocator_callbacks);
+        if (jfw_result != JFW_RESULT_SUCCESS)
+        {
+            JDM_ERROR("Could not create jfw context, reason: %s", jfw_error_message(jfw_result));
+            goto cleanup;
+        }
+        jfw_result = jfw_window_create(
+                jctx, 1600, 900, "JANSYS - jta - 0.0.1", (jfw_color) { .a = 0xFF, .r = 0x80, .g = 0x80, .b = 0x80 },
+                &jwnd, 0);
+        if (jfw_result != JFW_RESULT_SUCCESS)
+        {
+            JDM_ERROR("Could not create window");
+            goto cleanup;
+        }
     }
     jfw_window_show(jctx, jwnd);
     jfw_window_vk_resources* const vk_res = jfw_window_get_vk_resources(jwnd);
@@ -358,11 +366,6 @@ int main(int argc, char* argv[argc])
     printf("Total of %"PRIu64" triangles in the mesh\n", mesh_polygon_count(&truss_mesh) + mesh_polygon_count(&sphere_mesh) + mesh_polygon_count(&cone_mesh));
 
 
-    if (JFW_RESULT_SUCCESS !=(jfw_result))
-    {
-        JDM_ERROR("Could not create window's base widget");
-        goto cleanup;
-    }
     jwnd->functions.dtor_fn = wnd_dtor;
     jwnd->functions.draw = wnd_draw;
     jwnd->functions.mouse_button_press = truss_mouse_button_press;
@@ -434,7 +437,7 @@ int main(int argc, char* argv[argc])
             jfw_window_redraw(jctx, jwnd);
         }
     }
-//    vk_state_destroy(&vulkan_state, vk_res);
+
     jwnd = NULL;
 
     ill_jfree(G_JALLOCATOR, draw_state.p_problem->point_masses);

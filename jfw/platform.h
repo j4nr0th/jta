@@ -24,17 +24,17 @@ struct jfw_window_vk_resources_struct
     VkQueue queue_transfer;
     VkExtent2D extent;
     VkSurfaceFormatKHR surface_format;
-    u32 n_images;
+    uint32_t n_images;
     VkSwapchainKHR swapchain;
     VkImageView* views;
-    u32 n_frames_in_flight;
+    uint32_t n_frames_in_flight;
     VkCommandPool cmd_pool;
     VkCommandBuffer* cmd_buffers;
     VkSemaphore* sem_img_available;
     VkSemaphore* sem_present;
     VkFence* swap_fences;
     VkPhysicalDevice physical_device;
-    u32 i_prs_queue, i_gfx_queue, i_trs_queue;
+    uint32_t i_prs_queue, i_gfx_queue, i_trs_queue;
     VkSampleCountFlagBits sample_flags;
 };
 
@@ -48,18 +48,18 @@ struct jfw_vulkan_context_struct
     PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT;
 #endif
     VkPhysicalDevice* p_physical_devices;
-    u32 max_device_extensions;
-    u32 max_device_queue_families;
-    VkAllocationCallbacks alloc_callback;
+    uint32_t max_device_extensions;
+    uint32_t max_device_queue_families;
+    VkAllocationCallbacks vk_alloc_callback;
     bool has_alloc;
 };
 
 struct jfw_context_struct
 {
-    u32 identifier;
+    uint32_t identifier;
     Display* dpy;
-    u32 wnd_count;
-    u32 wnd_capacity;
+    uint32_t wnd_count;
+    uint32_t wnd_capacity;
     jfw_window** wnd_array;
     Atom del_atom;
     Atom utf8_atom;
@@ -74,6 +74,7 @@ struct jfw_context_struct
 
     jfw_vulkan_context vk_ctx;
     unsigned int last_button_id;
+    jfw_allocator_callbacks allocator_callbacks;
     Time last_button_time;
 };
 
@@ -89,13 +90,14 @@ struct jfw_window_platform_struct
 #error Not implimented
 #endif
 
-jfw_result jfw_context_create(jfw_ctx** p_ctx, VkAllocationCallbacks* alloc_callbacks);
+jfw_result jfw_context_create(
+        jfw_ctx** p_ctx, VkAllocationCallbacks* vk_alloc_callbacks, const jfw_allocator_callbacks* allocator_callbacks);
 
 jfw_result jfw_context_destroy(jfw_ctx* ctx);
 
 jfw_result jfw_platform_create(
-        jfw_ctx* ctx, jfw_platform* platform, u32 w, u32 h, size_t title_len, const char* title, u32 n_frames_in_filght,
-        i32 fixed, jfw_color color);
+        jfw_ctx* ctx, jfw_platform* platform, uint32_t w, uint32_t h, size_t title_len, const char* title, uint32_t n_frames_in_filght,
+        int32_t fixed, jfw_color color);
 
 jfw_window_vk_resources* jfw_window_get_vk_resources(jfw_window* p_window);
 
@@ -119,7 +121,7 @@ jfw_result jfw_platform_show(jfw_ctx* ctx, jfw_platform* wnd);
 
 jfw_result jfw_platform_hide(jfw_ctx* ctx, jfw_platform* wnd);
 
-u32 jfw_context_window_count(jfw_ctx* ctx);
+uint32_t jfw_context_window_count(jfw_ctx* ctx);
 
 jfw_result jfw_platform_clear_window(jfw_ctx* ctx, jfw_platform* wnd);
 

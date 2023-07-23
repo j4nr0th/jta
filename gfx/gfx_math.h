@@ -4,22 +4,23 @@
 
 #ifndef JTA_GFX_MATH_H
 #define JTA_GFX_MATH_H
-#include "../jfw/jfw_common.h"
 #include <immintrin.h>
 #include <ammintrin.h>
+#include <assert.h>
 #include <math.h>
 #include <float.h>
+#include <stdint.h>
 
 typedef union
 {
-    _Alignas(16) f32 data[4];
-    struct {f32 x, y, z, w;};
-    struct {f32 s0, s1, s2, s3;};
+    _Alignas(16) float data[4];
+    struct {float x, y, z, w;};
+    struct {float s0, s1, s2, s3;};
 } vec4;
 
 typedef union
 {
-    _Alignas(16) f32 data[16];
+    _Alignas(16) float data[16];
     struct
     {
         vec4 col0;
@@ -29,19 +30,19 @@ typedef union
     };
     struct
     {
-        f32 xx, xy, xz, xw;
-        f32 yx, yy, yz, yw;
-        f32 zx, zy, zz, zw;
-        f32 wx, wy, wz, ww;
+        float xx, xy, xz, xw;
+        float yx, yy, yz, yw;
+        float zx, zy, zz, zw;
+        float wx, wy, wz, ww;
     };
     struct
     {
-        f32 s00, s10, s20, s30;
-        f32 s01, s11, s21, s31;
-        f32 s02, s12, s22, s32;
-        f32 s03, s13, s23, s33;
+        float s00, s10, s20, s30;
+        float s01, s11, s21, s31;
+        float s02, s12, s22, s32;
+        float s03, s13, s23, s33;
     };
-    f32 m[4][4];
+    float m[4][4];
 } mtx4;
 
 
@@ -104,7 +105,7 @@ typedef union
     return c;
 }
 
-[[nodiscard]] static inline vec4 vec4_add_one(vec4 a, f32 k)
+[[nodiscard]] static inline vec4 vec4_add_one(vec4 a, float k)
 {
     assert(a.w == 1.0f);
     vec4 c;
@@ -118,7 +119,7 @@ typedef union
     return c;
 }
 
-[[nodiscard]] static inline vec4 vec4_sub_one(vec4 a, f32 k)
+[[nodiscard]] static inline vec4 vec4_sub_one(vec4 a, float k)
 {
     assert(a.w == 1.0f);
     vec4 c;
@@ -132,7 +133,7 @@ typedef union
     return c;
 }
 
-[[nodiscard]] static inline vec4 vec4_mul_one(vec4 a, f32 k)
+[[nodiscard]] static inline vec4 vec4_mul_one(vec4 a, float k)
 {
     assert(a.w == 1.0f);
     vec4 c;
@@ -146,7 +147,7 @@ typedef union
     return c;
 }
 
-[[nodiscard]] static inline vec4 vec4_div_one(vec4 a, f32 k)
+[[nodiscard]] static inline vec4 vec4_div_one(vec4 a, float k)
 {
     assert(a.w == 1.0f);
     vec4 c;
@@ -160,11 +161,11 @@ typedef union
     return c;
 }
 
-[[nodiscard]] static inline f32 vec4_dot(vec4 a, vec4 b)
+[[nodiscard]] static inline float vec4_dot(vec4 a, vec4 b)
 {
     assert(a.w == 1.0f);
     assert(b.w == 1.0f);
-    f32 dot;
+    float dot;
 
     dot = a.x * b.x + a.y * b.y + a.z * b.z;
 
@@ -188,23 +189,23 @@ typedef union
 [[nodiscard]] static inline vec4 vec4_unit(vec4 v)
 {
     assert(v.w == 1.0f);
-    f32 mag;
+    float mag;
 
     mag = sqrtf(v.x * v.x + v.y * v.y + v.z * v.z);
 
     return (vec4){.x = v.x / mag, .y = v.y / mag, .z = v.z / mag, .w = 1.0f};
 }
 
-[[nodiscard]] static inline f32 vec4_magnitude(vec4 v)
+[[nodiscard]] static inline float vec4_magnitude(vec4 v)
 {
     return sqrtf(v.x * v.x + v.y * v.y + v.z * v.z);
 }
 
-[[nodiscard]] static inline mtx4 mtx4_rotation_z(f32 alpha)
+[[nodiscard]] static inline mtx4 mtx4_rotation_z(float alpha)
 {
     mtx4 m;
-    const f32 c = cosf(alpha);
-    const f32 s = sinf(alpha);
+    const float c = cosf(alpha);
+    const float s = sinf(alpha);
 
     m = (mtx4){
         .data =
@@ -219,11 +220,11 @@ typedef union
     return m;
 }
 
-[[nodiscard]] static inline mtx4 mtx4_rotation_y(f32 beta)
+[[nodiscard]] static inline mtx4 mtx4_rotation_y(float beta)
 {
     mtx4 m;
-    const f32 c = cosf(beta);
-    const f32 s = sinf(beta);
+    const float c = cosf(beta);
+    const float s = sinf(beta);
 
     m = (mtx4){
             .data =
@@ -238,11 +239,11 @@ typedef union
     return m;
 }
 
-[[nodiscard]] static inline mtx4 mtx4_rotation_x(f32 gamma)
+[[nodiscard]] static inline mtx4 mtx4_rotation_x(float gamma)
 {
     mtx4 m;
-    const f32 c = cosf(gamma);
-    const f32 s = sinf(gamma);
+    const float c = cosf(gamma);
+    const float s = sinf(gamma);
 
     m = (mtx4){
             .data =
@@ -259,12 +260,12 @@ typedef union
 [[nodiscard]] static inline mtx4 mtx4_multiply_manual(mtx4 a, mtx4 b)
 {
     mtx4 res;
-    for (u32 i = 0; i < 4; ++i)
+    for (uint32_t i = 0; i < 4; ++i)
     {
-        for (u32 j = 0; j < 4; ++j)
+        for (uint32_t j = 0; j < 4; ++j)
         {
-            f32 v = 0;
-            for (u32 k = 0; k < 4; ++k)
+            float v = 0;
+            for (uint32_t k = 0; k < 4; ++k)
             {
                 v += a.data[4 * k + i] * b.data[4 * j + k];
             }
@@ -385,11 +386,11 @@ static const mtx4 mtx4_identity =
     return (vec4){.x = -v.x, .y = -v.y, .z = -v.z, .w = 1.0f};
 }
 
-[[nodiscard]] static inline mtx4 mtx4_view_matrix(vec4 offset, vec4 view_direction, f32 roll)
+[[nodiscard]] static inline mtx4 mtx4_view_matrix(vec4 offset, vec4 view_direction, float roll)
 {
     mtx4 m = mtx4_translate(mtx4_identity, offset);
 
-    f32 theta, phi;
+    float theta, phi;
     theta = atan2f(view_direction.y, view_direction.x);
     phi = acosf(view_direction.z / vec4_magnitude(view_direction));
 //    phi = acosf(view_direction.z / sqrtf(view_direction.x * view_direction.x + view_direction.y * view_direction.y));
@@ -421,9 +422,9 @@ static const mtx4 mtx4_identity =
             };
 }
 
-[[nodiscard]] static inline mtx4 mtx4_view_matrix_inverse(vec4 d, f32 roll)
+[[nodiscard]] static inline mtx4 mtx4_view_matrix_inverse(vec4 d, float roll)
 {
-    f32 theta, phi;
+    float theta, phi;
     theta = atan2f(d.y, d.x);
     phi = acosf(d.z / vec4_magnitude(d));
     mtx4 m = mtx4_identity;
@@ -434,11 +435,11 @@ static const mtx4 mtx4_identity =
     return m;
 }
 
-[[nodiscard]] static inline mtx4 mtx4_projection(f32 fov, f32 ar, f32 zoom, f32 near, f32 far)
+[[nodiscard]] static inline mtx4 mtx4_projection(float fov, float ar, float zoom, float near, float far)
 {
-    const f32 k = 2 * zoom / tanf(fov / 2);
+    const float k = 2 * zoom / tanf(fov / 2);
     assert(far > near);
-    const f32 z_dif = far - near;
+    const float z_dif = far - near;
     return (mtx4)
     {
         .data = {
@@ -450,7 +451,7 @@ static const mtx4 mtx4_identity =
     };
 }
 
-[[nodiscard]] static inline mtx4 mtx4_enlarge(f32 x_factor, f32 y_factor, f32 z_factor)
+[[nodiscard]] static inline mtx4 mtx4_enlarge(float x_factor, float y_factor, float z_factor)
 {
     return (mtx4)
             {
@@ -466,11 +467,11 @@ static const mtx4 mtx4_identity =
 
 [[nodiscard]] static mtx4 mtx4_transpose(mtx4 m)
 {
-    for (u32 i = 0; i < 4; ++i)
+    for (uint32_t i = 0; i < 4; ++i)
     {
-        for (u32 j = 0; j < i; ++j)
+        for (uint32_t j = 0; j < i; ++j)
         {
-            const f32 tmp = m.m[i][j];
+            const float tmp = m.m[i][j];
             m.m[i][j] = m.m[j][i];
             m.m[j][i] = tmp;
         }
@@ -479,10 +480,10 @@ static const mtx4 mtx4_identity =
     return m;
 }
 
-[[nodiscard]] static inline mtx4 mtx4_rotate_around_axis(vec4 axis_of_rotation, f32 rotation_angle)
+[[nodiscard]] static inline mtx4 mtx4_rotate_around_axis(vec4 axis_of_rotation, float rotation_angle)
 {
     //  Align the rotation vector with the z axis
-    f32 theta, phi;
+    float theta, phi;
     theta = atan2f(axis_of_rotation.y, axis_of_rotation.x);
     phi = acosf(axis_of_rotation.z / vec4_magnitude(axis_of_rotation));
     mtx4 mf = mtx4_multiply(mtx4_rotation_y(phi), mtx4_rotation_z(theta));
@@ -508,9 +509,9 @@ static const mtx4 mtx4_identity =
         return 1;
     }
 
-    f32 dx = fabsf((v1.x - v2.x));
-    f32 dy = fabsf((v1.y - v2.y));
-    f32 dz = fabsf((v1.z - v2.z));
+    float dx = fabsf((v1.x - v2.x));
+    float dy = fabsf((v1.y - v2.y));
+    float dz = fabsf((v1.z - v2.z));
 
     return dx < 1024 * FLT_EPSILON && dy < 1024 * FLT_EPSILON && dz < 1024 * FLT_EPSILON;
 }

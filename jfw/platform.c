@@ -22,7 +22,7 @@ static const char* REQUIRED_LAYERS_ARRAY[] =
 
         };
 
-static const u64 REQUIRED_LAYERS_LENGTHS[] =
+static const uint64_t REQUIRED_LAYERS_LENGTHS[] =
         {
 #ifndef NDEBUG
                 //  DEBUG LAYERS
@@ -45,7 +45,7 @@ static const char* REQUIRED_EXTENSIONS_ARRAY[] =
 //                VK_KHR_SWAPCHAIN_EXTENSION_NAME,
                 VK_KHR_XLIB_SURFACE_EXTENSION_NAME,
         };
-static const u64 REQUIRED_EXTENSIONS_LENGTHS[] =
+static const uint64_t REQUIRED_EXTENSIONS_LENGTHS[] =
         {
 #ifndef NDEBUG
                 //  DEBUG EXTENSIONS
@@ -64,14 +64,14 @@ static const char* const DEVICE_REQUIRED_EXTENSIONS[] =
         {
                 VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         };
-static const u64 DEVICE_REQUIRED_LENGTHS[] =
+static const uint64_t DEVICE_REQUIRED_LENGTHS[] =
         {
                 sizeof(VK_KHR_SWAPCHAIN_EXTENSION_NAME) - 1,
         };
 #define DEVICE_REQUIRED_COUNT (sizeof(DEVICE_REQUIRED_EXTENSIONS) / sizeof(*DEVICE_REQUIRED_EXTENSIONS))
 
 
-static inline VkBool32 match_extension_name(const char* const extension_name, const u64 extension_name_len, const char* str_to_check)
+static inline VkBool32 match_extension_name(const char* const extension_name, const uint64_t extension_name_len, const char* str_to_check)
 {
     if (strstr(str_to_check, extension_name) != str_to_check)
     {
@@ -85,7 +85,7 @@ static inline VkBool32 match_extension_name(const char* const extension_name, co
         return 1;
     }
     char* end_ptr;
-    u64 v = strtoull(str_to_check, &end_ptr, 10);
+    uint64_t v = strtoull(str_to_check, &end_ptr, 10);
 
 
     return (end_ptr != str_to_check && v != 0);
@@ -111,8 +111,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
                     "DEVICE_ADDRESS_BINDING",
             };
     char category_buffer[64];
-    u32 cat_buffer_usage = 0;
-    for (u32 i = 0; i < (sizeof(TYPE_FLAG_BIT_VALUES)/sizeof(*TYPE_FLAG_BIT_VALUES)); ++i)
+    uint32_t cat_buffer_usage = 0;
+    for (uint32_t i = 0; i < (sizeof(TYPE_FLAG_BIT_VALUES)/sizeof(*TYPE_FLAG_BIT_VALUES)); ++i)
     {
         if (messageType & TYPE_FLAG_BIT_VALUES[i])
         {
@@ -152,10 +152,10 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugUtilsMessageSeverity
     return VK_FALSE;
 }
 
-static jfw_result jfw_vulkan_context_create(jfw_vulkan_context* this, const char* app_name, u32 app_version, VkAllocationCallbacks* alloc_callbacks)
+static jfw_result jfw_vulkan_context_create(jfw_ctx* ctx, jfw_vulkan_context* this, const char* app_name, uint32_t app_version, VkAllocationCallbacks* alloc_callbacks)
 {
     JDM_ENTER_FUNCTION;
-    u32 mtx_created = 0;
+    uint32_t mtx_created = 0;
     VkResult vk_res;
     jfw_result res;
 
@@ -172,7 +172,7 @@ static jfw_result jfw_vulkan_context_create(jfw_vulkan_context* this, const char
                         .applicationVersion = app_version,
                 };
 
-        u32 count;
+        uint32_t count;
         vk_res = vkEnumerateInstanceLayerProperties(&count, NULL);
         if (vk_res != VK_SUCCESS)
         {
@@ -181,29 +181,30 @@ static jfw_result jfw_vulkan_context_create(jfw_vulkan_context* this, const char
             goto failed;
         }
         VkLayerProperties* layer_properties;
-        res = jfw_calloc(count, sizeof(*layer_properties), &layer_properties);
-        if (JFW_RESULT_SUCCESS !=(res))
+        layer_properties = ctx->allocator_callbacks.alloc(ctx->allocator_callbacks.state, count * sizeof(*layer_properties));
+        if (!layer_properties)
         {
             JDM_ERROR("Failed allocating memory for vulkan layer properties array");
+            res = JFW_RESULT_BAD_ALLOC;
             goto failed;
         }
         vk_res = vkEnumerateInstanceLayerProperties(&count, layer_properties);
         if (vk_res != VK_SUCCESS)
         {
-            jfw_free(&layer_properties);
+            ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, layer_properties);
             JDM_ERROR("Vulkan error with enumerating instance layer properties: %s", jfw_vk_error_msg(vk_res));
             res = JFW_RESULT_VK_FAIL;
             goto failed;
         }
 
-        u32 req_layers_found = 0;
-        for (u32 i = 0; i < count && req_layers_found < REQUIRED_LAYERS_COUNT; ++i)
+        uint32_t req_layers_found = 0;
+        for (uint32_t i = 0; i < count && req_layers_found < REQUIRED_LAYERS_COUNT; ++i)
         {
             const char* name = layer_properties[i].layerName;
-            for (u32 j = 0; j < REQUIRED_LAYERS_COUNT; ++j)
+            for (uint32_t j = 0; j < REQUIRED_LAYERS_COUNT; ++j)
             {
                 const char* lay_name = REQUIRED_LAYERS_ARRAY[j];
-                const u64 lay_len = REQUIRED_LAYERS_LENGTHS[j];
+                const uint64_t lay_len = REQUIRED_LAYERS_LENGTHS[j];
                 if (match_extension_name(lay_name, lay_len, name) != 0)
                 {
                     req_layers_found += 1;
@@ -211,7 +212,7 @@ static jfw_result jfw_vulkan_context_create(jfw_vulkan_context* this, const char
                 }
             }
         }
-        jfw_free(&layer_properties);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, layer_properties);
 
         if (req_layers_found != REQUIRED_LAYERS_COUNT)
         {
@@ -229,28 +230,29 @@ static jfw_result jfw_vulkan_context_create(jfw_vulkan_context* this, const char
         }
 
         VkExtensionProperties* extension_properties;
-        res = jfw_calloc(count, sizeof(*extension_properties), &extension_properties);
-        if (JFW_RESULT_SUCCESS !=(res))
+        extension_properties = ctx->allocator_callbacks.alloc(ctx->allocator_callbacks.state, count * sizeof(*extension_properties));
+        if (!extension_properties)
         {
             JDM_ERROR("Failed allocating memory for extension properties");
+            res = JFW_RESULT_BAD_ALLOC;
             goto failed;
         }
         vk_res = vkEnumerateInstanceExtensionProperties(NULL, &count, extension_properties);
         if (vk_res != VK_SUCCESS)
         {
-            jfw_free(&extension_properties);
+            ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, extension_properties);
             JDM_ERROR("Vulkan error with enumerating extension layer properties: %s", jfw_vk_error_msg(vk_res));
             res = JFW_RESULT_VK_FAIL;
             goto failed;
         }
-        u32 req_extensions_found = 0;
-        for (u32 i = 0; i < count && req_extensions_found < REQUIRED_EXTENSIONS_COUNT; ++i)
+        uint32_t req_extensions_found = 0;
+        for (uint32_t i = 0; i < count && req_extensions_found < REQUIRED_EXTENSIONS_COUNT; ++i)
         {
             const char* name = extension_properties[i].extensionName;
-            for (u32 j = 0; j < REQUIRED_EXTENSIONS_COUNT; ++j)
+            for (uint32_t j = 0; j < REQUIRED_EXTENSIONS_COUNT; ++j)
             {
                 const char* ext_name = REQUIRED_EXTENSIONS_ARRAY[j];
-                const u64 ext_len = REQUIRED_EXTENSIONS_LENGTHS[j];
+                const uint64_t ext_len = REQUIRED_EXTENSIONS_LENGTHS[j];
                 if (match_extension_name(ext_name, ext_len, name) != 0)
                 {
                     req_extensions_found += 1;
@@ -258,7 +260,7 @@ static jfw_result jfw_vulkan_context_create(jfw_vulkan_context* this, const char
                 }
             }
         }
-        jfw_free(&extension_properties);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, extension_properties);
 
         if (req_extensions_found != REQUIRED_EXTENSIONS_COUNT)
         {
@@ -289,7 +291,7 @@ static jfw_result jfw_vulkan_context_create(jfw_vulkan_context* this, const char
         this->has_alloc = alloc_callbacks != NULL;
         if (alloc_callbacks)
         {
-            this->alloc_callback = *alloc_callbacks;
+            this->vk_alloc_callback = *alloc_callbacks;
         }
     }
 
@@ -336,7 +338,7 @@ static jfw_result jfw_vulkan_context_create(jfw_vulkan_context* this, const char
 
     //  Enumerate physical devices
     {
-        u32 count;
+        uint32_t count;
         vk_res = vkEnumeratePhysicalDevices(this->instance, &count, NULL);
         if (vk_res != VK_SUCCESS)
         {
@@ -351,16 +353,17 @@ static jfw_result jfw_vulkan_context_create(jfw_vulkan_context* this, const char
             goto failed;
         }
         VkPhysicalDevice* devices;
-        res = jfw_calloc(count, sizeof(*devices), &devices);
-        if (res != JFW_RESULT_SUCCESS)
+        devices = ctx->allocator_callbacks.alloc(ctx->allocator_callbacks.state, count * sizeof(*devices));
+        if (!devices)
         {
             JDM_ERROR("Could not allocate memory for physical device list");
+            res = JFW_RESULT_BAD_ALLOC;
             goto failed;
         }
         vk_res = vkEnumeratePhysicalDevices(this->instance, &count, devices);
         if (vk_res != VK_SUCCESS)
         {
-            jfw_free(&devices);
+            ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, devices);
             JDM_ERROR("Could not enumerate instance physical devices, reason: %s", jfw_vk_error_msg(vk_res));
             res = JFW_RESULT_VK_FAIL;
             goto failed;
@@ -368,9 +371,9 @@ static jfw_result jfw_vulkan_context_create(jfw_vulkan_context* this, const char
         this->n_physical_devices = count;
         this->p_physical_devices = devices;
 
-        for (u32 i = 0; i < count; ++i)
+        for (uint32_t i = 0; i < count; ++i)
         {
-            u32 n;
+            uint32_t n;
             vk_res = vkEnumerateDeviceExtensionProperties(devices[i], NULL, &n, NULL);
             if (vk_res == VK_SUCCESS && n > this->max_device_extensions)
             {
@@ -395,7 +398,7 @@ static jfw_result jfw_vulkan_context_create(jfw_vulkan_context* this, const char
         if (this->n_physical_devices)
         {
             assert(this->p_physical_devices != NULL);
-            jfw_free(&this->p_physical_devices);
+            ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, this->p_physical_devices);
         }
 #ifndef NDEBUG
         if (this->dbg_messenger)
@@ -411,28 +414,28 @@ static jfw_result jfw_vulkan_context_create(jfw_vulkan_context* this, const char
     return res;
 }
 
-static jfw_result jfw_vulkan_context_destroy(jfw_vulkan_context* this)
+static jfw_result jfw_vulkan_context_destroy(jfw_ctx* ctx, jfw_vulkan_context* this)
 {
     JDM_ENTER_FUNCTION;
-    jfw_free(&this->p_physical_devices);
+    ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, this->p_physical_devices);
 #ifndef NDEBUG
     this->vkDestroyDebugUtilsMessengerEXT(this->instance, this->dbg_messenger, NULL);
 #endif
-    vkDestroyInstance(this->instance, this->has_alloc ? &this->alloc_callback : NULL);
+    vkDestroyInstance(this->instance, this->has_alloc ? &this->vk_alloc_callback : NULL);
     memset(this, 0, sizeof(*this));
     JDM_LEAVE_FUNCTION;
     return JFW_RESULT_SUCCESS;
 }
 
 static jfw_result score_physical_device(
-        VkPhysicalDevice device, VkSurfaceKHR surface, i32* p_score, u32 n_prop_buffer,
-        VkExtensionProperties* ext_buffer, i32* p_queue_gfx, i32* p_queue_prs, i32* p_queue_trs, u32 n_queue_buffer,
+        VkPhysicalDevice device, VkSurfaceKHR surface, int32_t* p_score, uint32_t n_prop_buffer,
+        VkExtensionProperties* ext_buffer, int32_t* p_queue_gfx, int32_t* p_queue_prs, int32_t* p_queue_trs, uint32_t n_queue_buffer,
         VkQueueFamilyProperties* queue_buffer, VkSampleCountFlagBits* p_sample_flags)
 {
     JDM_ENTER_FUNCTION;
-    i32 score = 0;
-    u32 found_props = 0;
-    u32 device_extensions = 0;
+    int32_t score = 0;
+    uint32_t found_props = 0;
+    uint32_t device_extensions = 0;
     VkResult vk_res = vkEnumerateDeviceExtensionProperties(device, NULL, &device_extensions, NULL);
     if (vk_res != VK_SUCCESS)
     {
@@ -446,13 +449,13 @@ static jfw_result score_physical_device(
         JDM_ERROR("Could not enumerate device extension properties for device, reason: %s", jfw_vk_error_msg(vk_res));
         return JFW_RESULT_VK_FAIL;
     }
-    for (u32 i = 0; i < device_extensions && found_props < DEVICE_REQUIRED_COUNT; ++i)
+    for (uint32_t i = 0; i < device_extensions && found_props < DEVICE_REQUIRED_COUNT; ++i)
     {
         const char* ext_name = ext_buffer[i].extensionName;
-        for (u32 j = 0; j < DEVICE_REQUIRED_COUNT; ++j)
+        for (uint32_t j = 0; j < DEVICE_REQUIRED_COUNT; ++j)
         {
             const char* req_name = DEVICE_REQUIRED_EXTENSIONS[j];
-            const u32 len = DEVICE_REQUIRED_LENGTHS[j];
+            const uint32_t len = DEVICE_REQUIRED_LENGTHS[j];
             if (match_extension_name(req_name, len, ext_name) != 0)
             {
                 found_props += 1;
@@ -467,39 +470,39 @@ static jfw_result score_physical_device(
         goto end;
     }
 
-    u32 queue_count;
+    uint32_t queue_count;
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_count, NULL);
     assert(queue_count <= n_queue_buffer);
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_count, queue_buffer);
     //  Find graphics display queue
-    i32 gfx = -1, prs = -1;
+    int32_t gfx = -1, prs = -1;
     //  Check for combined support
-    for (u32 i = 0; i < queue_count; ++i)
+    for (uint32_t i = 0; i < queue_count; ++i)
     {
         const VkQueueFamilyProperties* const props = queue_buffer + i;
         VkBool32 surface_support;
         vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &surface_support);
         if (props->queueFlags & VK_QUEUE_GRAPHICS_BIT && surface_support)
         {
-            gfx = (i32)i;
-            prs = (i32)i;
+            gfx = (int32_t)i;
+            prs = (int32_t)i;
             break;
         }
     }
     //  Check for separate support
-    for (u32 i = 0; i < queue_count && (gfx == -1 || prs == -1); ++i)
+    for (uint32_t i = 0; i < queue_count && (gfx == -1 || prs == -1); ++i)
     {
         const VkQueueFamilyProperties* const props = queue_buffer + i;
         if (props->queueFlags & VK_QUEUE_GRAPHICS_BIT)
         {
-            gfx = (i32)i;
+            gfx = (int32_t)i;
             if (prs != -1) break;
         }
         VkBool32 surface_support;
         vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &surface_support);
         if (surface_support)
         {
-            prs = (i32)i;
+            prs = (int32_t)i;
             if (gfx != -1) break;
         }
     }
@@ -511,13 +514,13 @@ static jfw_result score_physical_device(
     }
 
     //  Try and find a dedicated transfer queue
-    i32 trs = -1;
-    for (u32 i = 0; i < queue_count; ++i)
+    int32_t trs = -1;
+    for (uint32_t i = 0; i < queue_count; ++i)
     {
         const VkQueueFamilyProperties* const props = queue_buffer + i;
         if (!(props->queueFlags & (VK_QUEUE_GRAPHICS_BIT|VK_QUEUE_COMPUTE_BIT)) && props->queueFlags & VK_QUEUE_TRANSFER_BIT)
         {
-            trs = (i32)i;
+            trs = (int32_t)i;
             break;
         }
     }
@@ -528,7 +531,7 @@ static jfw_result score_physical_device(
     }
 
     //  Check for surface support with relation to swapchain
-    u32 count;
+    uint32_t count;
     vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &count, NULL);
     if (!count)
     {
@@ -549,7 +552,7 @@ static jfw_result score_physical_device(
 
 
 
-    score = (i32)(1 + (features.geometryShader ? 10 : 0) + (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) + props.limits.maxImageDimension2D);
+    score = (int32_t)(1 + (features.geometryShader ? 10 : 0) + (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) + props.limits.maxImageDimension2D);
 
 
     *p_sample_flags = props.limits.framebufferColorSampleCounts;
@@ -563,8 +566,8 @@ static jfw_result score_physical_device(
 }
 
 jfw_result jfw_platform_create(
-        jfw_ctx* ctx, jfw_platform* platform, u32 w, u32 h, size_t title_len, const char* title, u32 n_frames_in_filght,
-        i32 fixed, jfw_color color)
+        jfw_ctx* ctx, jfw_platform* platform, uint32_t w, uint32_t h, size_t title_len, const char* title, uint32_t n_frames_in_filght,
+        int32_t fixed, jfw_color color)
 {
     JDM_ENTER_FUNCTION;
     jfw_result result = JFW_RESULT_SUCCESS;
@@ -656,29 +659,31 @@ jfw_result jfw_platform_create(
     }
 
     //  Find a good physical device, which can support the surface's format
-    u32 i_gfx_queue; u32 i_prs_queue; u32 i_trs_queue;
+    uint32_t i_gfx_queue; uint32_t i_prs_queue; uint32_t i_trs_queue;
     VkSampleCountFlagBits samples;
     VkPhysicalDevice physical_device = VK_NULL_HANDLE;
     {
-        i32 best_score = -1;
+        int32_t best_score = -1;
         VkExtensionProperties* prop_buffer;
-        result = jfw_calloc(context->max_device_extensions, sizeof(*prop_buffer), &prop_buffer);
-        if (result != JFW_RESULT_SUCCESS)
+        prop_buffer = ctx->allocator_callbacks.alloc(ctx->allocator_callbacks.state, context->max_device_extensions * sizeof(*prop_buffer));
+        if (!prop_buffer)
         {
             JDM_ERROR("Failed allocating memory for device extensions");
+            result = JFW_RESULT_BAD_ALLOC;
             goto failed;
         }
         VkQueueFamilyProperties* queue_buffer;
-        jfw_calloc(context->max_device_queue_families, sizeof(*queue_buffer), &queue_buffer);
-        if (result != JFW_RESULT_SUCCESS)
+        queue_buffer = ctx->allocator_callbacks.alloc(ctx->allocator_callbacks.state, context->max_device_queue_families * sizeof(*queue_buffer));
+        if (!queue_buffer)
         {
-            jfw_free(&prop_buffer);
+            ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, prop_buffer);
             JDM_ERROR("Failed allocating memory for device extensions");
+            result = JFW_RESULT_BAD_ALLOC;
             goto failed;
         }
-        for (u32 i = 0; i < context->n_physical_devices; ++i)
+        for (uint32_t i = 0; i < context->n_physical_devices; ++i)
         {
-            i32 score = -1; i32 gfx = -1; i32 prs = -1; i32 trs = -1; VkSampleCountFlagBits s;
+            int32_t score = -1; int32_t gfx = -1; int32_t prs = -1; int32_t trs = -1; VkSampleCountFlagBits s;
             result = score_physical_device(
                     context->p_physical_devices[i], res->surface, &score, context->max_device_extensions, prop_buffer,
                     &gfx, &prs, &trs, context->max_device_queue_families, queue_buffer, &s);
@@ -692,8 +697,8 @@ jfw_result jfw_platform_create(
                 physical_device = context->p_physical_devices[i];
             }
         }
-        jfw_free(&prop_buffer);
-        jfw_free(&queue_buffer);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, prop_buffer);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, queue_buffer);
         if (best_score == -1)
         {
             JDM_ERROR("Could not find a physical device which would support the bare minimum features required for Vulkan");
@@ -702,18 +707,18 @@ jfw_result jfw_platform_create(
         }
         assert(physical_device != VK_NULL_HANDLE);
 
-        const f32 priority = 1.0f;
-        u32 queue_indices[] =
+        const float priority = 1.0f;
+        uint32_t queue_indices[] =
                 {
                 i_gfx_queue, i_prs_queue, i_trs_queue
                 };
 #define n_queues (sizeof(queue_indices) / sizeof(*queue_indices))
         VkDeviceQueueCreateInfo queue_create_info[n_queues] = {};
-        u32 unique_queues[n_queues];
-        u32 n_unique_queues = 0;
-        for (u32 i = 0, j; i < n_queues; ++i)
+        uint32_t unique_queues[n_queues];
+        uint32_t n_unique_queues = 0;
+        for (uint32_t i = 0, j; i < n_queues; ++i)
         {
-            const u32 index = queue_indices[i];
+            const uint32_t index = queue_indices[i];
             for (j = 0; j < n_unique_queues; ++j)
             {
                 if (index == unique_queues[j]) break;
@@ -769,14 +774,14 @@ jfw_result jfw_platform_create(
         res->physical_device = physical_device;
         VkSurfaceCapabilitiesKHR surface_capabilities;
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, res->surface, &surface_capabilities);
-        u32 sc_img_count = surface_capabilities.minImageCount + 1;
+        uint32_t sc_img_count = surface_capabilities.minImageCount + 1;
         if (surface_capabilities.maxImageCount && sc_img_count > surface_capabilities.maxImageCount)
         {
             sc_img_count = surface_capabilities.maxImageCount;
         }
         res->n_images = sc_img_count;
-        u64 max_buffer_size;
-        u32 sf_count, pm_count;
+        uint64_t max_buffer_size;
+        uint32_t sf_count, pm_count;
         vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, res->surface, &sf_count, NULL);
         vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, res->surface, &pm_count, NULL);
         max_buffer_size = sf_count * sizeof(VkSurfaceFormatKHR);
@@ -784,17 +789,17 @@ jfw_result jfw_platform_create(
         {
             max_buffer_size = pm_count * sizeof(VkPresentModeKHR);
         }
-        void* ptr_buffer;
-        result = jfw_malloc(max_buffer_size, &ptr_buffer);
-        if (JFW_RESULT_SUCCESS !=(result))
+        void* ptr_buffer = ctx->allocator_callbacks.alloc(ctx->allocator_callbacks.state, max_buffer_size);
+        if (!ptr_buffer)
         {
             JDM_ERROR("Could not allocate memory for the buffer used for presentation mode/surface formats");
+            result = JFW_RESULT_BAD_ALLOC;
             goto failed;
         }
         VkSurfaceFormatKHR* const formats_buffer = ptr_buffer;
         vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, res->surface, &sf_count, formats_buffer);
         surface_format = formats_buffer[0];
-        for (u32 i = 0; i < sf_count; ++i)
+        for (uint32_t i = 0; i < sf_count; ++i)
         {
             const VkSurfaceFormatKHR* const format = formats_buffer + i;
             if ((format->format == VK_FORMAT_R8G8B8A8_SRGB || format->format == VK_FORMAT_B8G8R8A8_SRGB) && format->colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
@@ -806,7 +811,7 @@ jfw_result jfw_platform_create(
         VkPresentModeKHR* const present_buffer = ptr_buffer;
         vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, res->surface, &pm_count, present_buffer);
         present_mode = VK_PRESENT_MODE_FIFO_KHR;
-        for (u32 i = 0; i < sf_count; ++i)
+        for (uint32_t i = 0; i < sf_count; ++i)
         {
             const VkPresentModeKHR * const mode = present_buffer + i;
             if (*mode == VK_PRESENT_MODE_MAILBOX_KHR)
@@ -815,7 +820,7 @@ jfw_result jfw_platform_create(
                 break;
             }
         }
-        jfw_free(&ptr_buffer);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, ptr_buffer);
         VkExtent2D extent = surface_capabilities.minImageExtent;
         if (extent.width != ~0u)
         {
@@ -841,7 +846,7 @@ jfw_result jfw_platform_create(
                 extent.height = surface_capabilities.minImageExtent.height;
             }
         }
-        u32 queue_indices[] =
+        uint32_t queue_indices[] =
                 {
                     i_gfx_queue, i_prs_queue,
                 };
@@ -888,7 +893,7 @@ jfw_result jfw_platform_create(
 
     //  Create swapchain images
     {
-        u32 n_sc_images;
+        uint32_t n_sc_images;
         vk_res = vkGetSwapchainImagesKHR(res->device, res->swapchain, &n_sc_images, NULL);
         if (vk_res != VK_SUCCESS)
         {
@@ -896,20 +901,20 @@ jfw_result jfw_platform_create(
             JDM_ERROR("Could not find the number of swapchain images, reason: %s", jfw_vk_error_msg(vk_res));
             goto failed;
         }
-        VkImageView* views;
-        result = jfw_calloc(n_sc_images, sizeof(*views), &views);
-        if (JFW_RESULT_SUCCESS !=(result))
+        VkImageView* views = ctx->allocator_callbacks.alloc(ctx->allocator_callbacks.state, n_sc_images * sizeof(*views));
+        if (!views)
         {
             JDM_ERROR("Could not allocate memory for the views");
+            result = JFW_RESULT_BAD_ALLOC;
             goto failed;
         }
         {
-            VkImage* images;
-            result = jfw_calloc(n_sc_images, sizeof(*images), &images);
-            if (JFW_RESULT_SUCCESS !=(result))
+            VkImage* images = ctx->allocator_callbacks.alloc(ctx->allocator_callbacks.state, n_sc_images * sizeof(*images));
+            if (!images)
             {
-                jfw_free(&views);
+                ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, views);
                 JDM_ERROR("Could not allocate memory for swapchain images");
+                result = JFW_RESULT_BAD_ALLOC;
                 goto failed;
             }
             vk_res = vkGetSwapchainImagesKHR(res->device, res->swapchain, &n_sc_images, images);
@@ -917,8 +922,8 @@ jfw_result jfw_platform_create(
             {
                 result = JFW_RESULT_VK_FAIL;
                 JDM_ERROR("Could not find the number of swapchain images, reason: %s", jfw_vk_error_msg(vk_res));
-                jfw_free(&views);
-                jfw_free(&images);
+                ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, views);
+                ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, images);
                 goto failed;
             }
 
@@ -940,23 +945,23 @@ jfw_result jfw_platform_create(
                             .subresourceRange.layerCount = 1,
                     };
 
-            for (u32 i = 0; i < n_sc_images; ++i)
+            for (uint32_t i = 0; i < n_sc_images; ++i)
             {
                 create_info.image = images[i];
                 vk_res = vkCreateImageView(res->device, &create_info, NULL, views + i);
                 if (vk_res != VK_SUCCESS)
                 {
                     result = JFW_RESULT_VK_FAIL;
-                    for (u32 j = 0; j < i; ++j)
+                    for (uint32_t j = 0; j < i; ++j)
                     {
                         vkDestroyImageView(res->device, views[j], NULL);
                     }
-                    jfw_free(&views);
-                    jfw_free(&images);
+                    ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, views);
+                    ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, images);
                     goto failed;
                 }
             }
-            jfw_free(&images);
+            ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, images);
         }
         res->views = views;
     }
@@ -986,34 +991,37 @@ jfw_result jfw_platform_create(
         VkSemaphore* sem_img;
         VkSemaphore* sem_prs;
         VkFence* fences;
-        result = jfw_calloc(n_frames_in_filght, sizeof(*cmd_buffers), &cmd_buffers);
-        if (JFW_RESULT_SUCCESS !=(result))
+        cmd_buffers = ctx->allocator_callbacks.alloc(ctx->allocator_callbacks.state, n_frames_in_filght * sizeof(*cmd_buffers));
+        if (!cmd_buffers)
         {
             JDM_ERROR("Failed allocating memory for command buffers array");
+            result = JFW_RESULT_BAD_ALLOC;
             goto failed;
         }
-        result = jfw_calloc(n_frames_in_filght, sizeof(*sem_img), &sem_img);
+        sem_img = ctx->allocator_callbacks.alloc(ctx->allocator_callbacks.state, n_frames_in_filght * sizeof(*sem_img));
         if (JFW_RESULT_SUCCESS !=(result))
         {
             JDM_ERROR("Failed allocating memory for image semaphore array");
-            jfw_free(&cmd_buffers);
+            ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, cmd_buffers);
+            result = JFW_RESULT_BAD_ALLOC;
             goto failed;
         }
-        result = jfw_calloc(n_frames_in_filght, sizeof(*sem_prs), &sem_prs);
+        sem_prs = ctx->allocator_callbacks.alloc(ctx->allocator_callbacks.state, n_frames_in_filght * sizeof(*sem_prs));
         if (JFW_RESULT_SUCCESS !=(result))
         {
             JDM_ERROR("Failed allocating memory for present semaphore array");
-            jfw_free(&cmd_buffers);
-            jfw_free(&sem_img);
+            ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, cmd_buffers);
+            ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, sem_img);
+            result = JFW_RESULT_BAD_ALLOC;
             goto failed;
         }
-        result = jfw_calloc(n_frames_in_filght, sizeof(*fences), &fences);
+        fences = ctx->allocator_callbacks.alloc(ctx->allocator_callbacks.state, n_frames_in_filght * sizeof(*fences));
         if (JFW_RESULT_SUCCESS !=(result))
         {
             JDM_ERROR("Failed allocating memory for fences array");
-            jfw_free(&cmd_buffers);
-            jfw_free(&sem_img);
-            jfw_free(&sem_prs);
+            ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, cmd_buffers);
+            ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, sem_img);
+            ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, sem_prs);
             goto failed;
         }
         VkCommandBufferAllocateInfo alloc_info =
@@ -1028,14 +1036,14 @@ jfw_result jfw_platform_create(
         {
             result = JFW_RESULT_VK_FAIL;
             JDM_ERROR("Could not allocate command buffers for %u frames in flight + transfer", n_frames_in_filght);
-            jfw_free(&cmd_buffers);
-            jfw_free(&sem_img);
-            jfw_free(&sem_prs);
-            jfw_free(&fences);
+            ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, cmd_buffers);
+            ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, sem_img);
+            ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, sem_prs);
+            ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, fences);
             goto failed;
         }
         res->cmd_buffers = cmd_buffers;
-        for (u32 i = 0; i < n_frames_in_filght; ++i)
+        for (uint32_t i = 0; i < n_frames_in_filght; ++i)
         {
             VkSemaphoreCreateInfo sem_create_info =
                     {
@@ -1046,18 +1054,18 @@ jfw_result jfw_platform_create(
             {
                 result = JFW_RESULT_VK_FAIL;
                 JDM_ERROR("Failed creating %u semaphores, reason: %s", n_frames_in_filght, jfw_vk_error_msg(vk_res));
-                for (u32 j = 0; j < i; ++j)
+                for (uint32_t j = 0; j < i; ++j)
                 {
                     vkDestroySemaphore(res->device, sem_img[j], NULL);
                 }
-                jfw_free(&sem_img);
-                jfw_free(&sem_prs);
-                jfw_free(&fences);
+                ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, sem_img);
+                ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, sem_prs);
+                ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, fences);
                 goto failed;
             }
         }
         res->sem_img_available = sem_img;
-        for (u32 i = 0; i < n_frames_in_filght; ++i)
+        for (uint32_t i = 0; i < n_frames_in_filght; ++i)
         {
             VkSemaphoreCreateInfo sem_create_info =
                     {
@@ -1068,17 +1076,17 @@ jfw_result jfw_platform_create(
             {
                 result = JFW_RESULT_VK_FAIL;
                 JDM_ERROR("Failed creating %u semaphores, reason: %s", n_frames_in_filght, jfw_vk_error_msg(vk_res));
-                for (u32 j = 0; j < i; ++j)
+                for (uint32_t j = 0; j < i; ++j)
                 {
                     vkDestroySemaphore(res->device, sem_prs[j], NULL);
                 }
-                jfw_free(&sem_prs);
-                jfw_free(&fences);
+                ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, sem_prs);
+                ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, fences);
                 goto failed;
             }
         }
         res->sem_present = sem_prs;
-        for (u32 i = 0; i < n_frames_in_filght; ++i)
+        for (uint32_t i = 0; i < n_frames_in_filght; ++i)
         {
             VkFenceCreateInfo create_info =
                     {
@@ -1090,11 +1098,11 @@ jfw_result jfw_platform_create(
             {
                 result = JFW_RESULT_VK_FAIL;
                 JDM_ERROR("Failed creating %u fences, reason: %s", n_frames_in_filght, jfw_vk_error_msg(vk_res));
-                for (u32 j = 0; j < i; ++j)
+                for (uint32_t j = 0; j < i; ++j)
                 {
                     vkDestroyFence(res->device, fences[j], NULL);
                 }
-                jfw_free(&fences);
+                ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, fences);
                 goto failed;
             }
         }
@@ -1111,31 +1119,31 @@ jfw_result jfw_platform_create(
 failed:
     if (res->swap_fences)
     {
-        for (u32 j = 0; j < n_frames_in_filght; ++j)
+        for (uint32_t j = 0; j < n_frames_in_filght; ++j)
         {
             vkDestroyFence(res->device, res->swap_fences[j], NULL);
         }
-        jfw_free(&res->swap_fences);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, res->swap_fences);
     }
     if (res->cmd_buffers)
     {
-        jfw_free(&res->cmd_buffers);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, res->cmd_buffers);
     }
     if (res->sem_present)
     {
-        for (u32 j = 0; j < n_frames_in_filght; ++j)
+        for (uint32_t j = 0; j < n_frames_in_filght; ++j)
         {
             vkDestroySemaphore(res->device, res->sem_present[j], NULL);
         }
-        jfw_free(&res->sem_present);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, res->sem_present);
     }
     if (res->sem_img_available)
     {
-        for (u32 j = 0; j < n_frames_in_filght; ++j)
+        for (uint32_t j = 0; j < n_frames_in_filght; ++j)
         {
             vkDestroySemaphore(res->device, res->sem_img_available[j], NULL);
         }
-        jfw_free(&res->sem_img_available);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, res->sem_img_available);
     }
     if (res->cmd_pool != VK_NULL_HANDLE)
     {
@@ -1143,12 +1151,12 @@ failed:
     }
     if (res->views)
     {
-        for (u32 i = 0; i < res->n_images; ++i)
+        for (uint32_t i = 0; i < res->n_images; ++i)
         {
             vkDestroyImageView(res->device, res->views[i], NULL);
             res->views[i] = VK_NULL_HANDLE;
         }
-        jfw_free(&res->views);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, res->views);
     }
     if (res->swapchain != VK_NULL_HANDLE)
     {
@@ -1173,29 +1181,29 @@ jfw_result jfw_platform_destroy(jfw_platform* platform)
     JDM_ENTER_FUNCTION;
     jfw_ctx* ctx = platform->ctx;
     vkDeviceWaitIdle(platform->vk_res.device);
-    for (u32 j = 0; j < platform->vk_res.n_frames_in_flight; ++j)
+    for (uint32_t j = 0; j < platform->vk_res.n_frames_in_flight; ++j)
     {
         vkDestroyFence(platform->vk_res.device, platform->vk_res.swap_fences[j], NULL);
     }
-    jfw_free(&platform->vk_res.swap_fences);
-    jfw_free(&platform->vk_res.cmd_buffers);
-    for (u32 j = 0; j < platform->vk_res.n_frames_in_flight; ++j)
+    ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, platform->vk_res.swap_fences);
+    ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, platform->vk_res.cmd_buffers);
+    for (uint32_t j = 0; j < platform->vk_res.n_frames_in_flight; ++j)
     {
         vkDestroySemaphore(platform->vk_res.device, platform->vk_res.sem_present[j], NULL);
     }
-    jfw_free(&platform->vk_res.sem_present);
-    for (u32 j = 0; j < platform->vk_res.n_frames_in_flight; ++j)
+    ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, platform->vk_res.sem_present);
+    for (uint32_t j = 0; j < platform->vk_res.n_frames_in_flight; ++j)
     {
         vkDestroySemaphore(platform->vk_res.device, platform->vk_res.sem_img_available[j], NULL);
     }
-    jfw_free(&platform->vk_res.sem_img_available);
+    ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, platform->vk_res.sem_img_available);
     vkDestroyCommandPool(platform->vk_res.device, platform->vk_res.cmd_pool, NULL);
-    for (u32 i = 0; i < platform->vk_res.n_images; ++i)
+    for (uint32_t i = 0; i < platform->vk_res.n_images; ++i)
     {
         vkDestroyImageView(platform->vk_res.device, platform->vk_res.views[i], NULL);
         platform->vk_res.views[i] = VK_NULL_HANDLE;
     }
-    jfw_free(&platform->vk_res.views);
+    ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, platform->vk_res.views);
     vkDestroySwapchainKHR(platform->vk_res.device, platform->vk_res.swapchain, NULL);
     vkDestroyDevice(platform->vk_res.device, NULL);
     vkDestroySurfaceKHR(ctx->vk_ctx.instance, platform->vk_res.surface, NULL);
@@ -1211,13 +1219,15 @@ jfw_result jfw_context_add_window(jfw_ctx* ctx, jfw_window* p_window)
     jfw_result result = JFW_RESULT_SUCCESS;
     if (ctx->wnd_count == ctx->wnd_capacity)
     {
-        const u32 new_capacity = ctx->wnd_capacity << 1;
-        if (JFW_RESULT_SUCCESS !=(result = jfw_realloc(new_capacity * sizeof(p_window), &ctx->wnd_array)))
+        const uint32_t new_capacity = ctx->wnd_capacity << 1;
+        jfw_window** new_array = ctx->allocator_callbacks.realloc(ctx->allocator_callbacks.state, ctx->wnd_array, new_capacity * sizeof(p_window));
+        if (!new_array)
         {
             JDM_ERROR("Failed reallocating memory for context's window handles");
             JDM_LEAVE_FUNCTION;
-            return result;
+            return JFW_RESULT_BAD_REALLOC;
         }
+        ctx->wnd_array = new_array;
         memset(ctx->wnd_array + ctx->wnd_count, 0, sizeof(p_window) * (new_capacity - ctx->wnd_capacity));
         ctx->wnd_capacity = new_capacity;
     }
@@ -1230,7 +1240,7 @@ jfw_result jfw_context_add_window(jfw_ctx* ctx, jfw_window* p_window)
 jfw_result jfw_context_remove_window(jfw_ctx* ctx, jfw_window* p_window)
 {
     JDM_ENTER_FUNCTION;
-    for (u32 i = 0; i < ctx->wnd_count; ++i)
+    for (uint32_t i = 0; i < ctx->wnd_count; ++i)
     {
         if (ctx->wnd_array[i] == p_window)
         {
@@ -1245,32 +1255,68 @@ jfw_result jfw_context_remove_window(jfw_ctx* ctx, jfw_window* p_window)
     return JFW_RESULT_INVALID_WINDOW;
 }
 
-jfw_result jfw_context_create(jfw_ctx** p_ctx, VkAllocationCallbacks* alloc_callbacks)
+static const char* const funi_ptr = "What sound does a rubber aircraft make when you hit it?\n"
+                                    "Boeing";
+
+static void* def_alloc(void* state, uint64_t size)
 {
+    assert(funi_ptr == state);
+    return malloc(size);
+}
+
+static void* def_realloc(void* state, void* ptr, uint64_t new_size)
+{
+    assert(funi_ptr == state);
+    return realloc(ptr, new_size);
+}
+
+static void def_free(void* state, void* ptr)
+{
+    assert(state == funi_ptr);
+    free(ptr);
+}
+
+static const jfw_allocator_callbacks DEFAULT_ALLOCATORS =
+        {
+            .state = (void*)funi_ptr,
+            .alloc = def_alloc,
+            .realloc = def_realloc,
+            .free = def_free,
+        };
+
+jfw_result jfw_context_create(
+        jfw_ctx** p_ctx, VkAllocationCallbacks* vk_alloc_callbacks, const jfw_allocator_callbacks* allocator_callbacks)
+{
+    if (!allocator_callbacks)
+    {
+        allocator_callbacks = &DEFAULT_ALLOCATORS;
+    }
     JDM_ENTER_FUNCTION;
     jfw_result result = JFW_RESULT_SUCCESS;
-    jfw_ctx* ctx;
-    if (JFW_RESULT_SUCCESS !=(result = jfw_malloc(sizeof(*ctx), &ctx)))
+    jfw_ctx* ctx = allocator_callbacks->alloc(allocator_callbacks->state, sizeof(*ctx));
+    if (!ctx)
     {
         JDM_ERROR("Failed allocating memory for context");
         JDM_LEAVE_FUNCTION;
-        return result;
+        return JFW_RESULT_BAD_ALLOC;
     }
     memset(ctx, 0, sizeof(*ctx));
-    if (JFW_RESULT_SUCCESS !=(result = jfw_calloc(sizeof(*ctx->wnd_array), 8, &ctx->wnd_array)))
+    ctx->allocator_callbacks = *allocator_callbacks;
+    ctx->wnd_array = allocator_callbacks->alloc(allocator_callbacks->state, 8 * sizeof(*ctx->wnd_array));
+    if (!ctx->wnd_array)
     {
-        jfw_free(&ctx);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, ctx);
         JDM_ERROR("Failed allocating memory for context's window array");
         JDM_LEAVE_FUNCTION;
-        return result;
+        return JFW_RESULT_BAD_ALLOC;
     }
     ctx->wnd_capacity = 8;
 
     Display* dpy = XOpenDisplay(NULL);
     if (!dpy)
     {
-        jfw_free(&ctx->wnd_array);
-        jfw_free(&ctx);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, ctx->wnd_array);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, ctx);
         JDM_ERROR("Failed opening XLib display");
         JDM_LEAVE_FUNCTION;
         return JFW_RESULT_CTX_NO_DPY;
@@ -1297,8 +1343,8 @@ jfw_result jfw_context_create(jfw_ctx** p_ctx, VkAllocationCallbacks* alloc_call
     if (!im)
     {
         XCloseDisplay(dpy);
-        jfw_free(&ctx->wnd_array);
-        jfw_free(&ctx);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, ctx->wnd_array);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, ctx);
         JDM_ERROR("Failed opening input method for XLib");
         JDM_LEAVE_FUNCTION;
         return JFW_RESULT_CTX_NO_IM;
@@ -1309,22 +1355,22 @@ jfw_result jfw_context_create(jfw_ctx** p_ctx, VkAllocationCallbacks* alloc_call
     {
         XCloseIM(im);
         XCloseDisplay(dpy);
-        jfw_free(&ctx->wnd_array);
-        jfw_free(&ctx);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, ctx->wnd_array);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, ctx);
         JDM_ERROR("Failed creating input context for XLib");
         JDM_LEAVE_FUNCTION;
         return JFW_RESULT_CTX_NO_IC;
     }
     XSetICFocus(ctx->input_ctx);
 
-    result = jfw_vulkan_context_create(&ctx->vk_ctx, "jfw_context", 1, alloc_callbacks);
+    result = jfw_vulkan_context_create(ctx, &ctx->vk_ctx, "jfw_context", 1, vk_alloc_callbacks);
     if (result != JFW_RESULT_SUCCESS)
     {
         XDestroyIC(ctx->input_ctx);
         XCloseIM(im);
         XCloseDisplay(dpy);
-        jfw_free(&ctx->wnd_array);
-        jfw_free(&ctx);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, ctx->wnd_array);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, ctx);
         JDM_ERROR("Failed creating input context for XLib");
         JDM_LEAVE_FUNCTION;
         return result;
@@ -1338,15 +1384,15 @@ jfw_result jfw_context_create(jfw_ctx** p_ctx, VkAllocationCallbacks* alloc_call
 jfw_result jfw_context_destroy(jfw_ctx* ctx)
 {
     JDM_ENTER_FUNCTION;
-    for (u32 i = ctx->wnd_count; i != 0; --i)
+    for (uint32_t i = ctx->wnd_count; i != 0; --i)
     {
         jfw_window_destroy(ctx, ctx->wnd_array[i - 1]);
     }
     XSetICFocus(NULL);
     XCloseDisplay(ctx->dpy);
-    jfw_vulkan_context_destroy(&ctx->vk_ctx);
-    jfw_free(&ctx->wnd_array);
-    jfw_free(&ctx);
+    jfw_vulkan_context_destroy(ctx, &ctx->vk_ctx);
+    ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, ctx->wnd_array);
+    ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, ctx);
     JDM_LEAVE_FUNCTION;
     return JFW_RESULT_SUCCESS;
 }
@@ -1365,8 +1411,8 @@ static jfw_result handle_mouse_button_press(jfw_ctx* ctx, XEvent* ptr, jfw_windo
 //    XGrabPointer(ctx->dpy, this->platform.hwnd, False, PointerMotionMask|EnterWindowMask|LeaveWindowMask|ButtonMotionMask,GrabModeAsync,GrabModeAsync, None, None, CurrentTime);
     ctx->mouse_state |= (1 << (e->button - Button1));
 
-    i32 x = e->x;
-    i32 y = e->y;
+    int32_t x = e->x;
+    int32_t y = e->y;
 
 
     jfw_result res = JFW_RESULT_SUCCESS;
@@ -1393,8 +1439,8 @@ static jfw_result handle_mouse_button_release(jfw_ctx* ctx, XEvent* ptr, jfw_win
 {
     JDM_ENTER_FUNCTION;
     XButtonPressedEvent* const e = &ptr->xbutton;
-    i32 x = e->x;
-    i32 y = e->y;
+    int32_t x = e->x;
+    int32_t y = e->y;
     ctx->mouse_state &= ~(1 << (e->button - Button1));
     if (!ctx->mouse_state)
     {
@@ -1416,8 +1462,8 @@ static jfw_result handle_motion_notify(jfw_ctx* ctx, XEvent* ptr, jfw_window* th
 {
     JDM_ENTER_FUNCTION;
     XMotionEvent* const e = &ptr->xmotion;
-    i32 x = e->x;
-    i32 y = e->y;
+    int32_t x = e->x;
+    int32_t y = e->y;
 
     if (this->functions.mouse_motion)
     {
@@ -1538,7 +1584,7 @@ static jfw_result handle_config_notify(jfw_ctx* ctx, XEvent* ptr, jfw_window* wn
     JDM_ENTER_FUNCTION;
     XConfigureEvent* const e = &ptr->xconfigure;
     jfw_result res = JFW_RESULT_SUCCESS;
-    if ((u32)e->width != wnd->w || (u32)e->height != wnd->h)
+    if ((uint32_t)e->width != wnd->w || (uint32_t)e->height != wnd->h)
     {
         if (wnd->functions.on_resize)
         {
@@ -1647,7 +1693,7 @@ jfw_result jfw_context_process_events(jfw_ctx* ctx)
             {
                 handler(ctx, &e, NULL);
             }
-            else for (u32 i = 0; i < ctx->wnd_count; ++i)
+            else for (uint32_t i = 0; i < ctx->wnd_count; ++i)
             {
                 jfw_window* wnd = ctx->wnd_array[i];
                 if (wnd->platform.hwnd == e.xany.window)
@@ -1735,10 +1781,10 @@ jfw_result jfw_platform_swap(jfw_ctx* ctx, jfw_platform* wnd)
     return JFW_RESULT_SUCCESS;
 }
 
-u32 jfw_context_window_count(jfw_ctx* ctx)
+uint32_t jfw_context_window_count(jfw_ctx* ctx)
 {
     JDM_ENTER_FUNCTION;
-    u32 count = ctx->wnd_count;
+    uint32_t count = ctx->wnd_count;
     JDM_LEAVE_FUNCTION;
     return count;
 }
@@ -1782,14 +1828,14 @@ static inline jfw_result create_swapchain(jfw_ctx* ctx, jfw_platform* plt, jfw_w
     {
         VkSurfaceCapabilitiesKHR surface_capabilities;
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(res->physical_device, res->surface, &surface_capabilities);
-        u32 sc_img_count = surface_capabilities.minImageCount + 1;
+        uint32_t sc_img_count = surface_capabilities.minImageCount + 1;
         if (surface_capabilities.maxImageCount && sc_img_count > surface_capabilities.maxImageCount)
         {
             sc_img_count = surface_capabilities.maxImageCount;
         }
         res->n_images = sc_img_count;
-        u64 max_buffer_size;
-        u32 sf_count, pm_count;
+        uint64_t max_buffer_size;
+        uint32_t sf_count, pm_count;
         vkGetPhysicalDeviceSurfaceFormatsKHR(res->physical_device, res->surface, &sf_count, NULL);
         vkGetPhysicalDeviceSurfacePresentModesKHR(res->physical_device, res->surface, &pm_count, NULL);
         max_buffer_size = sf_count * sizeof(VkSurfaceFormatKHR);
@@ -1797,17 +1843,17 @@ static inline jfw_result create_swapchain(jfw_ctx* ctx, jfw_platform* plt, jfw_w
         {
             max_buffer_size = pm_count * sizeof(VkPresentModeKHR);
         }
-        void* ptr_buffer;
-        result = jfw_malloc(max_buffer_size, &ptr_buffer);
-        if (JFW_RESULT_SUCCESS !=(result))
+        void* ptr_buffer = ctx->allocator_callbacks.alloc(ctx->allocator_callbacks.state, max_buffer_size);
+        if (!ptr_buffer)
         {
             JDM_ERROR("Could not allocate memory for the buffer used for presentation mode/surface formats");
+            result = JFW_RESULT_BAD_ALLOC;
             goto failed;
         }
         VkSurfaceFormatKHR* const formats_buffer = ptr_buffer;
         vkGetPhysicalDeviceSurfaceFormatsKHR(res->physical_device, res->surface, &sf_count, formats_buffer);
         surface_format = formats_buffer[0];
-        for (u32 i = 0; i < sf_count; ++i)
+        for (uint32_t i = 0; i < sf_count; ++i)
         {
             const VkSurfaceFormatKHR* const format = formats_buffer + i;
             if ((format->format == VK_FORMAT_R8G8B8A8_SRGB || format->format == VK_FORMAT_B8G8R8A8_SRGB) && format->colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
@@ -1819,7 +1865,7 @@ static inline jfw_result create_swapchain(jfw_ctx* ctx, jfw_platform* plt, jfw_w
         VkPresentModeKHR* const present_buffer = ptr_buffer;
         vkGetPhysicalDeviceSurfacePresentModesKHR(res->physical_device, res->surface, &pm_count, present_buffer);
         present_mode = VK_PRESENT_MODE_FIFO_KHR;
-        for (u32 i = 0; i < sf_count; ++i)
+        for (uint32_t i = 0; i < sf_count; ++i)
         {
             const VkPresentModeKHR * const mode = present_buffer + i;
             if (*mode == VK_PRESENT_MODE_MAILBOX_KHR)
@@ -1828,7 +1874,7 @@ static inline jfw_result create_swapchain(jfw_ctx* ctx, jfw_platform* plt, jfw_w
                 break;
             }
         }
-        jfw_free(&ptr_buffer);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, ptr_buffer);
         VkExtent2D extent = surface_capabilities.minImageExtent;
         if (extent.width != ~0u)
         {
@@ -1854,7 +1900,7 @@ static inline jfw_result create_swapchain(jfw_ctx* ctx, jfw_platform* plt, jfw_w
                 extent.height = surface_capabilities.minImageExtent.height;
             }
         }
-        u32 queue_indices[] =
+        uint32_t queue_indices[] =
                 {
                         res->i_gfx_queue, res->i_prs_queue, res->i_trs_queue
                 };
@@ -1903,11 +1949,11 @@ static inline jfw_result create_swapchain(jfw_ctx* ctx, jfw_platform* plt, jfw_w
     return result;
 }
 
-static inline jfw_result create_swapchain_img_views(jfw_window_vk_resources* res)
+static inline jfw_result create_swapchain_img_views(jfw_ctx* ctx, jfw_window_vk_resources* res)
 {
     jfw_result result;
     VkResult vk_res;
-    u32 n_sc_images;
+    uint32_t n_sc_images;
     vk_res = vkGetSwapchainImagesKHR(res->device, res->swapchain, &n_sc_images, NULL);
     if (vk_res != VK_SUCCESS)
     {
@@ -1924,12 +1970,12 @@ static inline jfw_result create_swapchain_img_views(jfw_window_vk_resources* res
 //        goto failed;
 //    }
     {
-        VkImage* images;
-        result = jfw_calloc(n_sc_images, sizeof(*images), &images);
-        if (JFW_RESULT_SUCCESS !=(result))
+        VkImage* images = ctx->allocator_callbacks.alloc(ctx->allocator_callbacks.state, n_sc_images * sizeof(*images));
+        if (!images)
         {
-            jfw_free(&views);
+            ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, views);
             JDM_ERROR("Could not allocate memory for swapchain images");
+            result = JFW_RESULT_BAD_ALLOC;
             goto failed;
         }
         vk_res = vkGetSwapchainImagesKHR(res->device, res->swapchain, &n_sc_images, images);
@@ -1937,8 +1983,8 @@ static inline jfw_result create_swapchain_img_views(jfw_window_vk_resources* res
         {
             result = JFW_RESULT_VK_FAIL;
             JDM_ERROR("Could not find the number of swapchain images, reason: %s", jfw_vk_error_msg(vk_res));
-//            jfw_free(&views);
-            jfw_free(&images);
+//            ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, views);
+            ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, images);
             goto failed;
         }
 
@@ -1960,22 +2006,22 @@ static inline jfw_result create_swapchain_img_views(jfw_window_vk_resources* res
                         .subresourceRange.layerCount = 1,
                 };
 
-        for (u32 i = 0; i < n_sc_images; ++i)
+        for (uint32_t i = 0; i < n_sc_images; ++i)
         {
             create_info.image = images[i];
             vk_res = vkCreateImageView(res->device, &create_info, NULL, views + i);
             if (vk_res != VK_SUCCESS)
             {
                 result = JFW_RESULT_VK_FAIL;
-                for (u32 j = 0; j < i; ++j)
+                for (uint32_t j = 0; j < i; ++j)
                 {
                     vkDestroyImageView(res->device, views[j], NULL);
                 }
-                jfw_free(&images);
+                ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, images);
                 goto failed;
             }
         }
-        jfw_free(&images);
+        ctx->allocator_callbacks.free(ctx->allocator_callbacks.state, images);
     }
 //    res->views = views;
     return JFW_RESULT_SUCCESS;
@@ -1992,7 +2038,7 @@ jfw_result jfw_window_update_swapchain(jfw_window* p_window)
 
     //  Cleanup current swapchain
     {
-        for (u32 i = 0; i < this->n_images; ++i)
+        for (uint32_t i = 0; i < this->n_images; ++i)
         {
             vkDestroyImageView(this->device, this->views[i], NULL);
         }
@@ -2008,7 +2054,7 @@ jfw_result jfw_window_update_swapchain(jfw_window* p_window)
     }
 
     //  Create swapchain images
-    result = create_swapchain_img_views(&p_window->platform.vk_res);
+    result = create_swapchain_img_views(p_window->ctx, &p_window->platform.vk_res);
     if (JFW_RESULT_SUCCESS !=(result))
     {
         JDM_ERROR("Could not recreate image views");

@@ -13,10 +13,10 @@
 typedef struct jfw_window_functions_struct
 {
     //  Related to mouse input
-    jfw_result (*mouse_button_press)(jfw_window* this, i32 x, i32 y, u32 button, u32 mods);
-    jfw_result (*mouse_button_double_press)(jfw_window* this, i32 x, i32 y, u32 button, u32 mods);
-    jfw_result (*mouse_button_release)(jfw_window* this, i32 x, i32 y, u32 button, u32 mods);
-    jfw_result (*mouse_motion)(jfw_window* this, i32 x, i32 y, u32 mods);
+    jfw_result (*mouse_button_press)(jfw_window* this, int32_t x, int32_t y, uint32_t button, uint32_t mods);
+    jfw_result (*mouse_button_double_press)(jfw_window* this, int32_t x, int32_t y, uint32_t button, uint32_t mods);
+    jfw_result (*mouse_button_release)(jfw_window* this, int32_t x, int32_t y, uint32_t button, uint32_t mods);
+    jfw_result (*mouse_motion)(jfw_window* this, int32_t x, int32_t y, uint32_t mods);
     jfw_result (*mouse_focus_get)(jfw_window* this, jfw_window* new_focus);
     jfw_result (*mouse_focus_lose)(jfw_window* this, jfw_window* old_focus);
     //  Related to keyboard input
@@ -34,18 +34,18 @@ typedef struct jfw_window_functions_struct
     jfw_result (*drawing_postdraw)(jfw_window* this);
     jfw_result (*dtor_fn)(jfw_window* this);
     //  Related to motion and resizing
-    jfw_result (*on_move)(jfw_window* this, i32 old_x, i32 old_y, u32 new_x, u32 new_y); //  Called when the window is moved
+    jfw_result (*on_move)(jfw_window* this, int32_t old_x, int32_t old_y, uint32_t new_x, uint32_t new_y); //  Called when the window is moved
     jfw_result (*on_show)(jfw_window* this);                                                //  Called when the window is shown
     jfw_result (*on_hide)(jfw_window* this);                                                //  Called when the window is hidden
     jfw_result (*on_close)(jfw_window* this);                                               //  Called when the window is requested to close
-    jfw_result (*on_resize)(jfw_window* this, u32 old_w, u32 old_h, u32 new_w, u32 new_h);  //  Called when the window is resized
+    jfw_result (*on_resize)(jfw_window* this, uint32_t old_w, uint32_t old_h, uint32_t new_w, uint32_t new_h);  //  Called when the window is resized
 } jfw_window_functions;
 
 
 struct jfw_window_struct
 {
     jfw_ctx* ctx;                   //  context for interacting with the whole WM state and such
-    u32 w, h;                       //  window dimensions
+    uint32_t w, h;                       //  window dimensions
     char* title;                    //  window title
     jfw_platform platform;          //  platform-specific window state and handles
     int redraw;                     //  set to non-zero value if it should be redrawn next time it is possible
@@ -53,7 +53,7 @@ struct jfw_window_struct
     void* user_ptr;
 };
 
-jfw_result jfw_window_create(jfw_ctx* ctx, u32 w, u32 h, char* title, jfw_color color, jfw_window** p_wnd, i32 fixed);
+jfw_result jfw_window_create(jfw_ctx* ctx, uint32_t w, uint32_t h, char* title, jfw_color color, jfw_window** p_wnd, int32_t fixed);
 
 jfw_result jfw_window_show(jfw_ctx* ctx, jfw_window* wnd);
 
