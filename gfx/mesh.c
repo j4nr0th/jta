@@ -855,9 +855,9 @@ gfx_result jta_structure_meshes_generate_deformed(
     for (uint32_t i_pt = 0; i_pt < point_list->count; ++i_pt)
     {
         //  Add point displacements
-        positions[i_pt] = VEC4(point_list->p_x[i_pt] + solution->point_displacements[3 * i_pt + 0],
-                               point_list->p_y[i_pt] + solution->point_displacements[3 * i_pt + 1],
-                               point_list->p_z[i_pt] + solution->point_displacements[3 * i_pt + 2]);
+        positions[i_pt] = VEC4(point_list->p_x[i_pt] + cfg->deformation_scale * solution->point_displacements[3 * i_pt + 0],
+                               point_list->p_y[i_pt] + cfg->deformation_scale * solution->point_displacements[3 * i_pt + 1],
+                               point_list->p_z[i_pt] + cfg->deformation_scale * solution->point_displacements[3 * i_pt + 2]);
     }
 
     //  Generate truss members
@@ -872,7 +872,7 @@ gfx_result jta_structure_meshes_generate_deformed(
         const vec4 pt0 = positions[i_pt0];
         const vec4 pt1 = positions[i_pt1];
 
-        const jta_color c = {{ .r = 0xD0, .g = 0xD0, .b = 0xD0, .a = 0xFF }};   //  Here a colormap lookup could be done
+        const jta_color c = {{ .r = 0xFF, .g = 0x00, .b = 0x00, .a = 0x80 }};   //  Here a colormap lookup could be done
 
         const float radius = problem_setup->profile_list.equivalent_radius[i_pro] * cfg->radius_scale;
 
@@ -935,8 +935,8 @@ gfx_result jta_structure_meshes_generate_deformed(
         const uint32_t dof_count = ((bcs_per_point[i_pt] & JTA_NUMERICAL_BC_TYPE_X) != 0) +
                                    ((bcs_per_point[i_pt] & JTA_NUMERICAL_BC_TYPE_Y) != 0) +
                                    ((bcs_per_point[i_pt] & JTA_NUMERICAL_BC_TYPE_Z) != 0);
-        jta_color c = cfg->dof_point_colors[3 - dof_count];
-        float r = cfg->dof_point_scales[3 - dof_count] * point_list->max_radius[i_pt] * cfg->radius_scale;
+        jta_color c = cfg->dof_point_colors[dof_count];
+        float r = cfg->dof_point_scales[dof_count] * point_list->max_radius[i_pt] * cfg->radius_scale;
         vec4 pos = positions[i_pt];
 
         if ((res = sphere_mesh_add(&meshes->spheres, c, r, pos, vulkan_state)) != GFX_RESULT_SUCCESS)
@@ -976,25 +976,25 @@ gfx_result jta_structure_meshes_generate_deformed(
 
     for (uint32_t i_pt = 0; i_pt < point_list->count; ++i_pt)
     {
-        //  Check if it should be skipped
-        if (bcs_per_point[i_pt] == (JTA_NUMERICAL_BC_TYPE_X | JTA_NUMERICAL_BC_TYPE_Y | JTA_NUMERICAL_BC_TYPE_Z))
+        //  Check if it should be skipped (reactions only occur at BCs
+        if (bcs_per_point[i_pt] == 0)
         {
             continue;
         }
 
         vec4 pos = positions[i_pt];
         vec4 force = VEC4(0, 0, 0);
-        if (!(bcs_per_point[i_pt] & JTA_NUMERICAL_BC_TYPE_X))
+        if ((bcs_per_point[i_pt] & JTA_NUMERICAL_BC_TYPE_X))
         {
             force.x = solution->point_reactions[3 * i_pt + 0];
         }
-        if (!(bcs_per_point[i_pt] & JTA_NUMERICAL_BC_TYPE_Y))
+        if ((bcs_per_point[i_pt] & JTA_NUMERICAL_BC_TYPE_Y))
         {
-            force.x = solution->point_reactions[3 * i_pt + 1];
+            force.y = solution->point_reactions[3 * i_pt + 1];
         }
-        if (!(bcs_per_point[i_pt] & JTA_NUMERICAL_BC_TYPE_Z))
+        if ((bcs_per_point[i_pt] & JTA_NUMERICAL_BC_TYPE_Z))
         {
-            force.x = solution->point_reactions[3 * i_pt + 2];
+            force.z = solution->point_reactions[3 * i_pt + 2];
         }
         float mag = vec4_magnitude(force);
         vec4 unit_dir = vec4_div_one(force, mag);
@@ -1002,7 +1002,7 @@ gfx_result jta_structure_meshes_generate_deformed(
         float length = mag / maximum_mag * element_list->max_len * cfg->force_length_ratio;
         float radius = cfg->force_radius_ratio * problem_setup->profile_list.max_equivalent_radius;
 
-        jta_color c = {{ .r = 0x00, .g = 0x00, .b = 0xD0, .a = 0xFF }};   //  This could be a config option
+        jta_color c = {{ .r = 0x00, .g = 0xFF, .b = 0x00, .a = 0xFF }};   //  This could be a config option
 
         if ((res = add_force_arrow(meshes, pos, unit_dir, length, radius, vulkan_state, c, cfg->force_head_ratio)) !=
             GFX_RESULT_SUCCESS)

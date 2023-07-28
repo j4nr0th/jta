@@ -194,19 +194,18 @@ jfw_result truss_key_press(jfw_window* this, KeySym key_sym)
 {
     JDM_ENTER_FUNCTION;
 
+    jta_draw_state* const state = jfw_window_get_usr_ptr(this);
+    static int solved = 0;
     if (key_sym == XK_F12)
     {
         //  Take a screenshot
         jfw_window_ask_for_redraw(this);
-        jta_draw_state* const state = jfw_window_get_usr_ptr(this);
         state->screenshot = 1;
     }
     else if (key_sym == XK_space)
     {
-        static int solved = 0;
         if (!solved)
         {
-            jta_draw_state* const state = jfw_window_get_usr_ptr(this);
             assert(state);
             jta_result res = jta_solve_problem(&state->config->problem, state->p_problem, state->p_solution);
             if (res != JTA_RESULT_SUCCESS)
@@ -218,6 +217,71 @@ jfw_result truss_key_press(jfw_window* this, KeySym key_sym)
                 solved = 1;
             }
         }
+    }
+    else if (key_sym == XK_r)
+    {
+        jta_structure_meshes new_meshes = {};
+        gfx_result res;
+        res = mesh_init_sphere(&new_meshes.spheres, 4, state->vulkan_state, state->vulkan_resources);
+        if (res != GFX_RESULT_SUCCESS)
+        {
+            JDM_ERROR("Could not initialise new sphere mesh, reason: %s", gfx_result_to_str(res));
+            goto end;
+        }
+
+        res = mesh_init_cone(&new_meshes.cones, 1 << 4, state->vulkan_state, state->vulkan_resources);
+        if (res != GFX_RESULT_SUCCESS)
+        {
+            JDM_ERROR("Could not initialise new cone mesh, reason: %s", gfx_result_to_str(res));
+            mesh_uninit(&new_meshes.spheres);
+            goto end;
+        }
+
+        res = mesh_init_truss(&new_meshes.cylinders, 1 << 4, state->vulkan_state, state->vulkan_resources);
+        if (res != GFX_RESULT_SUCCESS)
+        {
+            JDM_ERROR("Could not initialise new cylinder mesh, reason: %s", gfx_result_to_str(res));
+            mesh_uninit(&new_meshes.cones);
+            mesh_uninit(&new_meshes.spheres);
+            goto end;
+        }
+
+
+        if (solved)
+        {
+//            res = jta_structure_meshes_generate_undeformed(
+//                    &new_meshes, &state->config->display, state->p_problem, state->vulkan_state);
+//            if (res != GFX_RESULT_SUCCESS)
+//            {
+//                JDM_ERROR("Could not create new mesh, reason: %s", gfx_result_to_str(res));
+//                mesh_uninit(&new_meshes.cones);
+//                mesh_uninit(&new_meshes.spheres);
+//                mesh_uninit(&new_meshes.cylinders);
+//                goto end;
+//            }
+            res = jta_structure_meshes_generate_deformed(
+                    &new_meshes, &state->config->display, state->p_problem, state->p_solution, state->vulkan_state);
+        }
+        else
+        {
+            res = jta_structure_meshes_generate_undeformed(
+                    &new_meshes, &state->config->display, state->p_problem, state->vulkan_state);
+        }
+
+        if (res != GFX_RESULT_SUCCESS)
+        {
+            JDM_ERROR("Could not create new mesh, reason: %s", gfx_result_to_str(res));
+            mesh_uninit(&new_meshes.cones);
+            mesh_uninit(&new_meshes.spheres);
+            mesh_uninit(&new_meshes.cylinders);
+            goto end;
+        }
+
+        jta_structure_meshes old_meshes = state->meshes;
+        state->meshes = new_meshes;
+        mesh_uninit(&old_meshes.cones);
+        mesh_uninit(&old_meshes.spheres);
+        mesh_uninit(&old_meshes.cylinders);
     }
 
 end:

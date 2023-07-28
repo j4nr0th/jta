@@ -3,6 +3,7 @@
 //
 #include <jdm.h>
 #include "vk_mem_allocator.h"
+#include "../jfw/jfw_error.h"
 
 typedef struct allocation_chunk_struct allocation_chunk;
 struct allocation_chunk_struct
@@ -150,7 +151,7 @@ i32 vk_buffer_allocate(
             {
                 //  Insert a new empty chunk in the list
                 memmove(
-                        pool->chunk_list + k + 1, pool->chunk_list + k + 2,
+                        pool->chunk_list + k + 2, pool->chunk_list + k + 1,
                         sizeof(*pool->chunk_list) * (pool->chunk_count - k - 1));
                 pool->chunk_list[k + 1] = (allocation_chunk) { .size = remainder, .used = 0, .offset = chunk->offset +
                                                                                                        size };
@@ -184,16 +185,6 @@ i32 vk_buffer_allocate(
         return -1;
     }
 
-//    u32* v_qfi;
-//    jfw_result =  jfw_calloc(n_queue_family_indices, sizeof(*v_qfi), &v_qfi);
-//    if (JFW_RESULT_SUCCESS !=(jfw_result))
-//    {
-//        JDM_ERROR("Failed allocating memory for the pool's queue list");
-//        ill_jfree(G_JALLOCATOR, pool);
-//        return -1;
-//    }
-//    memcpy(v_qfi, p_queue_family_indices, sizeof(*v_qfi) * n_queue_family_indices);
-
     //  No pool was good, make a new one
     const VkDeviceSize new_pool_size = size > allocator->pool_init_size ? size : allocator->pool_init_size;
     assert(new_pool_size);
@@ -204,16 +195,12 @@ i32 vk_buffer_allocate(
             .size = new_pool_size,
             .usage = usage,
             .sharingMode = sharing_mode,
-//            .queueFamilyIndexCount = n_queue_family_indices,
-//            .pQueueFamilyIndices = p_queue_family_indices,
-//            .pNext = NULL,
             };
     VkBuffer new_buffer;
     VkResult vk_res = vkCreateBuffer(allocator->device, &create_info, NULL, &new_buffer);
     if (vk_res != VK_SUCCESS)
     {
         JDM_ERROR("Failed creating vk_buffer, reason: %s", jfw_vk_error_msg(vk_res));
-//        ill_jfree(G_JALLOCATOR, v_qfi);
         ill_jfree(G_JALLOCATOR, pool);
         return -1;
     }
@@ -234,7 +221,6 @@ i32 vk_buffer_allocate(
     {
         JDM_ERROR("Failed creating vk_buffer, reason: %s", jfw_vk_error_msg(vk_res));
         vkDestroyBuffer(allocator->device, new_buffer, NULL);
-//        ill_jfree(G_JALLOCATOR, v_qfi);
         ill_jfree(G_JALLOCATOR, pool);
         return -1;
     }
@@ -247,8 +233,6 @@ i32 vk_buffer_allocate(
     pool->requirements = mem_requirements;
     pool->chunk_count = 1;
     pool->buffer = new_buffer;
-//    pool->v_qfi = v_qfi;
-//    pool->n_qfi = n_queue_family_indices;
     pool->sharing_mode = sharing_mode;
     pool->usage = usage;
     pool->memory = mem;

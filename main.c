@@ -317,9 +317,9 @@ int main(int argc, char* argv[argc])
 
     jta_solution_free(&solution);
 cleanup:
-    mesh_uninit(&undeformed_meshes.cylinders);
-    mesh_uninit(&undeformed_meshes.spheres);
-    mesh_uninit(&undeformed_meshes.cones);
+    mesh_uninit(&draw_state.meshes.cylinders);
+    mesh_uninit(&draw_state.meshes.spheres);
+    mesh_uninit(&draw_state.meshes.cones);
     if (jctx)
     {
         jfw_context_destroy(jctx);
