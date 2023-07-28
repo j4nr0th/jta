@@ -38,10 +38,7 @@ struct vk_state_struct
     VkImage depth_img;
     VkDeviceMemory depth_mem;
     VkFormat depth_format;
-    u32 mesh_count;
-    void* mesh_array;
     mtx4 view;
-    const jta_point_list* point_list;
     uint32_t last_img_idx;
     VkCommandPool transfer_cmd_pool;
 };

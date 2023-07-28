@@ -516,5 +516,11 @@ static const mtx4 mtx4_identity =
     return dx < 1024 * FLT_EPSILON && dy < 1024 * FLT_EPSILON && dz < 1024 * FLT_EPSILON;
 }
 
+[[nodiscard]] static float vec4_distance_between_in_direction(vec4 a, vec4 b, vec4 unit_view)
+{
+    vec4 dif = vec4_sub(a, b);
+    return vec4_dot(dif, unit_view);
+}
+
 #define VEC4(vx, vy, vz) (vec4){.x = (vx), .y = (vy), .z = (vz), .w = 1.0f}
 #endif //JTA_GFX_MATH_H

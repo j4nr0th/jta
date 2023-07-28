@@ -33,6 +33,7 @@ static const char* const jio_result_strings[GFX_RESULT_COUNT] =
                 [GFX_RESULT_MAP_FAILED] = "Mapping the memory failed",
                 [GFX_RESULT_BAD_FENCE_WAIT] = "Could not wait for fence",
                 [GFX_RESULT_BAD_IO] = "IO operation failed",
+                [GFX_RESULT_BAD_ARG] = "at least one of function arguments was invalid",
         };
 
 const char* gfx_result_to_str(gfx_result res)

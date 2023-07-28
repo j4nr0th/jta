@@ -48,11 +48,10 @@ union jta_color_union
         unsigned char r, g, b, a;
     };
     unsigned char data[4];
+    uint32_t packed;
 };
 typedef union jta_color_union jta_color;
 
-#include "../jfw/jfw_common.h"
-#include "../jfw/window.h"
 #include <jmem/jmem.h>
 #include "../mem/aligned_jalloc.h"
 
@@ -61,7 +60,6 @@ extern jallocator* G_LIN_JALLOCATOR;
 extern aligned_jallocator* G_ALIGN_JALLOCATOR;
 extern jallocator* G_JALLOCATOR;
 
-#include <vulkan/vulkan.h>
 #include <assert.h>
 
 #include "../gfx/gfx_math.h"

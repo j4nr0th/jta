@@ -2,6 +2,7 @@
 // Created by jan on 23.7.2023.
 //
 #include <inttypes.h>
+#include <float.h>
 #include <matrices/sparse_row_compressed.h>
 #include <solvers/jacobi_point_iteration.h>
 #include "jtasolve.h"
@@ -20,43 +21,47 @@ jta_result jta_solve_problem(const jta_config_problem* cfg, const jta_problem_se
     point_masses = ill_jalloc(G_JALLOCATOR, sizeof(*point_masses) * point_count);
     if (!point_masses)
     {
-        JDM_ERROR("Could not allocate array for %zu point masses", (size_t)sizeof(*point_masses) * point_count);
+        JDM_ERROR("Could not allocate array for %zu point masses", (size_t) sizeof(*point_masses) * point_count);
         goto failed;
     }
 
     forces = ill_jalloc(G_JALLOCATOR, sizeof(*forces) * total_dofs);
     if (!forces)
     {
-        JDM_ERROR("Could not allocate array for %zu element_forces", (size_t)sizeof(*forces) * total_dofs);
+        JDM_ERROR("Could not allocate array for %zu element_forces", (size_t) sizeof(*forces) * total_dofs);
         goto failed;
     }
 
     deformations = ill_jalloc(G_JALLOCATOR, sizeof(*deformations) * total_dofs);
     if (!deformations)
     {
-        JDM_ERROR("Could not allocate array for %zu point_displacements", (size_t)sizeof(*deformations) * total_dofs);
+        JDM_ERROR("Could not allocate array for %zu point_displacements", (size_t) sizeof(*deformations) * total_dofs);
         goto failed;
     }
 
     const jmtx_allocator_callbacks allocator_callbacks =
             {
-            .alloc = (void* (*)(void*, uint64_t)) ill_jalloc,
-            .realloc = (void* (*)(void*, void*, uint64_t)) ill_jrealloc,
-            .free = (void (*)(void*, void*)) ill_jfree,
-            .state = G_JALLOCATOR,
+                    .alloc = (void* (*)(void*, uint64_t)) ill_jalloc,
+                    .realloc = (void* (*)(void*, void*, uint64_t)) ill_jrealloc,
+                    .free = (void (*)(void*, void*)) ill_jfree,
+                    .state = G_JALLOCATOR,
             };
 
     jta_result res;
-    jmtx_result jmtx_res = jmtx_matrix_crs_new(&stiffness_matrix, total_dofs, total_dofs, 6 * 6 * total_dofs, &allocator_callbacks);
+    jmtx_result jmtx_res = jmtx_matrix_crs_new(
+            &stiffness_matrix, total_dofs, total_dofs, 6 * 6 * total_dofs, &allocator_callbacks);
     if (jmtx_res != JMTX_RESULT_SUCCESS)
     {
-        JDM_ERROR("Could not create the system matrix of %zu by %zu, reason: %s", (size_t)total_dofs, (size_t)total_dofs, jmtx_result_to_str(jmtx_res));
+        JDM_ERROR("Could not create the system matrix of %zu by %zu, reason: %s", (size_t) total_dofs,
+                  (size_t) total_dofs, jmtx_result_to_str(jmtx_res));
         res = JTA_RESULT_BAD_ALLOC;
         goto failed;
     }
 
     memset(point_masses, 0, sizeof(*point_masses) * point_count);
-    res = jta_make_global_matrices(&problem->point_list, &problem->element_list, &problem->profile_list, &problem->material_list, stiffness_matrix, point_masses);
+    res = jta_make_global_matrices(
+            &problem->point_list, &problem->element_list, &problem->profile_list, &problem->material_list,
+            stiffness_matrix, point_masses);
     if (res != JTA_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not build global system matrices, reason: %s", jta_result_to_str(res));
@@ -126,20 +131,33 @@ jta_result jta_solve_problem(const jta_config_problem* cfg, const jta_problem_se
     jta_timer solver_timer;
     JDM_TRACE("Solving a %"PRIu32" by %"PRIu32" reduced system", reduced_dofs, reduced_dofs);
     jta_timer_set(&solver_timer);
-    jmtx_res = jmtx_jacobi_relaxed_crs(k_reduced,
-                                       f_r,
-                                       u_r,
-                                       cfg->sim_and_sol.relaxation_factor,
-                                       max_err,
-                                       max_iters,
-                                       &iter_count,
-                                       NULL,
-                                       &final_error,
-                                       &allocator_callbacks);
+    jmtx_res = jmtx_jacobi_relaxed_crs(
+            k_reduced,
+            f_r,
+            u_r,
+            cfg->sim_and_sol.relaxation_factor,
+            max_err,
+            max_iters,
+            &iter_count,
+            NULL,
+            &final_error,
+            &allocator_callbacks);
     f64 time_taken = jta_timer_get(&solver_timer);
-    (void)jmtx_matrix_crs_destroy(k_reduced);
+    (void) jmtx_matrix_crs_destroy(k_reduced);
 
-    JDM_TRACE("Time taken for %"PRIu32" iterations of Jacobi was %g seconds, with a final error of %e", iter_count, time_taken, final_error);
+    JDM_INFO("Time taken for %"PRIu32" iterations of Jacobi was %g seconds, with a final error of %e", iter_count,
+              time_taken, final_error);
+    if (isnan(final_error))
+    {
+        JDM_ERROR("Failed solving the problem using Jacobi's method, error reached %g after %"PRIu32" iterations. This"
+                  " likely means that the square of error reached %g, which gives %g as its sqrt.", final_error, iter_count, INFINITY, final_error);
+        lin_jfree(G_LIN_JALLOCATOR, f_r);
+        lin_jfree(G_LIN_JALLOCATOR, u_r);
+        lin_jfree(G_LIN_JALLOCATOR, dofs);
+        res = JTA_RESULT_BAD_PROBLEM;
+        goto failed;
+    }
+
     if (jmtx_res != JMTX_RESULT_SUCCESS && jmtx_res != JMTX_RESULT_NOT_CONVERGED)
     {
         JDM_ERROR("Failed solving the problem using Jacobi's method, reason: %s", jmtx_result_to_str(jmtx_res));
@@ -223,6 +241,7 @@ jta_result jta_solve_problem(const jta_config_problem* cfg, const jta_problem_se
     solution->point_reactions = forces;
     solution->point_displacements = deformations;
     solution->point_masses = point_masses;
+    solution->final_residual_ratio = final_error;
 
 
     JDM_LEAVE_FUNCTION;

@@ -31,8 +31,8 @@ static jfw_result wnd_draw(jfw_window* this)
     jta_draw_state* const draw_state = jfw_window_get_usr_ptr(this);
     vk_state* const state = draw_state->vulkan_state;
     bool draw_good = draw_frame(
-            state, jfw_window_get_vk_resources(this), state->mesh_count, state->mesh_array,
-            &draw_state->camera) == GFX_RESULT_SUCCESS;
+            state, jfw_window_get_vk_resources(this),
+            &draw_state->meshes, &draw_state->camera) == GFX_RESULT_SUCCESS;
     if (draw_good && draw_state->screenshot)
     {
         //  Save the screenshot
@@ -223,167 +223,44 @@ int main(int argc, char* argv[argc])
         JDM_ERROR("Could not create vulkan state");
         goto cleanup;
     }
-    jta_mesh truss_mesh;
-    jta_mesh sphere_mesh;
-    jta_mesh cone_mesh;
-    vulkan_state.point_list = &problem_setup.point_list;
-    if ((gfx_res = mesh_init_truss(&truss_mesh, 1 << 12, &vulkan_state, vk_res)) != GFX_RESULT_SUCCESS)
-    {
-        JDM_FATAL("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
-    }
-    if ((gfx_res = mesh_init_sphere(&sphere_mesh, 7, &vulkan_state, vk_res)) != GFX_RESULT_SUCCESS)
-    {
-        JDM_FATAL("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
-    }
-    if ((gfx_res = mesh_init_cone(&cone_mesh, 1 << 4, &vulkan_state, vk_res)) != GFX_RESULT_SUCCESS)
-    {
-        JDM_FATAL("Could not create cone mesh: %s", gfx_result_to_str(gfx_res));
-    }
+
+    jta_structure_meshes undeformed_meshes = {};
     dt = jta_timer_get(&main_timer);
     JDM_TRACE("Vulkan init time: %g sec", dt);
 
-
     jta_timer_set(&main_timer);
-    //  This is the truss mesh :)
-    f32 radius_factor = master_config.display.radius_scale;
-    for (u32 i = 0; i < problem_setup.element_list.count; ++i)
+    gfx_res = mesh_init_truss(&undeformed_meshes.cylinders, 1 << 12, &vulkan_state, vk_res);
+    if (gfx_res != GFX_RESULT_SUCCESS)
     {
-        if ((gfx_res = truss_mesh_add_between_pts(
-                &truss_mesh, (jfw_color) { .r = 0xD0, .g = 0xD0, .b = 0xD0, .a = 0xFF },
-                radius_factor * problem_setup.profile_list.equivalent_radius[problem_setup.element_list.i_profile[i]],
-                VEC4(problem_setup.point_list.p_x[problem_setup.element_list.i_point0[i]], problem_setup.point_list.p_y[problem_setup.element_list.i_point0[i]],
-                     problem_setup.point_list.p_z[problem_setup.element_list.i_point0[i]]), VEC4(problem_setup.point_list.p_x[problem_setup.element_list.i_point1[i]],
-                                                             problem_setup.point_list.p_y[problem_setup.element_list.i_point1[i]],
-                                                             problem_setup.point_list.p_z[problem_setup.element_list.i_point1[i]]), 0.0f, &vulkan_state)) != GFX_RESULT_SUCCESS)
-        {
-            JDM_ERROR("Could not add element %"PRIu32" to the mesh, reason: %s", i, gfx_result_to_str(gfx_res));
-            goto cleanup;
-        }
+        JDM_FATAL("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
     }
-    //  These are the joints
-    uint32_t* bcs_per_point = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*bcs_per_point) * problem_setup.point_list.count);
-    memset(bcs_per_point, 0, sizeof(*bcs_per_point) * problem_setup.point_list.count);
-    for (u32 i = 0; i < problem_setup.numerical_bcs.count; ++i)
-    {
-        bcs_per_point[problem_setup.numerical_bcs.i_point[i]] +=
-                ((problem_setup.numerical_bcs.type[i] & JTA_NUMERICAL_BC_TYPE_X) != 0) +
-                ((problem_setup.numerical_bcs.type[i] & JTA_NUMERICAL_BC_TYPE_Y) != 0) +
-                ((problem_setup.numerical_bcs.type[i] & JTA_NUMERICAL_BC_TYPE_Z) != 0);
-    }
-    //  These could be a config options
-    const jfw_color point_colors[4] =
-            {
-                    {
-                            .r = master_config.display.dof_point_colors[0].r,
-                            .g = master_config.display.dof_point_colors[0].g,
-                            .b = master_config.display.dof_point_colors[0].b,
-                            .a = master_config.display.dof_point_colors[0].a,
-                    },
-                    {
-                            .r = master_config.display.dof_point_colors[1].r,
-                            .g = master_config.display.dof_point_colors[1].g,
-                            .b = master_config.display.dof_point_colors[1].b,
-                            .a = master_config.display.dof_point_colors[1].a,
-                    },
-                    {
-                            .r = master_config.display.dof_point_colors[2].r,
-                            .g = master_config.display.dof_point_colors[2].g,
-                            .b = master_config.display.dof_point_colors[2].b,
-                            .a = master_config.display.dof_point_colors[2].a,
-                    },
-                    {
-                            .r = master_config.display.dof_point_colors[3].r,
-                            .g = master_config.display.dof_point_colors[3].g,
-                            .b = master_config.display.dof_point_colors[3].b,
-                            .a = master_config.display.dof_point_colors[3].a,
-                    },
-            };
-    //  These could be a config options
-    const f32 point_scales[4] =
-            {
-                master_config.display.dof_point_scales[0],//  0 - just gray
-                master_config.display.dof_point_scales[1],//  1 - yellow
-                master_config.display.dof_point_scales[2],//  2 - purple
-                master_config.display.dof_point_scales[3],//  3 (or somehow more) - red
-            };
 
-    for (u32 i = 0; i < problem_setup.point_list.count; ++i)
+    gfx_res = mesh_init_sphere(&undeformed_meshes.spheres, 7, &vulkan_state, vk_res);
+    if (gfx_res != GFX_RESULT_SUCCESS)
     {
-        jfw_color c;
-        f32 r;
-        switch (bcs_per_point[i])
-        {
-        case 0:
-            c = point_colors[0];
-            r = point_scales[0];
-            break;
-        case 1:
-            c = point_colors[1];
-            r = point_scales[1];
-            break;
-        case 2:
-            c = point_colors[2];
-            r = point_scales[2];
-            break;
-        default:
-            JDM_WARN("Point \"%.*s\" has %u numerical boundary conditions applied to it", (int)problem_setup.point_list.label[i].len, problem_setup.point_list.label[i].begin, bcs_per_point[i]);
-            [[fallthrough]];
-        case 3:
-            c = point_colors[3];
-            r = point_scales[3];
-            break;
-        }
+        JDM_FATAL("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
+    }
 
-        if ((gfx_res = sphere_mesh_add(&sphere_mesh, c, r * problem_setup.point_list.max_radius[i], VEC4(problem_setup.point_list.p_x[i], problem_setup.point_list.p_y[i], problem_setup.point_list.p_z[i]), &vulkan_state)) != GFX_RESULT_SUCCESS)
-        {
-            JDM_ERROR("Could not add node %"PRIu32" to the mesh, reason: %s", i, gfx_result_to_str(gfx_res));
-            goto cleanup;
-        }
-    }
-    lin_jfree(G_LIN_JALLOCATOR, bcs_per_point);
-    //  These are the force vectors
-    const f32 max_radius_scale = master_config.display.force_radius_ratio;
-    const f32 arrow_cone_ratio = master_config.display.force_head_ratio;
-    const f32 max_length_scale = master_config.display.force_length_ratio;
-    for (u32 i = 0; i < problem_setup.natural_bcs.count; ++i)
+    gfx_res = mesh_init_cone(&undeformed_meshes.cones, 1 << 4, &vulkan_state, vk_res);
+    if (gfx_res != GFX_RESULT_SUCCESS)
     {
-        vec4 base = VEC4(problem_setup.point_list.p_x[problem_setup.natural_bcs.i_point[i]],
-                         problem_setup.point_list.p_y[problem_setup.natural_bcs.i_point[i]],
-                         problem_setup.point_list.p_z[problem_setup.natural_bcs.i_point[i]]);
-        float mag = hypotf(
-                hypotf(problem_setup.natural_bcs.x[i], problem_setup.natural_bcs.y[i]),
-                problem_setup.natural_bcs.z[i]);
-        const f32 real_length = mag / problem_setup.natural_bcs.max_mag * problem_setup.element_list.max_len * max_length_scale;
-        vec4 direction = vec4_div_one(VEC4(problem_setup.natural_bcs.x[i], problem_setup.natural_bcs.y[i], problem_setup.natural_bcs.z[i]), mag);
-        vec4 second = vec4_add(base, vec4_mul_one(direction, real_length * (1 - arrow_cone_ratio)));
-        vec4 third = vec4_add(base, vec4_mul_one(direction, real_length));
-        if ((gfx_res = cone_mesh_add_between_pts(&cone_mesh, (jfw_color){.b = 0xD0, .a = 0xFF}, 2 * max_radius_scale * problem_setup.profile_list.max_equivalent_radius,
-                                                 second, third, &vulkan_state)) != GFX_RESULT_SUCCESS)
-        {
-            JDM_ERROR("Could not add force %"PRIu32" to the mesh, reason: %s", i, gfx_result_to_str(gfx_res));
-            goto cleanup;
-        }
-        if ((gfx_res = truss_mesh_add_between_pts(&truss_mesh, (jfw_color){.b = 0xD0, .a = 0xFF}, max_radius_scale * problem_setup.profile_list.max_equivalent_radius,
-                                                 base, second, 0.0f, &vulkan_state)) != GFX_RESULT_SUCCESS)
-        {
-            JDM_ERROR("Could not add force %"PRIu32" to the mesh, reason: %s", i, gfx_result_to_str(gfx_res));
-            goto cleanup;
-        }
+        JDM_FATAL("Could not create cone mesh: %s", gfx_result_to_str(gfx_res));
     }
+
+    gfx_res = jta_structure_meshes_generate_undeformed(&undeformed_meshes, &master_config.display, &problem_setup, &vulkan_state);
+    if (gfx_res != GFX_RESULT_SUCCESS)
+    {
+        JDM_FATAL("Could not generate undeformed mesh, reason: %s", gfx_result_to_str(gfx_res));
+    }
+
 
     dt = jta_timer_get(&main_timer);
     JDM_TRACE("Mesh generation time: %g sec", dt);
-    jta_mesh* meshes[] = {
-            &truss_mesh,
-            &sphere_mesh,
-            &cone_mesh
-    };
-
-    vulkan_state.mesh_count = 3;
-    vulkan_state.mesh_array = meshes + 0;
 
 
-    JDM_TRACE("Total of %"PRIu64" triangles in the mesh\n", mesh_polygon_count(&truss_mesh) + mesh_polygon_count(&sphere_mesh) + mesh_polygon_count(&cone_mesh));
+
+
+    JDM_TRACE("Total of %"PRIu64" triangles in the mesh\n", mesh_polygon_count(&undeformed_meshes.cylinders) + mesh_polygon_count(&undeformed_meshes.spheres) + mesh_polygon_count(&undeformed_meshes.cones));
 
 
     jwnd->functions.dtor_fn = wnd_dtor;
@@ -416,6 +293,7 @@ int main(int argc, char* argv[argc])
             .p_problem = &problem_setup,
             .p_solution = &solution,
             .config = &master_config,
+            .meshes = undeformed_meshes,
             };
 
 
@@ -439,9 +317,9 @@ int main(int argc, char* argv[argc])
 
     jta_solution_free(&solution);
 cleanup:
-    mesh_uninit(&truss_mesh);
-    mesh_uninit(&sphere_mesh);
-    mesh_uninit(&cone_mesh);
+    mesh_uninit(&undeformed_meshes.cylinders);
+    mesh_uninit(&undeformed_meshes.spheres);
+    mesh_uninit(&undeformed_meshes.cones);
     if (jctx)
     {
         jfw_context_destroy(jctx);

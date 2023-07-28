@@ -7,6 +7,20 @@
 #include "gfxerr.h"
 #include "../core/jtapoints.h"
 
+//  Very simple Cartesian bounding box struct. Purpose is to quickly find near-far planes which work well.
+struct jta_bounding_box_struct
+{
+    float min_x, max_x;
+    float min_y, max_y;
+    float min_z, max_z;
+};
+
+typedef struct jta_bounding_box_struct jta_bounding_box;
+
+
+void jta_bounding_box_add_point(jta_bounding_box* bbox, vec4 pos, float r);
+
+
 gfx_result gfx_find_bounding_sphere(const jta_point_list* points, vec4* origin, f32* radius);
 
 

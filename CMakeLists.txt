@@ -20,8 +20,10 @@ list(APPEND UTILITY_HEADER_FILES common/common.h)
 list(APPEND GFX_SOURCE_FILES gfx/vk_state.c gfx/drawing_3d.c gfx/camera.c ui.c gfx/gfxerr.c gfx/bounding_box.c gfx/mesh.c)
 list(APPEND GFX_HEADER_FILES gfx/vk_state.h gfx/drawing_3d.h gfx/camera.h ui.h gfx/gfxerr.h gfx/bounding_box.h gfx/mesh.h)
 
-list(APPEND JTA_SOLVER_SOURCE_FILES core/jtaerr.c core/jtapoints.c core/jtamaterials.c core/jtaprofiles.c core/jtaelements.c core/jtanaturalbcs.c core/jtanumericalbcs.c)
-list(APPEND JTA_SOLVER_HEADER_FILES core/jtaerr.h core/jtapoints.h core/jtamaterials.h core/jtaprofiles.h core/jtaelements.h core/jtanaturalbcs.h core/jtanumericalbcs.h)
+list(APPEND JTA_SOLVER_SOURCE_FILES core/jtaerr.c core/jtapoints.c core/jtamaterials.c core/jtaprofiles.c
+        core/jtaelements.c core/jtanaturalbcs.c core/jtanumericalbcs.c core/jtaproblem.c core/jtasolve.c)
+list(APPEND JTA_SOLVER_HEADER_FILES core/jtaerr.h core/jtapoints.h core/jtamaterials.h core/jtaprofiles.h
+        core/jtaelements.h core/jtanaturalbcs.h core/jtanumericalbcs.h core/jtaproblem.h core/jtasolve.h)
 
 add_subdirectory(jio)
 add_subdirectory(jmem)
@@ -36,7 +38,7 @@ add_executable(jta main.c
         ${GFX_SOURCE_FILES} ${GFX_HEADER_FILES}
         ${PARSING_SOURCE_FILES} ${PARSING_HEADER_FILES}
         ${UTILITY_SOURCE_FILES} ${UTILITY_HEADER_FILES}
-        ${JTA_SOLVER_SOURCE_FILES} ${JTA_SOLVER_HEADER_FILES} core/jtaproblem.c core/jtaproblem.h config/config_loading.c config/config_loading.h core/jtasolve.c core/jtasolve.h)
+        ${JTA_SOLVER_SOURCE_FILES} ${JTA_SOLVER_HEADER_FILES} config/config_loading.c config/config_loading.h gfx/color_map.c gfx/color_map.h config/config_execution.c config/config_execution.h)
 
 add_compile_definitions(JALLOC_TRAP_COUNT=128)
 add_compile_definitions(JALLOC_TRACKING=1)
@@ -53,6 +55,6 @@ target_include_directories(jta PRIVATE jio/include jdm/include jmem/source/inclu
 target_link_libraries(jta PRIVATE vulkan X11 m jmem jfmt jdm jio jmtx)
 
 enable_testing()
-add_executable(geo_test gfx/gfx_math.h gfx/gfx_math.c geo_test.c gfx/camera.c gfx/camera.h gfx/drawing_3d.h gfx/drawing_3d.c ${JFW_SOURCE_FILES} ${JFW_HEADER_FILES} gfx/rotation_camera_test.c)
+add_executable(geo_test gfx/gfx_math.h gfx/gfx_math.c gfx/camera.c gfx/camera.h gfx/drawing_3d.h gfx/drawing_3d.c ${JFW_SOURCE_FILES} ${JFW_HEADER_FILES} gfx/rotation_camera_test.c)
 target_link_libraries(geo_test PRIVATE m X11 vulkan jdm)
 add_subdirectory(mem)

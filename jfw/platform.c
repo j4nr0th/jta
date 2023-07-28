@@ -1769,18 +1769,6 @@ jfw_result jfw_platform_unbind(jfw_ctx* ctx)
     return JFW_RESULT_SUCCESS;
 }
 
-jfw_result jfw_platform_swap(jfw_ctx* ctx, jfw_platform* wnd)
-{
-    JDM_ENTER_FUNCTION;
-//    glXMakeCurrent(ctx->dpy, None, None);
-
-//    glXMakeCurrent(ctx->dpy, wnd->glw, wnd->gl_ctx);
-//    glXSwapBuffers(ctx->dpy, wnd->glw);
-//    glFinish();
-    JDM_LEAVE_FUNCTION;
-    return JFW_RESULT_SUCCESS;
-}
-
 uint32_t jfw_context_window_count(jfw_ctx* ctx)
 {
     JDM_ENTER_FUNCTION;

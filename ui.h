@@ -9,6 +9,7 @@
 #include "gfx/camera.h"
 #include "core/jtaproblem.h"
 #include "core/jtasolve.h"
+#include "gfx/mesh.h"
 
 typedef struct jta_draw_state_struct jta_draw_state;
 struct jta_draw_state_struct
@@ -25,6 +26,7 @@ struct jta_draw_state_struct
     jta_problem_setup* p_problem;
     jta_solution* p_solution;
     jta_config* config;
+    jta_structure_meshes meshes;
 };
 
 

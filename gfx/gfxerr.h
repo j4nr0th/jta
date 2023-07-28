@@ -35,6 +35,7 @@ enum gfx_result_enum : unsigned
     GFX_RESULT_MAP_FAILED,
     GFX_RESULT_BAD_FENCE_WAIT,
     GFX_RESULT_BAD_IO,
+    GFX_RESULT_BAD_ARG,
     GFX_RESULT_COUNT,
 };
 typedef enum gfx_result_enum gfx_result;

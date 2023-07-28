@@ -10,13 +10,13 @@
 
 gfx_result
 draw_frame(
-        vk_state* state, jfw_window_vk_resources* vk_resources, u32 n_meshes, jta_mesh** meshes,
+        vk_state* state, jfw_window_vk_resources* vk_resources, jta_structure_meshes* meshes,
         const jta_camera_3d* camera)
 {
     assert(meshes);
-    for (u32 i = 0; i < n_meshes; ++i)
+    for (u32 i = 0; i < 3; ++i)
     {
-        jta_mesh* mesh = meshes[i];
+        jta_mesh* mesh = meshes->mesh_array + i;
         if (mesh->up_to_date == 0)
         {
             gfx_result res = jta_mesh_update_instance(mesh, vk_resources, state);
@@ -105,9 +105,9 @@ draw_frame(
         vkCmdSetViewport(cmd_buffer, 0, 1, &state->viewport);
         vkCmdSetScissor(cmd_buffer, 0, 1, &state->scissor);
         vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, state->gfx_pipeline_3D);
-        for (u32 i = 0; i < n_meshes; ++i)
+        for (u32 i = 0; i < 3; ++i)
         {
-            const jta_mesh* mesh = meshes[i];
+            const jta_mesh* mesh = meshes->mesh_array + i;
             if (mesh->count == 0) continue;
             VkBuffer buffers[2] = { mesh->common_geometry_vtx.buffer, mesh->instance_memory.buffer};
             VkDeviceSize offsets[2] = { mesh->common_geometry_vtx.offset, mesh->instance_memory.offset};
@@ -164,7 +164,55 @@ draw_frame(
     {
         f32 near, far;
 //        jta_camera_find_depth_planes(camera, &near, &far);
-        gfx_find_bounding_planes(state->point_list, camera->position, camera->uz, &near, &far);
+//        gfx_find_bounding_planes(state->point_list, camera->position, camera->uz, &near, &far);
+        float n = INFINITY, f = FLT_EPSILON;
+        for (uint32_t i = 0; i < 3; ++i)
+        {
+            const jta_mesh* const mesh = meshes->mesh_array + i;
+            if (mesh->count == 0)
+            {
+                continue;
+            }
+            const jta_bounding_box* const bb = &mesh->bounding_box;
+            vec4 positions[8] =
+                    {
+                            VEC4(bb->min_x, bb->min_y, bb->min_z),
+                            VEC4(bb->max_x, bb->min_y, bb->min_z),
+
+                            VEC4(bb->min_x, bb->max_y, bb->min_z),
+                            VEC4(bb->max_x, bb->max_y, bb->min_z),
+
+                            VEC4(bb->min_x, bb->min_y, bb->max_z),
+                            VEC4(bb->max_x, bb->min_y, bb->max_z),
+
+                            VEC4(bb->min_x, bb->max_y, bb->max_z),
+                            VEC4(bb->max_x, bb->max_y, bb->max_z),
+                    };
+            for (uint32_t j = 0; j < 8; ++j)
+            {
+                float d = vec4_distance_between_in_direction(positions[j], camera->position, camera->uz);
+                if (d < n)
+                {
+                    n = d;
+                }
+                if (d > f)
+                {
+                    f = d;
+                }
+            }
+        }
+
+        if (n < 0.001f)
+        {
+            n = 0.001f;
+        }
+        near = n;
+        if (f > 1e5f)
+        {
+            f = 1e5f;
+        }
+        far = f;
+
         far *= 2;
         near *= 0.5f;
         //        printf("Near %g, far %g\n", near, far);

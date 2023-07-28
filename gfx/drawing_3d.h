@@ -20,7 +20,7 @@
 
 gfx_result
 draw_frame(
-        vk_state* state, jfw_window_vk_resources* vk_resources, u32 n_meshes, jta_mesh** meshes,
+        vk_state* state, jfw_window_vk_resources* vk_resources, jta_structure_meshes* meshes,
         const jta_camera_3d* camera);
 
 

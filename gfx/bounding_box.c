@@ -281,3 +281,39 @@ gfx_result gfx_find_bounding_planes(const jta_point_list* point_list, vec4 origi
     JDM_LEAVE_FUNCTION;
     return GFX_RESULT_SUCCESS;
 }
+
+void jta_bounding_box_add_point(jta_bounding_box* bbox, vec4 pos, float r)
+{
+    const float min_x = pos.x - r;
+    const float min_y = pos.y - r;
+    const float min_z = pos.z - r;
+    const float max_x = pos.x + r;
+    const float max_y = pos.y + r;
+    const float max_z = pos.z + r;
+
+    if (max_x > bbox->max_x)
+    {
+        bbox->max_x = max_x;
+    }
+    if (max_y > bbox->max_y)
+    {
+        bbox->max_y = max_y;
+    }
+    if (max_z > bbox->max_z)
+    {
+        bbox->max_z = max_z;
+    }
+
+    if (min_x < bbox->min_x)
+    {
+        bbox->min_x = min_x;
+    }
+    if (min_y < bbox->min_y)
+    {
+        bbox->min_y = min_y;
+    }
+    if (min_z < bbox->min_z)
+    {
+        bbox->min_z = min_z;
+    }
+}

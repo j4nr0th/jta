@@ -9,6 +9,10 @@
 
 struct jta_solution_struct
 {
+    //  Result information
+    float final_residual_ratio; // measure of solution accuracy expressed as
+                                // \f$ \epsilon = \frac{|| \Vec{F} - \mathbf{K} \Vec{u}||}{|| \Vec{u} ||} \f$
+
     //  Point results
     uint32_t point_count;
     float* point_displacements;
