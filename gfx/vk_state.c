@@ -341,33 +341,6 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
 
     }
 
-    //  Create ubo layout descriptors
-    {
-        VkDescriptorSetLayout ubo_layout;
-        VkDescriptorSetLayoutBinding binding =
-                {
-                .binding = 0,
-                .descriptorCount = 1,
-                .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-                .pImmutableSamplers = NULL,
-                };
-        VkDescriptorSetLayoutCreateInfo create_info =
-                {
-                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-                .bindingCount = 1,
-                .pBindings = &binding,
-                };
-        vk_res = vkCreateDescriptorSetLayout(vk_resources->device, &create_info, NULL, &ubo_layout);
-        if (vk_res != VK_SUCCESS)
-        {
-            JDM_ERROR("Could not create UBO descriptor set layout: %s", jfw_vk_error_msg(vk_res));
-            gfx_res = GFX_RESULT_NO_DESC_SET;
-            goto after_render_pass_cf;
-        }
-        p_state->ubo_layout = ubo_layout;
-    }
-
     //  Create pipeline layout(s)
     {
         VkPipelineLayout layout_3d;
@@ -484,7 +457,7 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
         {
             JDM_ERROR("Could not create vertex shader module (3d), reason: %s", jfw_vk_error_msg(vk_res));
             gfx_res = GFX_RESULT_NO_VTX_SHADER;
-            goto after_ubo_layout;
+            goto after_render_pass_cf;
         }
         vk_res = vkCreateShaderModule(vk_resources->device, &shader_frg_create_info, NULL, &module_frg_3d);
         if (vk_res != VK_SUCCESS)
@@ -492,7 +465,7 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
             JDM_ERROR("Could not create fragment shader module (3d), reason: %s", jfw_vk_error_msg(vk_res));
             vkDestroyShaderModule(vk_resources->device, module_vtx_3d, NULL);
             gfx_res = GFX_RESULT_NO_FRG_SHADER;
-            goto after_ubo_layout;
+            goto after_render_pass_cf;
         }
 
         VkPipelineShaderStageCreateInfo pipeline_shader_stage_vtx_info =
@@ -585,11 +558,19 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
                 .attachmentCount = 1,
                 .pAttachments = &cb_attachment_state,
                 };
+        VkPushConstantRange push_constant_info =
+                {
+                .offset = 0,
+                .size = sizeof(ubo_3d),
+                .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+                };
         VkPipelineLayoutCreateInfo layout_create_info =
                 {
                 .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-                .setLayoutCount = 1,
-                .pSetLayouts = &p_state->ubo_layout,
+//                .setLayoutCount = 1,
+//                .pSetLayouts = &p_state->ubo_layout,
+                .pushConstantRangeCount = 1,
+                .pPushConstantRanges = &push_constant_info
                 };
         vk_res = vkCreatePipelineLayout(vk_resources->device, &layout_create_info, NULL, &layout_3d);
         if (vk_res != VK_SUCCESS)
@@ -598,7 +579,7 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
             vkDestroyShaderModule(vk_resources->device, module_frg_3d, NULL);
             vkDestroyShaderModule(vk_resources->device, module_vtx_3d, NULL);
             gfx_res = GFX_RESULT_NO_PIPELINE_LAYOUT;
-            goto after_ubo_layout;
+            goto after_render_pass_cf;
         }
         VkPipelineDepthStencilStateCreateInfo dp_state_info =
                 {
@@ -638,7 +619,7 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
             JDM_ERROR("Failed creating a gfx 3d pipeline, reason: %s", jfw_vk_error_msg(vk_res));
             vkDestroyPipelineLayout(vk_resources->device, layout_3d, NULL);
             gfx_res = GFX_RESULT_NO_PIPELINE;
-            goto after_ubo_layout;
+            goto after_render_pass_cf;
         }
         p_state->gfx_pipeline_3D = pipeline_3d;
         p_state->layout_3D = layout_3d;
@@ -743,120 +724,6 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
         }
     }
 
-    //  Create (and map uniform buffer)
-    {
-        ubo_3d** mapped_array = ill_jalloc(G_JALLOCATOR, vk_resources->n_frames_in_flight * sizeof(void*));
-        if (!mapped_array)
-        {
-            JDM_ERROR("Could not allocate memory for UBO mapping pointers");
-            gfx_res = GFX_RESULT_BAD_ALLOC;
-            goto after_transfer_fence;
-        }
-        ret_v = vk_buffer_allocate(allocator, sizeof(ubo_3d), vk_resources->n_frames_in_flight, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &p_state->buffer_uniform);
-        if (ret_v != 0)
-        {
-            JDM_ERROR("Could not allocate 3d UBO");
-            ill_jfree(G_JALLOCATOR, mapped_array);
-            gfx_res = GFX_RESULT_BAD_ALLOC;
-            goto after_transfer_fence;
-        }
-        ubo_3d* const original_mapping = vk_map_allocation(&p_state->buffer_uniform);
-        for (u32 i = 0; i < vk_resources->n_frames_in_flight; ++i)
-        {
-            mapped_array[i] = (void*)((uintptr_t)original_mapping + (uintptr_t)(i * p_state->buffer_uniform.offset_alignment));
-        }
-        p_state->p_mapped_array = mapped_array;
-    }
-
-    //  Create UBO descriptor pool and descriptor sets
-    {
-        VkDescriptorPool desc_pool;
-        VkDescriptorSet* desc_sets;
-        VkDescriptorPoolSize descriptor_pool_size =
-                {
-                .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                .descriptorCount = vk_resources->n_frames_in_flight,
-                };
-        VkDescriptorPoolCreateInfo create_info =
-                {
-                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-                .poolSizeCount = 1,
-                .pPoolSizes = &descriptor_pool_size,
-                .maxSets = vk_resources->n_frames_in_flight,
-                };
-        vk_res = vkCreateDescriptorPool(vk_resources->device, &create_info, NULL, &desc_pool);
-        if (vk_res != VK_SUCCESS)
-        {
-            JDM_ERROR("Could not allocate descriptor pool for UBO data, reason: %s", jfw_vk_error_msg(vk_res));
-            gfx_res = GFX_RESULT_NO_DESC_POOL;
-            goto after_mapped_array;
-        }
-        VkDescriptorSetLayout* layouts = ill_jalloc(G_JALLOCATOR, vk_resources->n_frames_in_flight * sizeof(*layouts));
-        if (!layouts)
-        {
-            JDM_ERROR("Could not allocate memory for descriptor sets");
-            vkDestroyDescriptorPool(vk_resources->device, desc_pool, NULL);
-            gfx_res = GFX_RESULT_BAD_ALLOC;
-            goto after_mapped_array;
-        }
-        desc_sets = ill_jalloc(G_JALLOCATOR, vk_resources->n_frames_in_flight * sizeof(*desc_sets));
-        if (!desc_sets)
-        {
-            JDM_ERROR("Could not allocate memory for descriptor sets");
-            ill_jfree(G_JALLOCATOR, layouts);
-            vkDestroyDescriptorPool(vk_resources->device, desc_pool, NULL);
-            gfx_res = GFX_RESULT_BAD_ALLOC;
-            goto after_mapped_array;
-        }
-
-        for (u32 i = 0; i < vk_resources->n_frames_in_flight; ++i)
-        {
-            layouts[i] = p_state->ubo_layout;
-        }
-        VkDescriptorSetAllocateInfo allocate_info =
-                {
-                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-                .descriptorSetCount = vk_resources->n_frames_in_flight,
-                .descriptorPool = desc_pool,
-                .pSetLayouts = layouts,
-                };
-        vk_res = vkAllocateDescriptorSets(vk_resources->device, &allocate_info, desc_sets);
-        ill_jfree(G_JALLOCATOR, layouts);
-        if (vk_res != VK_SUCCESS)
-        {
-            JDM_ERROR("Could not allocate descriptor sets, reason: %s", jfw_vk_error_msg(vk_res));
-            ill_jfree(G_JALLOCATOR, desc_sets);
-            vkDestroyDescriptorPool(vk_resources->device, desc_pool, NULL);
-            gfx_res = GFX_RESULT_BAD_ALLOC;
-            goto after_mapped_array;
-        }
-        VkDescriptorBufferInfo buffer_info =
-                {
-                .buffer = p_state->buffer_uniform.buffer,
-                .range = sizeof(ubo_3d),
-                //  Set offset in loop
-                };
-        VkWriteDescriptorSet write_set =
-                {
-                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                .dstBinding = 0,
-                .dstArrayElement = 0,
-                .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                .descriptorCount = 1,
-                .pBufferInfo = &buffer_info,
-                .pImageInfo = NULL,
-                .pTexelBufferView = NULL,
-                };
-        for (u32 i = 0; i < vk_resources->n_frames_in_flight; ++i)
-        {
-            buffer_info.offset = p_state->buffer_uniform.offset + i * p_state->buffer_uniform.offset_alignment;
-            write_set.dstSet = desc_sets[i];
-            vkUpdateDescriptorSets(vk_resources->device, 1, &write_set, 0, NULL);
-        }
-
-        p_state->desc_pool = desc_pool;
-        p_state->desc_set = desc_sets;
-    }
     {
         VkCommandPool cmd_pool;
         VkCommandBuffer cmd_buffer;
@@ -870,7 +737,7 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
         if (vk_res != VK_SUCCESS)
         {
             JDM_ERROR("Could not create transfer command pool, reason: %s", jfw_vk_error_msg(vk_res));
-            goto after_descriptor_sets;
+            goto after_transfer_fence;
         }
         VkCommandBufferAllocateInfo alloc_info =
                 {
@@ -884,7 +751,7 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
         {
             vkDestroyCommandPool(vk_resources->device, cmd_pool, NULL);
             JDM_ERROR("Could not allocate transfer command buffer, reason: %s", jfw_vk_error_msg(vk_res));
-            goto after_descriptor_sets;
+            goto after_transfer_fence;
         }
         p_state->transfer_cmd_pool = cmd_pool;
         p_state->transfer_cmd_buffer = cmd_buffer;
@@ -894,11 +761,6 @@ gfx_result vk_state_create(vk_state* const p_state, const jfw_window_vk_resource
     return gfx_res;
 after_transfer_buffers:
     vkDestroyCommandPool(vk_resources->device, p_state->transfer_cmd_pool, NULL);
-after_descriptor_sets:
-    vkDestroyDescriptorPool(vk_resources->device, p_state->desc_pool, NULL);
-    ill_jfree(G_JALLOCATOR, p_state->desc_set);
-after_mapped_array:
-    ill_jfree(G_JALLOCATOR, p_state->p_mapped_array);
 after_transfer_fence:
     vkDestroyFence(vk_resources->device, p_state->fence_transfer_free, NULL);
 after_3d_framebuffers:
@@ -910,8 +772,6 @@ after_3d_framebuffers:
 after_3d_pipeline:
     vkDestroyPipeline(vk_resources->device, p_state->gfx_pipeline_3D, NULL);
     vkDestroyPipelineLayout(vk_resources->device, p_state->layout_3D, NULL);
-after_ubo_layout:
-    vkDestroyDescriptorSetLayout(vk_resources->device, p_state->ubo_layout, NULL);
 after_render_pass_cf:
     vkDestroyRenderPass(vk_resources->device, p_state->render_pass_cf, NULL);
 after_render_pass_3d:
@@ -990,9 +850,6 @@ gfx_result vk_transfer_memory_to_buffer(
 void vk_state_destroy(vk_state* p_state, jfw_window_vk_resources* vk_resources)
 {
     vkDestroyCommandPool(vk_resources->device, p_state->transfer_cmd_pool, NULL);
-    vkDestroyDescriptorPool(vk_resources->device, p_state->desc_pool, NULL);
-    ill_jfree(G_JALLOCATOR, p_state->desc_set);
-    ill_jfree(G_JALLOCATOR, p_state->p_mapped_array);
     vkDestroyFence(vk_resources->device, p_state->fence_transfer_free, NULL);
     for (u32 i = 0; i < p_state->framebuffer_count; ++i)
     {
@@ -1001,7 +858,6 @@ void vk_state_destroy(vk_state* p_state, jfw_window_vk_resources* vk_resources)
     ill_jfree(G_JALLOCATOR, p_state->framebuffers);
     vkDestroyPipeline(vk_resources->device, p_state->gfx_pipeline_3D, NULL);
     vkDestroyPipelineLayout(vk_resources->device, p_state->layout_3D, NULL);
-    vkDestroyDescriptorSetLayout(vk_resources->device, p_state->ubo_layout, NULL);
     vkDestroyRenderPass(vk_resources->device, p_state->render_pass_cf, NULL);
     vkDestroyRenderPass(vk_resources->device, p_state->render_pass_3D, NULL);
     vkDestroyImageView(vk_resources->device, p_state->depth_view, NULL);

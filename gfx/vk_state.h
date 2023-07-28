@@ -27,13 +27,9 @@ struct vk_state_struct
     VkPipelineLayout layout_UI;
     VkPipeline gfx_pipeline_UI;
     vk_buffer_allocator* buffer_allocator;
-    vk_buffer_allocation buffer_transfer, buffer_uniform;
+    vk_buffer_allocation buffer_transfer;
     VkCommandBuffer transfer_cmd_buffer;
     VkFence fence_transfer_free;
-    VkDescriptorSetLayout ubo_layout;
-    ubo_3d** p_mapped_array;
-    VkDescriptorSet* desc_set;
-    VkDescriptorPool desc_pool;
     VkImageView depth_view;
     VkImage depth_img;
     VkDeviceMemory depth_mem;

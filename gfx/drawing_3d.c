@@ -103,7 +103,66 @@ draw_frame(
         //  Drawing the truss model
         vkCmdBeginRenderPass(cmd_buffer, &render_pass_3d_info, VK_SUBPASS_CONTENTS_INLINE);
         vkCmdSetViewport(cmd_buffer, 0, 1, &state->viewport);
-        vkCmdSetScissor(cmd_buffer, 0, 1, &state->scissor);
+        vkCmdSetScissor(cmd_buffer, 0, 1, &state->scissor);//  Update uniforms
+        {
+//        jta_camera_find_depth_planes(camera, &near, &far);
+//        gfx_find_bounding_planes(state->point_list, camera->position, camera->uz, &near, &far);
+            float n = INFINITY, f = FLT_EPSILON;
+            for (uint32_t i = 0; i < 3; ++i)
+            {
+                const jta_mesh* const mesh = meshes->mesh_array + i;
+                if (mesh->count == 0)
+                {
+                    continue;
+                }
+                const jta_bounding_box* const bb = &mesh->bounding_box;
+                vec4 positions[8] =
+                        {
+                                VEC4(bb->min_x, bb->min_y, bb->min_z),
+                                VEC4(bb->max_x, bb->min_y, bb->min_z),
+
+                                VEC4(bb->min_x, bb->max_y, bb->min_z),
+                                VEC4(bb->max_x, bb->max_y, bb->min_z),
+
+                                VEC4(bb->min_x, bb->min_y, bb->max_z),
+                                VEC4(bb->max_x, bb->min_y, bb->max_z),
+
+                                VEC4(bb->min_x, bb->max_y, bb->max_z),
+                                VEC4(bb->max_x, bb->max_y, bb->max_z),
+                        };
+                for (uint32_t j = 0; j < 8; ++j)
+                {
+                    float d = vec4_distance_between_in_direction(positions[j], camera->position, camera->uz);
+                    if (d < n)
+                    {
+                        n = d;
+                    }
+                    if (d > f)
+                    {
+                        f = d;
+                    }
+                }
+            }
+
+            if (n < 0.01f)
+            {
+                n = 0.01f;
+            }
+            if (f > n * 10000)
+            {
+                n = f / 10000.0f;
+            }
+
+            //        printf("Near %g, far %g\n", near, far);
+            ubo_3d ubo =
+                    {
+                            .proj = mtx4_projection(M_PI_2 * (1), ((f32)vk_resources->extent.width)/((f32)vk_resources->extent.height), 1.0f, n, f),
+                            .view = state->view,
+                            .view_direction = camera->uz,
+                    };
+            vkCmdPushConstants(cmd_buffer, state->layout_3D, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ubo), &ubo);
+//        memcpy(state->p_mapped_array[i_frame], &ubo, sizeof(ubo));
+        }
         vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, state->gfx_pipeline_3D);
         for (u32 i = 0; i < 3; ++i)
         {
@@ -113,7 +172,6 @@ draw_frame(
             VkDeviceSize offsets[2] = { mesh->common_geometry_vtx.offset, mesh->instance_memory.offset};
             vkCmdBindVertexBuffers(cmd_buffer, 0, 2, buffers, offsets);
             vkCmdBindIndexBuffer(cmd_buffer, mesh->common_geometry_idx.buffer, mesh->common_geometry_idx.offset, VK_INDEX_TYPE_UINT16);
-            vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, state->layout_3D, 0, 1, state->desc_set + i_frame, 0, NULL);
             vkCmdDrawIndexed(cmd_buffer, mesh->model.idx_count, mesh->count, 0, 0, 0);
         }
         vkCmdEndRenderPass(cmd_buffer);
@@ -160,65 +218,7 @@ draw_frame(
         }
     }
 
-    //  Update uniforms
-    {
-//        jta_camera_find_depth_planes(camera, &near, &far);
-//        gfx_find_bounding_planes(state->point_list, camera->position, camera->uz, &near, &far);
-        float n = INFINITY, f = FLT_EPSILON;
-        for (uint32_t i = 0; i < 3; ++i)
-        {
-            const jta_mesh* const mesh = meshes->mesh_array + i;
-            if (mesh->count == 0)
-            {
-                continue;
-            }
-            const jta_bounding_box* const bb = &mesh->bounding_box;
-            vec4 positions[8] =
-                    {
-                            VEC4(bb->min_x, bb->min_y, bb->min_z),
-                            VEC4(bb->max_x, bb->min_y, bb->min_z),
 
-                            VEC4(bb->min_x, bb->max_y, bb->min_z),
-                            VEC4(bb->max_x, bb->max_y, bb->min_z),
-
-                            VEC4(bb->min_x, bb->min_y, bb->max_z),
-                            VEC4(bb->max_x, bb->min_y, bb->max_z),
-
-                            VEC4(bb->min_x, bb->max_y, bb->max_z),
-                            VEC4(bb->max_x, bb->max_y, bb->max_z),
-                    };
-            for (uint32_t j = 0; j < 8; ++j)
-            {
-                float d = vec4_distance_between_in_direction(positions[j], camera->position, camera->uz);
-                if (d < n)
-                {
-                    n = d;
-                }
-                if (d > f)
-                {
-                    f = d;
-                }
-            }
-        }
-
-        if (n < 0.01f)
-        {
-            n = 0.01f;
-        }
-        if (f > n * 10000)
-        {
-            n = f / 10000.0f;
-        }
-
-        //        printf("Near %g, far %g\n", near, far);
-        ubo_3d ubo =
-                {
-                        .proj = mtx4_projection(M_PI_2 * (1), ((f32)vk_resources->extent.width)/((f32)vk_resources->extent.height), 1.0f, n, f),
-                        .view = state->view,
-                        .view_direction = camera->uz,
-                };
-        memcpy(state->p_mapped_array[i_frame], &ubo, sizeof(ubo));
-    }
 
     VkPipelineStageFlags stage_flags[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     VkSubmitInfo submit_info =

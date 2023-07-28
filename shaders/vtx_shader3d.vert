@@ -12,7 +12,7 @@ layout(location = 1) out vec4 vtx_normal;
 layout(location = 2) out vec3 view_vector;
 
 
-layout(binding = 0) uniform UBO_struct
+layout( push_constant ) uniform UBO_struct
 {
     mat4 view;
     mat4 proj;
