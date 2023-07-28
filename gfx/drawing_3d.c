@@ -162,7 +162,6 @@ draw_frame(
 
     //  Update uniforms
     {
-        f32 near, far;
 //        jta_camera_find_depth_planes(camera, &near, &far);
 //        gfx_find_bounding_planes(state->point_list, camera->position, camera->uz, &near, &far);
         float n = INFINITY, f = FLT_EPSILON;
@@ -202,23 +201,19 @@ draw_frame(
             }
         }
 
-        if (n < 0.001f)
+        if (n < 0.01f)
         {
-            n = 0.001f;
+            n = 0.01f;
         }
-        near = n;
-        if (f > 1e5f)
+        if (f > n * 10000)
         {
-            f = 1e5f;
+            n = f / 10000.0f;
         }
-        far = f;
 
-        far *= 2;
-        near *= 0.5f;
         //        printf("Near %g, far %g\n", near, far);
         ubo_3d ubo =
                 {
-                        .proj = mtx4_projection(M_PI_2, ((f32)vk_resources->extent.width)/((f32)vk_resources->extent.height), 1.0f, near, far),
+                        .proj = mtx4_projection(M_PI_2 * (1), ((f32)vk_resources->extent.width)/((f32)vk_resources->extent.height), 1.0f, n, f),
                         .view = state->view,
                         .view_direction = camera->uz,
                 };

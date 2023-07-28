@@ -381,7 +381,7 @@ static const mtx4 mtx4_identity =
             };
 }
 
-[[nodiscard]] static vec4 vec4_negative(vec4 v)
+[[nodiscard, maybe_unused]] static vec4 vec4_negative(vec4 v)
 {
     return (vec4){.x = -v.x, .y = -v.y, .z = -v.z, .w = 1.0f};
 }
@@ -446,7 +446,7 @@ static const mtx4 mtx4_identity =
                 k, 0, 0, 0,
                 0, k*ar, 0, 0,
                 0, 0, far / z_dif, 1,
-                0, 0, -far * near / z_dif, 0,
+                0, 0, (-far / z_dif) * near, 0,
                 }
     };
 }
@@ -500,7 +500,7 @@ static const mtx4 mtx4_identity =
     return v1.x == v2.x && v1.y == v2.y && v1.z == v2.z;
 }
 
-[[nodiscard]] static int vec4_close(vec4 v1, vec4 v2)
+[[nodiscard, maybe_unused]] static int vec4_close(vec4 v1, vec4 v2)
 {
     assert(v1.w == 1.0f);
     assert(v2.w == 1.0f);
@@ -516,7 +516,7 @@ static const mtx4 mtx4_identity =
     return dx < 1024 * FLT_EPSILON && dy < 1024 * FLT_EPSILON && dz < 1024 * FLT_EPSILON;
 }
 
-[[nodiscard]] static float vec4_distance_between_in_direction(vec4 a, vec4 b, vec4 unit_view)
+[[nodiscard, maybe_unused]] static float vec4_distance_between_in_direction(vec4 a, vec4 b, vec4 unit_view)
 {
     vec4 dif = vec4_sub(a, b);
     return vec4_dot(dif, unit_view);

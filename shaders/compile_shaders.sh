@@ -6,21 +6,21 @@ for filename in *; do
     output_name=$(basename "$filename")
     output_name="${output_name%%.*}"
     echo "$output_name"
-    glslangValidator -V --vn "$output_name" "$filename"
+    glslang -V --vn "$output_name" "$filename"
     mv "vert.spv" "$output_name.spv"
   elif [[ $filename == *.frag ]]; then
      echo "file: ${filename}"
      output_name=$(basename "$filename")
      output_name="${output_name%%.*}"
      echo "$output_name"
-     glslangValidator -V --vn "$output_name" "$filename"
+     glslang -V --vn "$output_name" "$filename"
      mv "frag.spv" "$output_name.spv"
   elif [[ $filename == *.geom ]]; then
      echo "file: ${filename}"
      output_name=$(basename "$filename")
      output_name="${output_name%%.*}"
      echo "$output_name"
-     glslangValidator -V --vn "$output_name" "$filename"
+     glslang -V --vn "$output_name" "$filename"
      mv "geom.spv" "$output_name.spv"
   fi
 done
