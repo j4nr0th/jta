@@ -10,3 +10,6 @@
 [submodule "jmtx"]
 	path = jmtx
 	url = git@github.com:j4nr0th/jmtx
+[submodule "jwin"]
+	path = jwin
+	url = git@github.com:j4nr0th/jwin.git

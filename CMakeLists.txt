@@ -17,8 +17,12 @@ list(APPEND ALLOCATORS_HEADER_FILES mem/vk_mem_allocator.h mem/aligned_jalloc.h)
 list(APPEND UTILITY_SOURCE_FILES common/common.c)
 list(APPEND UTILITY_HEADER_FILES common/common.h)
 
-list(APPEND GFX_SOURCE_FILES gfx/vk_state.c gfx/drawing_3d.c gfx/camera.c ui.c gfx/gfxerr.c gfx/bounding_box.c gfx/mesh.c)
-list(APPEND GFX_HEADER_FILES gfx/vk_state.h gfx/drawing_3d.h gfx/camera.h ui.h gfx/gfxerr.h gfx/bounding_box.h gfx/mesh.h)
+list(APPEND GFX_SOURCE_FILES
+        #gfx/vk_state.c
+        gfx/drawing_3d.c gfx/camera.c ui.c gfx/gfxerr.c gfx/bounding_box.c gfx/mesh.c)
+list(APPEND GFX_HEADER_FILES
+        #gfx/vk_state.h
+        gfx/drawing_3d.h gfx/camera.h ui.h gfx/gfxerr.h gfx/bounding_box.h gfx/mesh.h)
 
 list(APPEND JTA_SOLVER_SOURCE_FILES core/jtaerr.c core/jtapoints.c core/jtamaterials.c core/jtaprofiles.c
         core/jtaelements.c core/jtanaturalbcs.c core/jtanumericalbcs.c core/jtaproblem.c core/jtasolve.c)
@@ -29,16 +33,19 @@ add_subdirectory(jio)
 add_subdirectory(jmem)
 add_subdirectory(jdm)
 add_subdirectory(jmtx)
+add_subdirectory(jwin)
 
 add_executable(jta main.c
-        ${JFW_SOURCE_FILES} ${JFW_HEADER_FILES}
+        #${JFW_SOURCE_FILES} ${JFW_HEADER_FILES}
         ${ALLOCATORS_SOURCE_FILES} ${ALLOCATORS_HEADER_FILES}
         ${FORMATTED_IO_SOURCE_FILES} ${FORMATTED_IO_HEADER_FILES}
         ${UTILITY_SOURCE_FILES} ${UTILITY_HEADER_FILES}
         ${GFX_SOURCE_FILES} ${GFX_HEADER_FILES}
         ${PARSING_SOURCE_FILES} ${PARSING_HEADER_FILES}
         ${UTILITY_SOURCE_FILES} ${UTILITY_HEADER_FILES}
-        ${JTA_SOLVER_SOURCE_FILES} ${JTA_SOLVER_HEADER_FILES} config/config_loading.c config/config_loading.h gfx/color_map.c gfx/color_map.h config/config_execution.c config/config_execution.h)
+        ${JTA_SOLVER_SOURCE_FILES} ${JTA_SOLVER_HEADER_FILES} config/config_loading.c config/config_loading.h gfx/color_map.c gfx/color_map.h config/config_execution.c config/config_execution.h
+        gfx/vk_resources.c
+        gfx/vk_resources.h)
 
 add_compile_definitions(JALLOC_TRAP_COUNT=128)
 add_compile_definitions(JALLOC_TRACKING=1)
@@ -52,9 +59,9 @@ endif ()
 configure_file(test_configuration.cfg "${CMAKE_BINARY_DIR}/test_configuration.cfg" COPYONLY)
 
 target_include_directories(jta PRIVATE jio/include jdm/include jmem/source/include jmtx/source)
-target_link_libraries(jta PRIVATE vulkan X11 m jmem jfmt jdm jio jmtx)
+target_link_libraries(jta PRIVATE vulkan X11 m jmem jfmt jdm jio jmtx jwin)
 
 enable_testing()
-add_executable(geo_test gfx/gfx_math.h gfx/gfx_math.c gfx/camera.c gfx/camera.h gfx/drawing_3d.h gfx/drawing_3d.c ${JFW_SOURCE_FILES} ${JFW_HEADER_FILES} gfx/rotation_camera_test.c)
-target_link_libraries(geo_test PRIVATE m X11 vulkan jdm)
+#add_executable(geo_test gfx/gfx_math.h gfx/gfx_math.c gfx/camera.c gfx/camera.h gfx/drawing_3d.h gfx/drawing_3d.c ${JFW_SOURCE_FILES} ${JFW_HEADER_FILES} gfx/rotation_camera_test.c)
+#target_link_libraries(geo_test PRIVATE m X11 vulkan jdm)
 add_subdirectory(mem)

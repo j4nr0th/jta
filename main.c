@@ -10,12 +10,9 @@
 #include <jio/iocfg.h>
 
 
-
-#include "jfw/window.h"
-#include "jfw/jfw_error.h"
+#include "jwin/source/jwin.h"
 
 
-#include "gfx/vk_state.h"
 #include "gfx/drawing_3d.h"
 #include "gfx/camera.h"
 #include "gfx/bounding_box.h"
@@ -26,31 +23,6 @@
 #include "config/config_loading.h"
 
 
-static jfw_result wnd_draw(jfw_window* this)
-{
-    jta_draw_state* const draw_state = jfw_window_get_usr_ptr(this);
-    vk_state* const state = draw_state->vulkan_state;
-    bool draw_good = draw_frame(
-            state, jfw_window_get_vk_resources(this),
-            &draw_state->meshes, &draw_state->camera) == GFX_RESULT_SUCCESS;
-    if (draw_good && draw_state->screenshot)
-    {
-        //  Save the screenshot
-
-
-        draw_state->screenshot = 0;
-    }
-    return draw_good ? JFW_RESULT_SUCCESS : JFW_RESULT_ERROR;
-}
-
-static jfw_result wnd_dtor(jfw_window* this)
-{
-    jta_draw_state* const state = jfw_window_get_usr_ptr(this);
-    jfw_window_vk_resources* vk_res = jfw_window_get_vk_resources(this);
-    vkDeviceWaitIdle(vk_res->device);
-    vk_state_destroy(state->vulkan_state, vk_res);
-    return JFW_RESULT_SUCCESS;
-}
 
 static i32 jdm_error_hook_callback_function(const char* thread_name, u32 stack_trace_count, const char*const* stack_trace, jdm_message_level level, u32 line, const char* file, const char* function, const char* message, void* param)
 {
@@ -77,27 +49,33 @@ static i32 jdm_error_hook_callback_function(const char* thread_name, u32 stack_t
     return 0;
 }
 
-static void double_free_hook(jallocator* allocator, void* param)
+static void double_free_hook(ill_jallocator* allocator, void* param)
 {
     JDM_ENTER_FUNCTION;
     (void)param;
-    JDM_ERROR("Double free detected by allocator %s (%p)", allocator->type, allocator);
+    JDM_ERROR("Double free detected by allocator (%p)", allocator);
     JDM_LEAVE_FUNCTION;
 }
 
-static void invalid_alloc(jallocator* allocator, void* param)
+static void invalid_alloc(ill_jallocator* allocator, void* param)
 {
     JDM_ENTER_FUNCTION;
     (void)param;
-    JDM_ERROR("Bad allocation detected by allocator %s (%p)", allocator->type, allocator);
+    JDM_ERROR("Bad allocation detected by allocator (%p)", allocator);
     JDM_LEAVE_FUNCTION;
 }
 
-static void jmem_trap(uint32_t idx, void* param)
+//static void jmem_trap(uint32_t idx, void* param)
+//{
+//    (void)param;
+//    (void)idx;
+//    __builtin_trap();
+//}
+
+static void jwin_err_report_fn(const char* msg, const char* file, int line, const char* function, void* state)
 {
-    (void)param;
-    (void)idx;
-    __builtin_trap();
+    (void) state;
+    JDM_ERROR("JWIN error (%s:%d - %s): %s", file, line, function, msg);
 }
 
 int main(int argc, char* argv[argc])
@@ -124,9 +102,8 @@ int main(int argc, char* argv[argc])
         fputs("Could not create base jallocator\n", stderr);
         exit(EXIT_FAILURE);
     }
-    G_JALLOCATOR->double_free_callback = double_free_hook;
-    G_JALLOCATOR->bad_alloc_callback = invalid_alloc;
-//    ill_jallocator_set_debug_trap(G_JALLOCATOR, 6, jmem_trap, NULL);
+    ill_jallocator_set_bad_alloc_callback(G_JALLOCATOR, invalid_alloc, NULL);
+    ill_jallocator_set_double_free_callback(G_JALLOCATOR, double_free_hook, NULL);
     {
         jdm_allocator_callbacks jdm_callbacks =
                 {
@@ -185,43 +162,58 @@ int main(int argc, char* argv[argc])
 
 
 
-    jfw_ctx* jctx = NULL;
-    jfw_window* jwnd = NULL;
+    jwin_context* jctx = NULL;
+    jwin_window* jwnd = NULL;
+    jta_vulkan_window_context* wnd_ctx = NULL;
+    jta_vulkan_context* vk_ctx = NULL;
     jta_timer_set(&main_timer);
+    gfx_result gfx_res = jta_vulkan_context_create(NULL, "jta", 1, &vk_ctx);
+    if (gfx_res != GFX_RESULT_SUCCESS)
     {
-        const jfw_allocator_callbacks allocator_callbacks =
+        JDM_FATAL("Could not initialize Vulkan, reason: %s", gfx_result_to_str(gfx_res));
+    }
+    jwin_result jwin_res;
+    {
+        const jwin_allocator_callbacks allocator_callbacks =
                 {
                 .alloc = (void* (*)(void*, uint64_t)) ill_jalloc,
                 .realloc = (void* (*)(void*, void*, uint64_t)) ill_jrealloc,
                 .free = (void (*)(void*, void*)) ill_jfree,
                 .state = G_JALLOCATOR,
                 };
-        jfw_result jfw_result = jfw_context_create(
-                &jctx,
-                NULL, &allocator_callbacks);
-        if (jfw_result != JFW_RESULT_SUCCESS)
+        const jwin_error_callbacks error_callbacks =
+                {
+                .report = jwin_err_report_fn,
+                .state = NULL,
+                };
+        const jwin_context_create_info ctx_info =
+                {
+                .allocator_callbacks = &allocator_callbacks,
+                .error_callbacks = &error_callbacks,
+                };
+        jwin_res = jwin_context_create(&ctx_info, &jctx);
+        if (jwin_res != JWIN_RESULT_SUCCESS)
         {
-            JDM_ERROR("Could not create jfw context, reason: %s", jfw_error_message(jfw_result));
-            goto cleanup;
+            JDM_FATAL("Could not create jwin context, reason: %s", jwin_result_msg_str(jwin_res));
         }
-        jfw_result = jfw_window_create(
-                jctx, 1600, 900, "JANSYS - jta - 0.0.1", (jfw_color) { .a = 0xFF, .r = 0x80, .g = 0x80, .b = 0x80 },
-                &jwnd, 0);
-        if (jfw_result != JFW_RESULT_SUCCESS)
+        const jwin_window_create_info win_info =
+                {
+                .fixed_size = 1,
+                .width = 1600,
+                .height = 900,
+                .title = "JANSYS - jta - 0.0.1",
+                };
+        jwin_res = jwin_window_create(jctx, &win_info, &jwnd);
+        if (jwin_res != JWIN_RESULT_SUCCESS)
         {
-            JDM_ERROR("Could not create window");
-            goto cleanup;
+            JDM_FATAL("Could not create window, reason: %s", jwin_result_msg_str(jwin_res));
         }
     }
-    jfw_window_show(jctx, jwnd);
-    jfw_window_vk_resources* const vk_res = jfw_window_get_vk_resources(jwnd);
-    jfw_vulkan_context* const vk_ctx = &jctx->vk_ctx;
-    vk_state vulkan_state;
-    gfx_result gfx_res = vk_state_create(&vulkan_state, vk_res);
+    jwin_window_show(jwnd);
+    gfx_res = jta_vulkan_window_context_create(jwnd, vk_ctx, &wnd_ctx);
     if (gfx_res != GFX_RESULT_SUCCESS)
     {
-        JDM_ERROR("Could not create vulkan state");
-        goto cleanup;
+        JDM_FATAL("Could not create window-dependant Vulkan resources, reason: %s", gfx_result_to_str(gfx_res));
     }
 
     jta_structure_meshes undeformed_meshes = {};
@@ -229,25 +221,25 @@ int main(int argc, char* argv[argc])
     JDM_TRACE("Vulkan init time: %g sec", dt);
 
     jta_timer_set(&main_timer);
-    gfx_res = mesh_init_truss(&undeformed_meshes.cylinders, 1 << 12, &vulkan_state, vk_res);
+    gfx_res = mesh_init_truss(&undeformed_meshes.cylinders, 1 << 12, wnd_ctx);
     if (gfx_res != GFX_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
     }
 
-    gfx_res = mesh_init_sphere(&undeformed_meshes.spheres, 7, &vulkan_state, vk_res);
+    gfx_res = mesh_init_sphere(&undeformed_meshes.spheres, 7, wnd_ctx);
     if (gfx_res != GFX_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
     }
 
-    gfx_res = mesh_init_cone(&undeformed_meshes.cones, 1 << 4, &vulkan_state, vk_res);
+    gfx_res = mesh_init_cone(&undeformed_meshes.cones, 1 << 4, wnd_ctx);
     if (gfx_res != GFX_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not create cone mesh: %s", gfx_result_to_str(gfx_res));
     }
 
-    gfx_res = jta_structure_meshes_generate_undeformed(&undeformed_meshes, &master_config.display, &problem_setup, &vulkan_state);
+    gfx_res = jta_structure_meshes_generate_undeformed(&undeformed_meshes, &master_config.display, &problem_setup, wnd_ctx);
     if (gfx_res != GFX_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not generate undeformed mesh, reason: %s", gfx_result_to_str(gfx_res));
@@ -261,15 +253,6 @@ int main(int argc, char* argv[argc])
 
 
     JDM_TRACE("Total of %"PRIu64" triangles in the mesh\n", mesh_polygon_count(&undeformed_meshes.cylinders) + mesh_polygon_count(&undeformed_meshes.spheres) + mesh_polygon_count(&undeformed_meshes.cones));
-
-
-    jwnd->functions.dtor_fn = wnd_dtor;
-    jwnd->functions.draw = wnd_draw;
-    jwnd->functions.mouse_button_press = truss_mouse_button_press;
-    jwnd->functions.mouse_button_release = truss_mouse_button_release;
-    jwnd->functions.mouse_motion = truss_mouse_motion;
-    jwnd->functions.button_up = truss_key_press;
-    jwnd->functions.mouse_button_double_press = truss_mouse_button_double_press;
     jta_camera_3d camera;
     jta_camera_set(
             &camera,                                    //  Camera
@@ -280,49 +263,76 @@ int main(int argc, char* argv[argc])
             VEC4(0, 0, -1),                             //  Down
             4.0f,                                       //  Turn sensitivity
             1.0f                                        //  Move sensitivity
-            );
+                  );
 
 
     jta_solution solution = {};
     jta_draw_state draw_state =
             {
-            .vulkan_state = &vulkan_state,
-            .camera = camera,
-            .original_camera = camera,
-            .vulkan_resources = vk_res,
-            .p_problem = &problem_setup,
-            .p_solution = &solution,
-            .config = &master_config,
-            .meshes = undeformed_meshes,
+                    .vk_ctx = vk_ctx,
+                    .wnd_ctx = wnd_ctx,
+                    .camera = camera,
+                    .original_camera = camera,
+                    .p_problem = &problem_setup,
+                    .p_solution = &solution,
+                    .config = &master_config,
+                    .meshes = undeformed_meshes,
+                    .needs_redraw = 1,
             };
-
-
-    jfw_window_set_usr_ptr(jwnd, &draw_state);
-    vulkan_state.view = jta_camera_to_view_matrix(&camera);
-    bool close = false;
-    while ((JFW_RESULT_SUCCESS == jfw_context_wait_for_events(jctx)) && !close)
+    for (unsigned i = 0; i < JTA_HANDLER_COUNT; ++i)
     {
-        while (jfw_context_has_events(jctx) && !close)
+        jwin_res = jwin_window_set_event_handler(jwnd, JTA_HANDLER_ARRAY[i].type, JTA_HANDLER_ARRAY[i].callback, &draw_state);
+        if (jwin_res != JWIN_RESULT_SUCCESS)
         {
-            close = (jfw_context_process_events(jctx) != JFW_RESULT_SUCCESS);
+            JDM_FATAL("Failed setting the event handler %u, reason: %s (%s)", i,
+                      jwin_result_to_str(jwin_res), jwin_result_msg_str(jwin_res));
         }
-        if (!close)
+    }
+
+//    jwnd->functions.dtor_fn = wnd_dtor;
+//    jwnd->functions.draw = wnd_draw;
+//    jwnd->functions.mouse_button_press = truss_mouse_button_press;
+//    jwnd->functions.mouse_button_release = truss_mouse_button_release;
+//    jwnd->functions.mouse_motion = truss_mouse_motion;
+//    jwnd->functions.button_up = truss_key_press;
+//    jwnd->functions.mouse_button_double_press = truss_mouse_button_double_press;
+
+
+
+    draw_state.view_matrix = jta_camera_to_view_matrix(&camera);
+//    while ((jwin_res = jwin_context_wait_for_events(jctx)) == JWIN_RESULT_SUCCESS)
+    for (;;)
+    {
+        jwin_res = jwin_context_handle_events(jctx);
+        if (jwin_res == JWIN_RESULT_SHOULD_CLOSE)
         {
-            jfw_window_redraw(jctx, jwnd);
+            break;
         }
+        if (jwin_res != JWIN_RESULT_SUCCESS)
+        {
+            JDM_FATAL("jwin_context_handle_events returned: %s (%s)", jwin_result_to_str(jwin_res), jwin_result_msg_str(jwin_res));
+        }
+        if (draw_state.needs_redraw)
+        {
+            jta_draw_frame(wnd_ctx, draw_state.view_matrix, &draw_state.meshes, &draw_state.camera);
+            draw_state.needs_redraw = 0;
+        }
+    }
+    if (jwin_res != JWIN_RESULT_SHOULD_CLOSE)
+    {
+        JDM_FATAL("jwin_context_wait_for_events returned: %s (%s)", jwin_result_to_str(jwin_res), jwin_result_msg_str(jwin_res));
     }
 
     jwnd = NULL;
 
 
     jta_solution_free(&solution);
-cleanup:
     mesh_uninit(&draw_state.meshes.cylinders);
     mesh_uninit(&draw_state.meshes.spheres);
     mesh_uninit(&draw_state.meshes.cones);
     if (jctx)
     {
-        jfw_context_destroy(jctx);
+        jwin_context_destroy(jctx);
         jctx = NULL;
     }
     jta_free_problem(&problem_setup);
@@ -331,7 +341,7 @@ cleanup:
     jdm_cleanup_thread();
     //  Clean up the allocators
     {
-        jallocator* const allocator = G_JALLOCATOR;
+        ill_jallocator* const allocator = G_JALLOCATOR;
         G_JALLOCATOR = NULL;
         uint64_t total_allocations, max_usage, total_allocated, biggest_allocation;
         ill_jallocator_statistics(allocator, &biggest_allocation, &total_allocated, &max_usage, &total_allocations);
@@ -348,7 +358,7 @@ cleanup:
         ill_jallocator_destroy(allocator);
     }
     {
-        jallocator* const allocator = G_LIN_JALLOCATOR;
+        lin_jallocator* const allocator = G_LIN_JALLOCATOR;
         G_LIN_JALLOCATOR = NULL;
         lin_jallocator_destroy(allocator);
     }

@@ -3,17 +3,17 @@
 //
 
 #include "mesh.h"
-#include "vk_state.h"
 #include <jdm.h>
 #include <inttypes.h>
 #include "../core/jtanumericalbcs.h"
+#include "bounding_box.h"
 
-static gfx_result mesh_allocate_vulkan_memory(vk_state* state, jta_mesh* mesh, jfw_window_vk_resources* resources)
+static gfx_result mesh_allocate_vulkan_memory(jta_vulkan_window_context* ctx, jta_mesh* mesh)
 {
     vk_buffer_allocation vtx_allocation, idx_allocation, mod_allocation;
     const jta_model* const model = &mesh->model;
     i32 res = vk_buffer_allocate(
-            state->buffer_allocator, 1, model->vtx_count * sizeof(*model->vtx_array),
+            ctx->buffer_allocator, 1, model->vtx_count * sizeof(*model->vtx_array),
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE,
             &vtx_allocation);
     if (res < 0)
@@ -23,41 +23,41 @@ static gfx_result mesh_allocate_vulkan_memory(vk_state* state, jta_mesh* mesh, j
     }
     gfx_result gfx_res;
     if ((
-                gfx_res = vk_transfer_memory_to_buffer(
-                        resources, state, &vtx_allocation, sizeof(jta_vertex) * mesh->model.vtx_count,
-                        mesh->model.vtx_array)) != GFX_RESULT_SUCCESS)
+                gfx_res = jta_vulkan_memory_to_buffer(
+                        ctx, 0, sizeof(jta_vertex) * mesh->model.vtx_count,
+                        mesh->model.vtx_array, 0, &vtx_allocation)) != GFX_RESULT_SUCCESS)
     {
-        vk_buffer_deallocate(state->buffer_allocator, &vtx_allocation);
+        vk_buffer_deallocate(ctx->buffer_allocator, &vtx_allocation);
         JDM_ERROR("Could not transfer model vertex data, reason: %s", gfx_result_to_str(gfx_res));
         return gfx_res;
     }
     res = vk_buffer_allocate(
-            state->buffer_allocator, 1, model->idx_count * sizeof(*model->idx_array),
+            ctx->buffer_allocator, 1, model->idx_count * sizeof(*model->idx_array),
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
             VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &idx_allocation);
     if (res < 0)
     {
-        vk_buffer_deallocate(state->buffer_allocator, &vtx_allocation);
+        vk_buffer_deallocate(ctx->buffer_allocator, &vtx_allocation);
         JDM_ERROR("Could not allocate buffer memory for mesh vertex buffer");
         return GFX_RESULT_BAD_ALLOC;
     }
-    if ((
-                gfx_res = vk_transfer_memory_to_buffer(
-                        resources, state, &idx_allocation, model->idx_count * sizeof(*model->idx_array),
-                        model->idx_array)) != GFX_RESULT_SUCCESS)
+    gfx_res = jta_vulkan_memory_to_buffer(
+            ctx, 0, model->idx_count * sizeof(*model->idx_array),
+            model->idx_array, 0, &idx_allocation);
+    if (gfx_res != GFX_RESULT_SUCCESS)
     {
-        vk_buffer_deallocate(state->buffer_allocator, &idx_allocation);
-        vk_buffer_deallocate(state->buffer_allocator, &vtx_allocation);
+        vk_buffer_deallocate(ctx->buffer_allocator, &idx_allocation);
+        vk_buffer_deallocate(ctx->buffer_allocator, &vtx_allocation);
         JDM_ERROR("Could not transfer model index data, reason: %s", gfx_result_to_str(gfx_res));
         return gfx_res;
     }
     res = vk_buffer_allocate(
-            state->buffer_allocator, 1, mesh->capacity * sizeof(*mesh->model_data), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            ctx->buffer_allocator, 1, mesh->capacity * sizeof(*mesh->model_data), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
             VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &mod_allocation);
     if (res < 0)
     {
-        vk_buffer_deallocate(state->buffer_allocator, &vtx_allocation);
-        vk_buffer_deallocate(state->buffer_allocator, &idx_allocation);
+        vk_buffer_deallocate(ctx->buffer_allocator, &vtx_allocation);
+        vk_buffer_deallocate(ctx->buffer_allocator, &idx_allocation);
         JDM_ERROR("Could not allocate buffer memory for model data buffer");
         return GFX_RESULT_BAD_ALLOC;
     }
@@ -134,7 +134,7 @@ static gfx_result generate_truss_model(jta_model* const p_out, const u16 pts_per
 
 const u64 DEFAULT_MESH_CAPACITY = 64;
 
-gfx_result mesh_init_truss(jta_mesh* mesh, u16 pts_per_side, vk_state* state, jfw_window_vk_resources* resources)
+gfx_result mesh_init_truss(jta_mesh* mesh, u16 pts_per_side, jta_vulkan_window_context* ctx)
 {
     JDM_ENTER_FUNCTION;
     mesh->name = "truss";
@@ -157,7 +157,7 @@ gfx_result mesh_init_truss(jta_mesh* mesh, u16 pts_per_side, vk_state* state, jf
     }
 
 
-    if ((gfx_res = mesh_allocate_vulkan_memory(state, mesh, resources)) != GFX_RESULT_SUCCESS)
+    if ((gfx_res = mesh_allocate_vulkan_memory(ctx, mesh)) != GFX_RESULT_SUCCESS)
     {
         clean_mesh_model(&mesh->model);
         ill_jfree(G_JALLOCATOR, mesh->model_data);
@@ -185,7 +185,8 @@ gfx_result mesh_uninit(jta_mesh* mesh)
 }
 
 static gfx_result
-mesh_add_new(jta_mesh* mesh, mtx4 model_transform, mtx4 normal_transform, jta_color color, vk_state* state)
+mesh_add_new(
+        jta_mesh* mesh, mtx4 model_transform, mtx4 normal_transform, jta_color color, jta_vulkan_window_context* ctx)
 {
     mesh->up_to_date = 0;
 
@@ -203,16 +204,16 @@ mesh_add_new(jta_mesh* mesh, mtx4 model_transform, mtx4 normal_transform, jta_co
         mesh->model_data = new_ptr;
         //  Reallocate memory on the GPU
         vk_buffer_allocation new_alloc;
-        vk_buffer_deallocate(state->buffer_allocator, &mesh->instance_memory);
+        vk_buffer_deallocate(ctx->buffer_allocator, &mesh->instance_memory);
         i32 res = vk_buffer_allocate(
-                state->buffer_allocator, 1, sizeof(*mesh->model_data) * new_capacity,
+                ctx->buffer_allocator, 1, sizeof(*mesh->model_data) * new_capacity,
                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE,
                 &new_alloc);
         if (res < 0)
         {
             JDM_ERROR("Could not reallocate vulkan memory for the instance data");
             res = vk_buffer_allocate(
-                    state->buffer_allocator, 1, sizeof(*mesh->model_data) * mesh->capacity,
+                    ctx->buffer_allocator, 1, sizeof(*mesh->model_data) * mesh->capacity,
                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE,
                     &new_alloc);
             if (res < 0)
@@ -238,9 +239,10 @@ mesh_add_new(jta_mesh* mesh, mtx4 model_transform, mtx4 normal_transform, jta_co
 }
 
 gfx_result
-truss_mesh_add_between_pts(jta_mesh* mesh, jta_color color, f32 radius, vec4 pt1, vec4 pt2, f32 roll, vk_state* state)
+truss_mesh_add_between_pts(
+        jta_mesh* mesh, jta_color color, f32 radius, vec4 pt1, vec4 pt2, f32 roll, jta_vulkan_window_context* ctx)
 {
-    assert(state);
+    assert(ctx);
     assert(pt2.w == 1.0f);
     assert(pt1.w == 1.0f);
     vec4 d = vec4_sub(pt2, pt1);
@@ -270,7 +272,7 @@ truss_mesh_add_between_pts(jta_mesh* mesh, jta_color color, f32 radius, vec4 pt1
     normal_transform = mtx4_multiply(normal_transform, mtx4_enlarge(1 / radius, 1 / radius, 1 / len));
 
 
-    return mesh_add_new(mesh, model, normal_transform, color, state);
+    return mesh_add_new(mesh, model, normal_transform, color, ctx);
 }
 
 static gfx_result generate_sphere_model(jta_model* const p_out, const u16 order)
@@ -457,7 +459,7 @@ static gfx_result generate_sphere_model(jta_model* const p_out, const u16 order)
     return GFX_RESULT_SUCCESS;
 }
 
-gfx_result mesh_init_sphere(jta_mesh* mesh, u16 order, vk_state* state, jfw_window_vk_resources* resources)
+gfx_result mesh_init_sphere(jta_mesh* mesh, u16 order, jta_vulkan_window_context* ctx)
 {
     JDM_ENTER_FUNCTION;
     gfx_result gfx_res;
@@ -479,7 +481,7 @@ gfx_result mesh_init_sphere(jta_mesh* mesh, u16 order, vk_state* state, jfw_wind
         return GFX_RESULT_BAD_ALLOC;
     }
 
-    if ((gfx_res = mesh_allocate_vulkan_memory(state, mesh, resources)) != GFX_RESULT_SUCCESS)
+    if ((gfx_res = mesh_allocate_vulkan_memory(ctx, mesh)) != GFX_RESULT_SUCCESS)
     {
         clean_mesh_model(&mesh->model);
         ill_jfree(G_JALLOCATOR, mesh->model_data);
@@ -492,41 +494,37 @@ gfx_result mesh_init_sphere(jta_mesh* mesh, u16 order, vk_state* state, jfw_wind
     return GFX_RESULT_SUCCESS;
 }
 
-gfx_result sphere_mesh_add(jta_mesh* mesh, jta_color color, f32 radius, vec4 pt, vk_state* state)
+gfx_result sphere_mesh_add(jta_mesh* mesh, jta_color color, f32 radius, vec4 pt, jta_vulkan_window_context* ctx)
 {
     JDM_ENTER_FUNCTION;
     jta_bounding_box_add_point(&mesh->bounding_box, pt, radius);
     mtx4 m = mtx4_enlarge(radius, radius, radius);
     m = mtx4_translate(m, pt);
     JDM_LEAVE_FUNCTION;
-    return mesh_add_new(mesh, m, mtx4_identity, color, state);
+    return mesh_add_new(mesh, m, mtx4_identity, color, ctx);
 }
 
-gfx_result jta_mesh_update_instance(jta_mesh* mesh, jfw_window_vk_resources* resources, vk_state* state)
+gfx_result jta_mesh_update_instance(jta_mesh* mesh, jta_vulkan_window_context* ctx)
 {
     JDM_ENTER_FUNCTION;
 
-    vk_transfer_memory_to_buffer(
-            resources, state, &mesh->instance_memory, sizeof(jta_model_data) * mesh->count, mesh->model_data);
+    jta_vulkan_memory_to_buffer(
+            ctx, 0, sizeof(jta_model_data) * mesh->count, mesh->model_data, 0, &mesh->instance_memory);
     mesh->up_to_date = 1;
 
     JDM_LEAVE_FUNCTION;
     return GFX_RESULT_SUCCESS;
 }
 
-gfx_result jta_mesh_update_model(jta_mesh* mesh, jfw_window_vk_resources* resources, vk_state* state)
+gfx_result jta_mesh_update_model(jta_mesh* mesh, jta_vulkan_window_context* ctx)
 {
     JDM_ENTER_FUNCTION;
 
-    vk_transfer_memory_to_buffer(
-            resources, state, &mesh->common_geometry_vtx, sizeof(jta_vertex) *
-                                                          mesh->model.vtx_count,
-            mesh->model.vtx_array);
+    jta_vulkan_memory_to_buffer(
+            ctx, 0, sizeof(jta_vertex) * mesh->model.vtx_count, mesh->model.vtx_array, 0, &mesh->common_geometry_vtx);
 
-    vk_transfer_memory_to_buffer(
-            resources, state, &mesh->common_geometry_idx, sizeof(jta_vertex) *
-                                                          mesh->model.vtx_count,
-            mesh->model.vtx_array);
+    jta_vulkan_memory_to_buffer(
+            ctx, 0, sizeof(jta_vertex) * mesh->model.vtx_count, mesh->model.vtx_array, 0, &mesh->common_geometry_idx);
 
     JDM_LEAVE_FUNCTION;
     return GFX_RESULT_SUCCESS;
@@ -605,7 +603,7 @@ static gfx_result generate_cone_model(jta_model* const model, const u16 order)
     return GFX_RESULT_SUCCESS;
 }
 
-gfx_result mesh_init_cone(jta_mesh* mesh, u16 order, vk_state* state, jfw_window_vk_resources* resources)
+gfx_result mesh_init_cone(jta_mesh* mesh, u16 order, jta_vulkan_window_context* ctx)
 {
     JDM_ENTER_FUNCTION;
     mesh->name = "cone";
@@ -628,7 +626,7 @@ gfx_result mesh_init_cone(jta_mesh* mesh, u16 order, vk_state* state, jfw_window
     }
 
 
-    if ((gfx_res = mesh_allocate_vulkan_memory(state, mesh, resources)) != GFX_RESULT_SUCCESS)
+    if ((gfx_res = mesh_allocate_vulkan_memory(ctx, mesh)) != GFX_RESULT_SUCCESS)
     {
         clean_mesh_model(&mesh->model);
         ill_jfree(G_JALLOCATOR, mesh->model_data);
@@ -641,9 +639,10 @@ gfx_result mesh_init_cone(jta_mesh* mesh, u16 order, vk_state* state, jfw_window
     return GFX_RESULT_SUCCESS;
 }
 
-gfx_result cone_mesh_add_between_pts(jta_mesh* mesh, jta_color color, f32 radius, vec4 pt1, vec4 pt2, vk_state* state)
+gfx_result cone_mesh_add_between_pts(
+        jta_mesh* mesh, jta_color color, f32 radius, vec4 pt1, vec4 pt2, jta_vulkan_window_context* ctx)
 {
-    assert(state);
+    assert(ctx);
     assert(pt2.w == 1.0f);
     assert(pt1.w == 1.0f);
     vec4 d = vec4_sub(pt2, pt1);
@@ -670,12 +669,12 @@ gfx_result cone_mesh_add_between_pts(jta_mesh* mesh, jta_color color, f32 radius
     //  Take the sheer of the model into account for the normal transformation as well
     normal_transform = mtx4_multiply(normal_transform, mtx4_enlarge(1 / radius, 1 / radius, 1 / len));
 
-    return mesh_add_new(mesh, model, normal_transform, color, state);
+    return mesh_add_new(mesh, model, normal_transform, color, ctx);
 }
 
 static gfx_result add_force_arrow(
         jta_structure_meshes* const meshes, const vec4 pos, const vec4 direction, const float length,
-        const float radius, vk_state* vulkan_state, jta_color color, float arrow_cone_ratio)
+        const float radius, jta_vulkan_window_context* ctx, jta_color color, float arrow_cone_ratio)
 {
     gfx_result gfx_res;
 
@@ -684,14 +683,14 @@ static gfx_result add_force_arrow(
     if ((
                 gfx_res = cone_mesh_add_between_pts(
                         &meshes->cones, color, 2 * radius,
-                        second, third, vulkan_state)) != GFX_RESULT_SUCCESS)
+                        second, third, ctx)) != GFX_RESULT_SUCCESS)
     {
         return gfx_res;
     }
     if ((
                 gfx_res = truss_mesh_add_between_pts(
                         &meshes->cylinders, color, radius,
-                        pos, second, 0.0f, vulkan_state)) != GFX_RESULT_SUCCESS)
+                        pos, second, 0.0f, ctx)) != GFX_RESULT_SUCCESS)
     {
         return gfx_res;
     }
@@ -707,7 +706,7 @@ static inline vec4 point_position(const jta_point_list* list, const uint32_t idx
 
 gfx_result jta_structure_meshes_generate_undeformed(
         jta_structure_meshes* meshes, const jta_config_display* cfg, const jta_problem_setup* problem_setup,
-        vk_state* vulkan_state)
+        jta_vulkan_window_context* ctx)
 {
     JDM_ENTER_FUNCTION;
 
@@ -741,11 +740,12 @@ gfx_result jta_structure_meshes_generate_undeformed(
         const vec4 pt0 = positions[i_pt0];
         const vec4 pt1 = positions[i_pt1];
 
+        (void) i_mat;
         const jta_color c = {{ .r = 0xD0, .g = 0xD0, .b = 0xD0, .a = 0xFF }};   //  Here a colormap lookup could be done
 
         const float radius = problem_setup->profile_list.equivalent_radius[i_pro] * cfg->radius_scale;
 
-        if ((res = truss_mesh_add_between_pts(&meshes->cylinders, c, radius, pt0, pt1, 0, vulkan_state)) !=
+        if ((res = truss_mesh_add_between_pts(&meshes->cylinders, c, radius, pt0, pt1, 0, ctx)) !=
             GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not add truss element number %u between \"%.*s\" and \"%.*s\", reason: %s", i_element + 1,
@@ -789,7 +789,7 @@ gfx_result jta_structure_meshes_generate_undeformed(
         float r = cfg->dof_point_scales[bcs_per_point[i_pt]] * point_list->max_radius[i_pt] * cfg->radius_scale;
         vec4 pos = positions[i_pt];
 
-        if ((res = sphere_mesh_add(&meshes->spheres, c, r, pos, vulkan_state)) != GFX_RESULT_SUCCESS)
+        if ((res = sphere_mesh_add(&meshes->spheres, c, r, pos, ctx)) != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not add point \"%.*s\", reason: %s", (int) point_list->label[i_pt].len,
                       point_list->label[i_pt].begin,
@@ -818,7 +818,7 @@ gfx_result jta_structure_meshes_generate_undeformed(
 
         jta_color c = {{ .r = 0x00, .g = 0x00, .b = 0xD0, .a = 0xFF }};   //  This could be a config option
 
-        if ((res = add_force_arrow(meshes, pos, unit_dir, length, radius, vulkan_state, c, cfg->force_head_ratio)) !=
+        if ((res = add_force_arrow(meshes, pos, unit_dir, length, radius, ctx, c, cfg->force_head_ratio)) !=
             GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not add the force %u at point \"%.*s\", reason: %s", i_bc + 1,
@@ -836,7 +836,7 @@ gfx_result jta_structure_meshes_generate_undeformed(
 
 gfx_result jta_structure_meshes_generate_deformed(
         jta_structure_meshes* meshes, const jta_config_display* cfg, const jta_problem_setup* problem_setup,
-        const jta_solution* solution, vk_state* vulkan_state)
+        const jta_solution* solution, jta_vulkan_window_context* ctx)
 {
     JDM_ENTER_FUNCTION;
 
@@ -855,9 +855,10 @@ gfx_result jta_structure_meshes_generate_deformed(
     for (uint32_t i_pt = 0; i_pt < point_list->count; ++i_pt)
     {
         //  Add point displacements
-        positions[i_pt] = VEC4(point_list->p_x[i_pt] + cfg->deformation_scale * solution->point_displacements[3 * i_pt + 0],
-                               point_list->p_y[i_pt] + cfg->deformation_scale * solution->point_displacements[3 * i_pt + 1],
-                               point_list->p_z[i_pt] + cfg->deformation_scale * solution->point_displacements[3 * i_pt + 2]);
+        positions[i_pt] = VEC4(
+                point_list->p_x[i_pt] + cfg->deformation_scale * solution->point_displacements[3 * i_pt + 0],
+                point_list->p_y[i_pt] + cfg->deformation_scale * solution->point_displacements[3 * i_pt + 1],
+                point_list->p_z[i_pt] + cfg->deformation_scale * solution->point_displacements[3 * i_pt + 2]);
     }
 
     //  Generate truss members
@@ -876,7 +877,7 @@ gfx_result jta_structure_meshes_generate_deformed(
 
         const float radius = problem_setup->profile_list.equivalent_radius[i_pro] * cfg->radius_scale;
 
-        if ((res = truss_mesh_add_between_pts(&meshes->cylinders, c, radius, pt0, pt1, 0, vulkan_state)) !=
+        if ((res = truss_mesh_add_between_pts(&meshes->cylinders, c, radius, pt0, pt1, 0, ctx)) !=
             GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not add truss element number %u between \"%.*s\" and \"%.*s\", reason: %s", i_element + 1,
@@ -939,7 +940,7 @@ gfx_result jta_structure_meshes_generate_deformed(
         float r = cfg->dof_point_scales[dof_count] * point_list->max_radius[i_pt] * cfg->radius_scale;
         vec4 pos = positions[i_pt];
 
-        if ((res = sphere_mesh_add(&meshes->spheres, c, r, pos, vulkan_state)) != GFX_RESULT_SUCCESS)
+        if ((res = sphere_mesh_add(&meshes->spheres, c, r, pos, ctx)) != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not add point \"%.*s\", reason: %s", (int) point_list->label[i_pt].len,
                       point_list->label[i_pt].begin,
@@ -1004,7 +1005,7 @@ gfx_result jta_structure_meshes_generate_deformed(
 
         jta_color c = {{ .r = 0x00, .g = 0xFF, .b = 0x00, .a = 0xFF }};   //  This could be a config option
 
-        if ((res = add_force_arrow(meshes, pos, unit_dir, length, radius, vulkan_state, c, cfg->force_head_ratio)) !=
+        if ((res = add_force_arrow(meshes, pos, unit_dir, length, radius, ctx, c, cfg->force_head_ratio)) !=
             GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not add the reaction force at point \"%.*s\", reason: %s",

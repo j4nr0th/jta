@@ -2,94 +2,106 @@
 // Created by jan on 21.5.2023.
 //
 
-#include <X11/keysym.h>
 #include <inttypes.h>
 #include "ui.h"
 #include "core/jtasolve.h"
+#include "gfx/drawing_3d.h"
 #include <solvers/jacobi_point_iteration.h>
 #include <solvers/bicgstab_iteration.h>
 
-jfw_result truss_mouse_button_press(jfw_window* this, i32 x, i32 y, u32 button, u32 mods)
+void truss_mouse_button_press(const jwin_event_mouse_button_press* e, void* param)
 {
-    jta_draw_state* const state = jfw_window_get_usr_ptr(this);
+    jta_draw_state* const state = param;
     assert(state);
-    switch (button)
+    jwin_event_custom custom_redraw =
+            {
+            .base = e->base,
+            .custom = state,
+            };
+    custom_redraw.base.type = JWIN_EVENT_TYPE_CUSTOM + 1;
+    switch (e->button)
     {
-    case Button3:
+    case JWIN_MOUSE_BUTTON_TYPE_RIGHT:
         //  press was with rmb
         state->track_move = 1;
-        state->mv_x = x; state->mv_y = y;
+        state->mv_x = e->x; state->mv_y = e->y;
         break;
-    case Button2:
+    case JWIN_MOUSE_BUTTON_TYPE_MIDDLE:
         //  press was with mmb
         state->track_turn = 1;
-        state->mv_x = x; state->mv_y = y;
+        state->mv_x = e->x; state->mv_y = e->y;
         break;
 
-    case Button4:
+    case JWIN_MOUSE_BUTTON_TYPE_SCROLL_UP:
         //  Scroll up
         jta_camera_zoom(&state->camera, +0.05f);
-        state->vulkan_state->view = jta_camera_to_view_matrix(&state->camera);
-        jfw_window_ask_for_redraw(this);
+        state->view_matrix = jta_camera_to_view_matrix(&state->camera);
+        jwin_window_send_custom_event(e->base.window, &custom_redraw);
         break;
-    case Button5:
+    case JWIN_MOUSE_BUTTON_TYPE_SCROLL_DN:
         //  Scroll down
         jta_camera_zoom(&state->camera, -0.05f);
-        state->vulkan_state->view = jta_camera_to_view_matrix(&state->camera);
-        jfw_window_ask_for_redraw(this);
+        state->view_matrix = jta_camera_to_view_matrix(&state->camera);
+        jwin_window_send_custom_event(e->base.window, &custom_redraw);
         break;
-
     default:break;
     }
-
-    return JFW_RESULT_SUCCESS;
 }
 
-jfw_result truss_mouse_button_release(jfw_window* this, i32 x, i32 y, u32 button, u32 mods)
+void truss_mouse_button_release(const jwin_event_mouse_button_release* e, void* param)
 {
-    jta_draw_state* const state = jfw_window_get_usr_ptr(this);
-    switch (button)
+    jta_draw_state* const state = param;
+    switch (e->button)
     {
-    case Button2:
+    case JWIN_MOUSE_BUTTON_TYPE_MIDDLE:
         assert(state);
         state->track_turn = 0;
         break;
-    case Button3:
+    case JWIN_MOUSE_BUTTON_TYPE_RIGHT:
         assert(state);
         state->track_move = 0;
         break;
     default:break;
     }
-    state->mv_x = x;
-    state->mv_y = y;
-    return JFW_RESULT_SUCCESS;
+    state->mv_x = e->x;
+    state->mv_y = e->y;
 }
 
-jfw_result truss_mouse_motion(jfw_window* const this, i32 x, i32 y, const u32 mods)
+void truss_mouse_motion(const jwin_event_mouse_motion* e, void* param)
 {
-    jta_draw_state* const state = jfw_window_get_usr_ptr(this);
+    jta_draw_state* const state = param;
+    jwin_event_custom custom_redraw =
+            {
+                    .base = e->base,
+                    .custom = state,
+            };
+    custom_redraw.base.type = JWIN_EVENT_TYPE_CUSTOM + 1;
     assert(state);
-    if (mods & Button2Mask && state && state->track_turn)
+    int x = e->x, y = e->y;
+    unsigned width, height;
+    jwin_window_get_size(e->base.window, &width, &height);
+    if (state->track_turn)
     {
-        //  Clamp x and y to intervals [0, w) and [0, h)
+        printf("Turning\n");
+        //  Clamp x and y to intervals [0, width) and [0, height)
         if (x < 0)
         {
             x = 0;
         }
-        else if (x > (i32)this->w)
+        else if (x > (i32)width)
         {
-            x = (i32)this->w - 1;
+            x = (i32)width - 1;
         }
         if (y < 0)
         {
             y = 0;
         }
-        else if (y > (i32)this->h)
+        else if (y > (i32)height)
         {
-            y = (i32)this->h - 1;
+            y = (i32)height - 1;
         }
 
-        const f32 w = (f32)this->w, h = (f32)this->h;
+        const f32 w = (f32)width, h = (f32)height;
         //  Update camera
         jta_camera_3d* const camera = &state->camera;
         const i32 old_x = state->mv_x, old_y = state->mv_y;
@@ -128,30 +140,30 @@ jfw_result truss_mouse_motion(jfw_window* const this, i32 x, i32 y, const u32 mo
         state->mv_x = x;
         state->mv_y = y;
 
-        state->vulkan_state->view = jta_camera_to_view_matrix(camera);
-        jfw_window_ask_for_redraw(this);
+        state->view_matrix = jta_camera_to_view_matrix(camera);
+        jwin_window_send_custom_event(e->base.window, &custom_redraw);
     }
-    if (mods & Button3Mask && state && state->track_move)
+    if (state->track_move)
     {
-        //  Clamp x and y to intervals [0, w) and [0, h)
+        //  Clamp x and y to intervals [0, width) and [0, height)
         if (x < 0)
         {
             x = 0;
         }
-        else if (x > (i32)this->w)
+        else if (x > (i32)width)
         {
-            x = (i32)this->w - 1;
+            x = (i32)width - 1;
         }
         if (y < 0)
         {
             y = 0;
         }
-        else if (y > (i32)this->h)
+        else if (y > (i32)height)
         {
-            y = (i32)this->h - 1;
+            y = (i32)height - 1;
         }
 
-        const f32 w = (f32)this->w, h = (f32)this->h;
+        const f32 w = (f32)width, h = (f32)height;
         //  Update camera
         jta_camera_3d* const camera = &state->camera;
         const i32 old_x = state->mv_x, old_y = state->mv_y;
@@ -180,29 +192,33 @@ jfw_result truss_mouse_motion(jfw_window* const this, i32 x, i32 y, const u32 mo
         real_axis = vec4_add(real_axis, vec4_mul_one(camera->uy, move.y));
         jta_camera_move(camera, vec4_mul_one(real_axis, move_mag));
 
-        state->vulkan_state->view = jta_camera_to_view_matrix(camera);
-        jfw_window_ask_for_redraw(this);
+        state->view_matrix = jta_camera_to_view_matrix(camera);
+        jwin_window_send_custom_event(e->base.window, &custom_redraw);
     }
     assert(state);
-    state->mv_x = x;
-    state->mv_y = y;
-end:
-    return JFW_RESULT_SUCCESS;
+    state->mv_x = e->x;
+    state->mv_y = e->y;
+    end:;
 }
 
-jfw_result truss_key_press(jfw_window* this, KeySym key_sym)
+void truss_key_press(const jwin_event_key_press* e, void* param)
 {
     JDM_ENTER_FUNCTION;
-
-    jta_draw_state* const state = jfw_window_get_usr_ptr(this);
+    jta_draw_state* const state = param;
+    jwin_event_custom custom_redraw =
+            {
+                    .base = e->base,
+                    .custom = state,
+            };
+    custom_redraw.base.type = JWIN_EVENT_TYPE_CUSTOM + 1;
     static int solved = 0;
-    if (key_sym == XK_F12)
+    if (e->keycode == JWIN_KEY_F12)
     {
         //  Take a screenshot
-        jfw_window_ask_for_redraw(this);
+        jwin_window_send_custom_event(e->base.window, &custom_redraw);
         state->screenshot = 1;
     }
-    else if (key_sym == XK_space)
+    else if (e->keycode == JWIN_KEY_SPACE)
     {
         if (!solved)
         {
@@ -218,18 +234,18 @@ jfw_result truss_key_press(jfw_window* this, KeySym key_sym)
             }
         }
     }
-    else if (key_sym == XK_r)
+    else if (e->keycode == JWIN_KEY_R)
     {
         jta_structure_meshes new_meshes = {};
         gfx_result res;
-        res = mesh_init_sphere(&new_meshes.spheres, 4, state->vulkan_state, state->vulkan_resources);
+        res = mesh_init_sphere(&new_meshes.spheres, 4, state->wnd_ctx);
         if (res != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not initialise new sphere mesh, reason: %s", gfx_result_to_str(res));
             goto end;
         }
 
-        res = mesh_init_cone(&new_meshes.cones, 1 << 4, state->vulkan_state, state->vulkan_resources);
+        res = mesh_init_cone(&new_meshes.cones, 1 << 4, state->wnd_ctx);
         if (res != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not initialise new cone mesh, reason: %s", gfx_result_to_str(res));
@@ -237,7 +253,7 @@ jfw_result truss_key_press(jfw_window* this, KeySym key_sym)
             goto end;
         }
 
-        res = mesh_init_truss(&new_meshes.cylinders, 1 << 4, state->vulkan_state, state->vulkan_resources);
+        res = mesh_init_truss(&new_meshes.cylinders, 1 << 4, state->wnd_ctx);
         if (res != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not initialise new cylinder mesh, reason: %s", gfx_result_to_str(res));
@@ -260,12 +276,12 @@ jfw_result truss_key_press(jfw_window* this, KeySym key_sym)
 //                goto end;
 //            }
             res = jta_structure_meshes_generate_deformed(
-                    &new_meshes, &state->config->display, state->p_problem, state->p_solution, state->vulkan_state);
+                    &new_meshes, &state->config->display, state->p_problem, state->p_solution, state->wnd_ctx);
         }
         else
         {
             res = jta_structure_meshes_generate_undeformed(
-                    &new_meshes, &state->config->display, state->p_problem, state->vulkan_state);
+                    &new_meshes, &state->config->display, state->p_problem, state->wnd_ctx);
         }
 
         if (res != GFX_RESULT_SUCCESS)
@@ -286,17 +302,84 @@ jfw_result truss_key_press(jfw_window* this, KeySym key_sym)
 
 end:
     JDM_LEAVE_FUNCTION;
-    return JFW_RESULT_SUCCESS;
 }
 
-jfw_result truss_mouse_button_double_press(jfw_window* this, i32 x, i32 y, u32 button, u32 mods)
+void truss_mouse_button_double_press(const jwin_event_mouse_button_double_press* e, void* param)
 {
-    if (button == Button2)
+    jta_draw_state* const state = param;
+    jwin_event_custom custom_redraw =
+            {
+                    .base = e->base,
+                    .custom = state,
+            };
+    custom_redraw.base.type = JWIN_EVENT_TYPE_CUSTOM + 1;
+    if (e->button == JWIN_MOUSE_BUTTON_TYPE_MIDDLE)
     {
-        jta_draw_state* const state = jfw_window_get_usr_ptr(this);
         state->camera = state->original_camera;
-        state->vulkan_state->view = jta_camera_to_view_matrix(&state->camera);
-        jfw_window_ask_for_redraw(this);
+        state->view_matrix = jta_camera_to_view_matrix(&state->camera);
+        jwin_window_send_custom_event(e->base.window, &custom_redraw);
     }
-    return JFW_RESULT_SUCCESS;
 }
+
+void custom_event(const jwin_event_custom* e, void* param)
+{
+    (void) param;
+    JDM_ENTER_FUNCTION;
+    switch (e->base.type)
+    {
+    case JWIN_EVENT_TYPE_CUSTOM + 1:
+        //  Custom redraw
+        refresh_event(&e->base, e->custom);
+        break;
+    default:JDM_ERROR("Got a custom event with type JWIN_EVENT_TYPE_CUSTOM + %d", e->base.type - JWIN_EVENT_TYPE_CUSTOM);
+    }
+    JDM_LEAVE_FUNCTION;
+}
+
+void refresh_event(const jwin_event_refresh* e, void* param)
+{
+    JDM_ENTER_FUNCTION;
+    (void) e;
+    jta_draw_state* const state = param;
+//    gfx_result draw_res = jta_draw_frame(
+//            state->wnd_ctx, state->view_matrix, &state->meshes, &state->camera);
+//    if (draw_res != GFX_RESULT_SUCCESS)
+//    {
+//        JDM_WARN("Drawing of frame failed, reason: %s", gfx_result_to_str(draw_res));
+//    }
+    state->needs_redraw = 1;
+    JDM_LEAVE_FUNCTION;
+}
+
+static void destroy_event(const jwin_event_destroy* e, void* param)
+{
+    (void) e;
+    (void) param;
+    jta_draw_state* const state = param;
+    vkDeviceWaitIdle(state->wnd_ctx->device);
+    jta_vulkan_window_context_destroy(state->wnd_ctx);
+    jta_vulkan_context_destroy(state->vk_ctx);
+}
+
+static int close_event(const jwin_event_close* e, void* param)
+{
+    (void) param;
+    jwin_context_mark_to_close(e->context);
+    return 1;
+}
+
+const jta_event_handler JTA_HANDLER_ARRAY[] =
+        {
+                {.type = JWIN_EVENT_TYPE_MOUSE_PRESS, .callback.mouse_button_press = truss_mouse_button_press},
+                {.type = JWIN_EVENT_TYPE_MOUSE_RELEASE, .callback.mouse_button_release = truss_mouse_button_release},
+                {.type = JWIN_EVENT_TYPE_MOUSE_DOUBLE_PRESS, .callback.mouse_button_double_press = truss_mouse_button_double_press},
+                {.type = JWIN_EVENT_TYPE_MOUSE_MOVE, .callback.mouse_motion = truss_mouse_motion},
+                {.type = JWIN_EVENT_TYPE_KEY_PRESS, .callback.key_press = truss_key_press},
+                {.type = JWIN_EVENT_TYPE_REFRESH, .callback.refresh = refresh_event},
+                {.type = JWIN_EVENT_TYPE_CUSTOM, .callback.custom = custom_event},
+                {.type = JWIN_EVENT_TYPE_CLOSE, .callback.close = close_event},
+                {.type = JWIN_EVENT_TYPE_DESTROY, .callback.destroy = destroy_event},
+        };
+
+
+const unsigned JTA_HANDLER_COUNT = sizeof(JTA_HANDLER_ARRAY) / sizeof(*JTA_HANDLER_ARRAY);

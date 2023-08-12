@@ -8,9 +8,10 @@
 #include "../common/common.h"
 #include "../mem/vk_mem_allocator.h"
 #include "gfxerr.h"
-#include "vk_state.h"
 #include "../core/jtaproblem.h"
 #include "../core/jtasolve.h"
+#include "bounding_box.h"
+#include "vk_resources.h"
 
 
 typedef struct jta_vertex_struct jta_vertex;
@@ -73,34 +74,34 @@ typedef struct jta_structure_meshes_struct jta_structure_meshes;
 
 gfx_result jta_structure_meshes_generate_undeformed(
         jta_structure_meshes* meshes, const jta_config_display* cfg, const jta_problem_setup* problem_setup,
-        vk_state* vulkan_state);
+        jta_vulkan_window_context* ctx);
 
 gfx_result jta_structure_meshes_generate_deformed(
         jta_structure_meshes* meshes, const jta_config_display* cfg, const jta_problem_setup* problem_setup,
-        const jta_solution* solution, vk_state* vulkan_state);
+        const jta_solution* solution, jta_vulkan_window_context* ctx);
 
-gfx_result jta_mesh_update_instance(jta_mesh* mesh, jfw_window_vk_resources* resources, vk_state* state);
+gfx_result jta_mesh_update_instance(jta_mesh* mesh, jta_vulkan_window_context* ctx);
 
-gfx_result jta_mesh_update_model(jta_mesh* mesh, jfw_window_vk_resources* resources, vk_state* state);
+gfx_result jta_mesh_update_model(jta_mesh* mesh, jta_vulkan_window_context* ctx);
 
 extern const u64 DEFAULT_MESH_CAPACITY;
 
-gfx_result mesh_init_truss(jta_mesh* mesh, u16 pts_per_side, vk_state* state, jfw_window_vk_resources* resources);
+gfx_result mesh_init_truss(jta_mesh* mesh, u16 pts_per_side, jta_vulkan_window_context* ctx);
 
 gfx_result
-truss_mesh_add_between_pts(jta_mesh* mesh, jta_color color, f32 radius, vec4 pt1, vec4 pt2, f32 roll, vk_state* state);
+truss_mesh_add_between_pts(jta_mesh* mesh, jta_color color, f32 radius, vec4 pt1, vec4 pt2, f32 roll, jta_vulkan_window_context* ctx);
 
 gfx_result mesh_uninit(jta_mesh* mesh);
 
-gfx_result mesh_init_sphere(jta_mesh* mesh, u16 order, vk_state* state, jfw_window_vk_resources* resources);
+gfx_result mesh_init_sphere(jta_mesh* mesh, u16 order, jta_vulkan_window_context* ctx);
 
-gfx_result sphere_mesh_add(jta_mesh* mesh, jta_color color, f32 radius, vec4 pt, vk_state* state);
+gfx_result sphere_mesh_add(jta_mesh* mesh, jta_color color, f32 radius, vec4 pt, jta_vulkan_window_context* ctx);
 
 gfx_result sphere_mesh_add_deformed(
-        jta_mesh* mesh, jta_color color, f32 radius_x, f32 radius_y, f32 radius_z, vec4 pt, vk_state* state);
+        jta_mesh* mesh, jta_color color, f32 radius_x, f32 radius_y, f32 radius_z, vec4 pt, jta_vulkan_window_context* ctx);
 
-gfx_result mesh_init_cone(jta_mesh* mesh, u16 order, vk_state* state, jfw_window_vk_resources* resources);
+gfx_result mesh_init_cone(jta_mesh* mesh, u16 order, jta_vulkan_window_context* ctx);
 
-gfx_result cone_mesh_add_between_pts(jta_mesh* mesh, jta_color color, f32 radius, vec4 pt1, vec4 pt2, vk_state* state);
+gfx_result cone_mesh_add_between_pts(jta_mesh* mesh, jta_color color, f32 radius, vec4 pt1, vec4 pt2, jta_vulkan_window_context* ctx);
 
 #endif //JTA_MESH_H

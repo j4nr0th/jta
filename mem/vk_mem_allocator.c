@@ -3,7 +3,7 @@
 //
 #include <jdm.h>
 #include "vk_mem_allocator.h"
-#include "../jfw/jfw_error.h"
+#include "../gfx/vk_resources.h"
 
 typedef struct allocation_chunk_struct allocation_chunk;
 struct allocation_chunk_struct
@@ -200,7 +200,7 @@ i32 vk_buffer_allocate(
     VkResult vk_res = vkCreateBuffer(allocator->device, &create_info, NULL, &new_buffer);
     if (vk_res != VK_SUCCESS)
     {
-        JDM_ERROR("Failed creating vk_buffer, reason: %s", jfw_vk_error_msg(vk_res));
+        JDM_ERROR("Failed creating vk_buffer, reason: %s", vk_result_to_str(vk_res));
         ill_jfree(G_JALLOCATOR, pool);
         return -1;
     }
@@ -219,7 +219,7 @@ i32 vk_buffer_allocate(
     vk_res = vkAllocateMemory(allocator->device, &alloc_info, NULL, &mem);
     if (vk_res != VK_SUCCESS)
     {
-        JDM_ERROR("Failed creating vk_buffer, reason: %s", jfw_vk_error_msg(vk_res));
+        JDM_ERROR("Failed creating vk_buffer, reason: %s", vk_result_to_str(vk_res));
         vkDestroyBuffer(allocator->device, new_buffer, NULL);
         ill_jfree(G_JALLOCATOR, pool);
         return -1;
@@ -354,7 +354,7 @@ i32 vk_buffer_reserve(
     VkResult vk_res = vkCreateBuffer(allocator->device, &create_info, NULL, &new_buffer);
     if (vk_res != VK_SUCCESS)
     {
-        JDM_ERROR("Failed creating vk_buffer, reason: %s", jfw_vk_error_msg(vk_res));
+        JDM_ERROR("Failed creating vk_buffer, reason: %s", vk_result_to_str(vk_res));
 //        ill_jfree(G_JALLOCATOR, v_qfi);
         ill_jfree(G_JALLOCATOR, pool);
         return -1;
@@ -387,7 +387,7 @@ i32 vk_buffer_reserve(
     vk_res = vkAllocateMemory(allocator->device, &alloc_info, NULL, &mem);
     if (vk_res != VK_SUCCESS)
     {
-        JDM_ERROR("Failed creating vk_buffer, reason: %s", jfw_vk_error_msg(vk_res));
+        JDM_ERROR("Failed creating vk_buffer, reason: %s", vk_result_to_str(vk_res));
         vkDestroyBuffer(allocator->device, new_buffer, NULL);
 //        ill_jfree(G_JALLOCATOR, v_qfi);
         ill_jfree(G_JALLOCATOR, pool);
@@ -428,7 +428,7 @@ void* vk_map_allocation(const vk_buffer_allocation* allocation)
     const VkResult vk_res = vkMapMemory(allocation->device, allocation->memory, allocation->offset, allocation->size, 0, &ptr);
     if (vk_res != VK_SUCCESS)
     {
-        JDM_ERROR("Could not map buffer allocation, reason: %s", jfw_vk_error_msg(vk_res));
+        JDM_ERROR("Could not map buffer allocation, reason: %s", vk_result_to_str(vk_res));
         return NULL;
     }
     return ptr;

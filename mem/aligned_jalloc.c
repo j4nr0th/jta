@@ -802,7 +802,7 @@ int aligned_jallocator_verify(aligned_jallocator* allocator)
                 assert(0);
                 return 0;
             }
-            if (chunk->offset - (chunk - 1)->offset != (chunk - 1)->size)
+            if (chunk->offset - (chunk - 1)->offset != (int32_t)(chunk - 1)->size)
             {
                 assert(0);
                 return 0;
