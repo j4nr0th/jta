@@ -210,8 +210,10 @@ jta_result jta_load_natural_boundary_conditions(
         __m128 vy = _mm_loadu_ps(y + (i << 2));
         __m128 vz = _mm_loadu_ps(z + (i << 2));
         __m128 hyp = _mm_mul_ps(vx, vx);
-        hyp = _mm_fmadd_ps(vy, vy, hyp);
-        hyp = _mm_fmadd_ps(vz, vz, hyp);
+//        hyp = _mm_fmadd_ps(vy, vy, hyp);
+//        hyp = _mm_fmadd_ps(vz, vz, hyp);
+        hyp = _mm_add_ps(_mm_mul_ps(vy, vy), hyp);
+        hyp = _mm_add_ps(_mm_mul_ps(vz, vz), hyp);
         _Alignas(16) f32 values[4];
         _mm_store_ps(values, hyp);
         for (u32 j = 0; j < 4; ++j)

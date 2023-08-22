@@ -13,3 +13,6 @@
 [submodule "jwin"]
 	path = jwin
 	url = git@github.com:j4nr0th/jwin.git
+[submodule "jrui"]
+	path = jrui
+	url = git@github.com:j4nr0th/jrui

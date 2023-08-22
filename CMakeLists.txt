@@ -4,7 +4,6 @@ include(CTest)
 
 set(CMAKE_C_STANDARD 23)
 
-add_compile_options("-march=native")
 
 list(APPEND JFW_SOURCE_FILES gfx/gfx_math.c jfw/jfw_common.c
         jfw/window.c jfw/jfw_error.c jfw/platform.c)
@@ -19,10 +18,10 @@ list(APPEND UTILITY_HEADER_FILES common/common.h)
 
 list(APPEND GFX_SOURCE_FILES
         #gfx/vk_state.c
-        gfx/drawing_3d.c gfx/camera.c ui.c gfx/gfxerr.c gfx/bounding_box.c gfx/mesh.c)
+        gfx/drawing_3d.c gfx/camera.c jwin_handlers.c gfx/gfxerr.c gfx/bounding_box.c gfx/mesh.c)
 list(APPEND GFX_HEADER_FILES
         #gfx/vk_state.h
-        gfx/drawing_3d.h gfx/camera.h ui.h gfx/gfxerr.h gfx/bounding_box.h gfx/mesh.h)
+        gfx/drawing_3d.h gfx/camera.h jwin_handlers.h gfx/gfxerr.h gfx/bounding_box.h gfx/mesh.h)
 
 list(APPEND JTA_SOLVER_SOURCE_FILES core/jtaerr.c core/jtapoints.c core/jtamaterials.c core/jtaprofiles.c
         core/jtaelements.c core/jtanaturalbcs.c core/jtanumericalbcs.c core/jtaproblem.c core/jtasolve.c)
@@ -34,18 +33,29 @@ add_subdirectory(jmem)
 add_subdirectory(jdm)
 add_subdirectory(jmtx)
 add_subdirectory(jwin)
+add_subdirectory(jrui)
 
+
+add_custom_command(
+        OUTPUT shaders/frg_shader3d.spv shaders/vtx_shader3d.spv shaders/frg_shader_ui.spv shaders/vtx_shader_ui.spv
+        COMMAND ${PROJECT_SOURCE_DIR}/shaders/compile_shaders.sh shaders
+        DEPENDS shaders/compile_shaders.sh shaders/frg_shader3d.frag shaders/vtx_shader3d.vert shaders/frg_shader_ui.frag shaders/vtx_shader_ui.vert)
+
+list(APPEND JTA_SHADERS shaders/frg_shader3d.spv shaders/vtx_shader3d.spv shaders/frg_shader_ui.spv shaders/vtx_shader_ui.spv)
 add_executable(jta main.c
-        #${JFW_SOURCE_FILES} ${JFW_HEADER_FILES}
         ${ALLOCATORS_SOURCE_FILES} ${ALLOCATORS_HEADER_FILES}
         ${FORMATTED_IO_SOURCE_FILES} ${FORMATTED_IO_HEADER_FILES}
         ${UTILITY_SOURCE_FILES} ${UTILITY_HEADER_FILES}
         ${GFX_SOURCE_FILES} ${GFX_HEADER_FILES}
         ${PARSING_SOURCE_FILES} ${PARSING_HEADER_FILES}
         ${UTILITY_SOURCE_FILES} ${UTILITY_HEADER_FILES}
-        ${JTA_SOLVER_SOURCE_FILES} ${JTA_SOLVER_HEADER_FILES} config/config_loading.c config/config_loading.h gfx/color_map.c gfx/color_map.h config/config_execution.c config/config_execution.h
+        ${JTA_SOLVER_SOURCE_FILES} ${JTA_SOLVER_HEADER_FILES}
+        ${JTA_SHADERS}
+        config/config_loading.c config/config_loading.h gfx/color_map.c gfx/color_map.h config/config_execution.c config/config_execution.h
         gfx/vk_resources.c
-        gfx/vk_resources.h)
+        gfx/vk_resources.h
+        gfx/textures.c
+        gfx/textures.h)
 
 add_compile_definitions(JALLOC_TRAP_COUNT=128)
 add_compile_definitions(JALLOC_TRACKING=1)
@@ -58,7 +68,7 @@ endif ()
 
 configure_file(test_configuration.cfg "${CMAKE_BINARY_DIR}/test_configuration.cfg" COPYONLY)
 
-target_include_directories(jta PRIVATE jio/include jdm/include jmem/source/include jmtx/source)
+target_include_directories(jta PRIVATE jio/include jdm/include jmem/source/include jmtx/source jrui/include)
 target_link_libraries(jta PRIVATE vulkan X11 m jmem jfmt jdm jio jmtx jwin)
 
 enable_testing()

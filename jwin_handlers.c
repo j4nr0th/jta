@@ -3,22 +3,22 @@
 //
 
 #include <inttypes.h>
-#include "ui.h"
+#include "jwin_handlers.h"
 #include "core/jtasolve.h"
 #include "gfx/drawing_3d.h"
 #include <solvers/jacobi_point_iteration.h>
 #include <solvers/bicgstab_iteration.h>
 
-void truss_mouse_button_press(const jwin_event_mouse_button_press* e, void* param)
+static void truss_mouse_button_press(const jwin_event_mouse_button_press* e, void* param)
 {
     jta_draw_state* const state = param;
     assert(state);
-    jwin_event_custom custom_redraw =
-            {
-            .base = e->base,
-            .custom = state,
-            };
-    custom_redraw.base.type = JWIN_EVENT_TYPE_CUSTOM + 1;
+//    jwin_event_custom custom_redraw =
+//            {
+//            .base = e->base,
+//            .custom = state,
+//            };
+//    custom_redraw.base.type = JWIN_EVENT_TYPE_CUSTOM + 1;
     switch (e->button)
     {
     case JWIN_MOUSE_BUTTON_TYPE_RIGHT:
@@ -36,19 +36,19 @@ void truss_mouse_button_press(const jwin_event_mouse_button_press* e, void* para
         //  Scroll up
         jta_camera_zoom(&state->camera, +0.05f);
         state->view_matrix = jta_camera_to_view_matrix(&state->camera);
-        jwin_window_send_custom_event(e->base.window, &custom_redraw);
+        state->needs_redraw = 1;
         break;
     case JWIN_MOUSE_BUTTON_TYPE_SCROLL_DN:
         //  Scroll down
         jta_camera_zoom(&state->camera, -0.05f);
         state->view_matrix = jta_camera_to_view_matrix(&state->camera);
-        jwin_window_send_custom_event(e->base.window, &custom_redraw);
+        state->needs_redraw = 1;
         break;
     default:break;
     }
 }
 
-void truss_mouse_button_release(const jwin_event_mouse_button_release* e, void* param)
+static void truss_mouse_button_release(const jwin_event_mouse_button_release* e, void* param)
 {
     jta_draw_state* const state = param;
     switch (e->button)
@@ -67,7 +67,7 @@ void truss_mouse_button_release(const jwin_event_mouse_button_release* e, void* 
     state->mv_y = e->y;
 }
 
-void truss_mouse_motion(const jwin_event_mouse_motion* e, void* param)
+static void truss_mouse_motion(const jwin_event_mouse_motion* e, void* param)
 {
     jta_draw_state* const state = param;
     jwin_event_custom custom_redraw =
@@ -80,27 +80,25 @@ void truss_mouse_motion(const jwin_event_mouse_motion* e, void* param)
     int x = e->x, y = e->y;
     unsigned width, height;
     jwin_window_get_size(e->base.window, &width, &height);
+    //  Clamp x and y to intervals [0, width) and [0, height)
+    if (x < 0)
+    {
+        x = 0;
+    }
+    else if (x > (i32)width)
+    {
+        x = (i32)width - 1;
+    }
+    if (y < 0)
+    {
+        y = 0;
+    }
+    else if (y > (i32)height)
+    {
+        y = (i32)height - 1;
+    }
     if (state->track_turn)
     {
-        printf("Turning\n");
-        //  Clamp x and y to intervals [0, width) and [0, height)
-        if (x < 0)
-        {
-            x = 0;
-        }
-        else if (x > (i32)width)
-        {
-            x = (i32)width - 1;
-        }
-        if (y < 0)
-        {
-            y = 0;
-        }
-        else if (y > (i32)height)
-        {
-            y = (i32)height - 1;
-        }
-
         const f32 w = (f32)width, h = (f32)height;
         //  Update camera
         jta_camera_3d* const camera = &state->camera;
@@ -145,24 +143,6 @@ void truss_mouse_motion(const jwin_event_mouse_motion* e, void* param)
     }
     if (state->track_move)
     {
-        //  Clamp x and y to intervals [0, width) and [0, height)
-        if (x < 0)
-        {
-            x = 0;
-        }
-        else if (x > (i32)width)
-        {
-            x = (i32)width - 1;
-        }
-        if (y < 0)
-        {
-            y = 0;
-        }
-        else if (y > (i32)height)
-        {
-            y = (i32)height - 1;
-        }
-
         const f32 w = (f32)width, h = (f32)height;
         //  Update camera
         jta_camera_3d* const camera = &state->camera;
@@ -196,13 +176,18 @@ void truss_mouse_motion(const jwin_event_mouse_motion* e, void* param)
         jwin_window_send_custom_event(e->base.window, &custom_redraw);
     }
     assert(state);
-    state->mv_x = e->x;
-    state->mv_y = e->y;
+    state->mv_x = x;
+    state->mv_y = y;
     end:;
 }
 
-void truss_key_press(const jwin_event_key_press* e, void* param)
+static void truss_key_press(const jwin_event_key_press* e, void* param)
 {
+    if (e->repeated)
+    {
+        //  Do not acknowledge the repeated events
+        return;
+    }
     JDM_ENTER_FUNCTION;
     jta_draw_state* const state = param;
     jwin_event_custom custom_redraw =
@@ -298,13 +283,14 @@ void truss_key_press(const jwin_event_key_press* e, void* param)
         mesh_uninit(&old_meshes.cones);
         mesh_uninit(&old_meshes.spheres);
         mesh_uninit(&old_meshes.cylinders);
+        state->needs_redraw = 1;
     }
 
 end:
     JDM_LEAVE_FUNCTION;
 }
 
-void truss_mouse_button_double_press(const jwin_event_mouse_button_double_press* e, void* param)
+static void truss_mouse_button_double_press(const jwin_event_mouse_button_double_press* e, void* param)
 {
     jta_draw_state* const state = param;
     jwin_event_custom custom_redraw =
@@ -321,22 +307,7 @@ void truss_mouse_button_double_press(const jwin_event_mouse_button_double_press*
     }
 }
 
-void custom_event(const jwin_event_custom* e, void* param)
-{
-    (void) param;
-    JDM_ENTER_FUNCTION;
-    switch (e->base.type)
-    {
-    case JWIN_EVENT_TYPE_CUSTOM + 1:
-        //  Custom redraw
-        refresh_event(&e->base, e->custom);
-        break;
-    default:JDM_ERROR("Got a custom event with type JWIN_EVENT_TYPE_CUSTOM + %d", e->base.type - JWIN_EVENT_TYPE_CUSTOM);
-    }
-    JDM_LEAVE_FUNCTION;
-}
-
-void refresh_event(const jwin_event_refresh* e, void* param)
+static void refresh_event(const jwin_event_refresh* e, void* param)
 {
     JDM_ENTER_FUNCTION;
     (void) e;
@@ -348,6 +319,21 @@ void refresh_event(const jwin_event_refresh* e, void* param)
 //        JDM_WARN("Drawing of frame failed, reason: %s", gfx_result_to_str(draw_res));
 //    }
     state->needs_redraw = 1;
+    JDM_LEAVE_FUNCTION;
+}
+
+static void custom_event(const jwin_event_custom* e, void* param)
+{
+    (void) param;
+    JDM_ENTER_FUNCTION;
+    switch (e->base.type)
+    {
+    case JWIN_EVENT_TYPE_CUSTOM + 1:
+        //  Custom redraw
+        refresh_event(&e->base, e->custom);
+        break;
+    default:JDM_ERROR("Got a custom event with type JWIN_EVENT_TYPE_CUSTOM + %d", e->base.type - JWIN_EVENT_TYPE_CUSTOM);
+    }
     JDM_LEAVE_FUNCTION;
 }
 

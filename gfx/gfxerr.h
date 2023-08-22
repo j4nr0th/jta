@@ -39,6 +39,8 @@ enum gfx_result_enum : unsigned
     GFX_RESULT_BAD_VK_CALL,
     GFX_RESULT_NO_DEVICES,
     GFX_RESULT_NOT_READY,
+    GFX_RESULT_LOW_TRANSFER_MEM,
+    GFX_RESULT_BAD_TRANSITION,
     GFX_RESULT_COUNT,
 };
 typedef enum gfx_result_enum gfx_result;

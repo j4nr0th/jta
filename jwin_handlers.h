@@ -2,8 +2,8 @@
 // Created by jan on 21.5.2023.
 //
 
-#ifndef JTA_UI_H
-#define JTA_UI_H
+#ifndef JTA_JWIN_HANDLERS_H
+#define JTA_JWIN_HANDLERS_H
 #include "common/common.h"
 #include "gfx/camera.h"
 #include "core/jtaproblem.h"
@@ -31,20 +31,20 @@ struct jta_draw_state_struct
     int needs_redraw;
 };
 
-
-void truss_mouse_button_press(const jwin_event_mouse_button_press* e, void* param);
-
-void truss_mouse_button_double_press(const jwin_event_mouse_button_double_press* e, void* param);
-
-void truss_mouse_button_release(const jwin_event_mouse_button_release* e, void* param);
-
-void truss_mouse_motion(const jwin_event_mouse_motion* e, void* param);
-
-void truss_key_press(const jwin_event_key_press* e, void* param);
-
-void refresh_event(const jwin_event_refresh* e, void* param);
-
-void custom_event(const jwin_event_custom* e, void* param);
+//
+//void truss_mouse_button_press(const jwin_event_mouse_button_press* e, void* param);
+//
+//void truss_mouse_button_double_press(const jwin_event_mouse_button_double_press* e, void* param);
+//
+//void truss_mouse_button_release(const jwin_event_mouse_button_release* e, void* param);
+//
+//void truss_mouse_motion(const jwin_event_mouse_motion* e, void* param);
+//
+//void truss_key_press(const jwin_event_key_press* e, void* param);
+//
+//void refresh_event(const jwin_event_refresh* e, void* param);
+//
+//void custom_event(const jwin_event_custom* e, void* param);
 
 struct jta_event_handler_struct
 {
@@ -57,4 +57,4 @@ extern const jta_event_handler JTA_HANDLER_ARRAY[];
 
 extern const unsigned JTA_HANDLER_COUNT;
 
-#endif //JTA_UI_H
+#endif //JTA_JWIN_HANDLERS_H

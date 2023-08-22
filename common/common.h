@@ -71,6 +71,12 @@ struct ubo_3d_struct
     mtx4 proj;
     vec4 view_direction;
 };
+typedef struct ubo_ui_struct ubo_ui;
+struct ubo_ui_struct
+{
+    float offset_x, offset_y;
+    float scale_x, scale_y;
+};
 
 typedef struct jta_timer_struct jta_timer;
 struct jta_timer_struct

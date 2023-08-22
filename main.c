@@ -16,7 +16,7 @@
 #include "gfx/drawing_3d.h"
 #include "gfx/camera.h"
 #include "gfx/bounding_box.h"
-#include "ui.h"
+#include "jwin_handlers.h"
 #include "core/jtaelements.h"
 #include "core/jtanaturalbcs.h"
 #include "core/jtanumericalbcs.h"

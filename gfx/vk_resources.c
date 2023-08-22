@@ -8,10 +8,13 @@
 #include <inttypes.h>
 #include "../jwin/source/jwin_vk.h"
 #include "mesh.h"
+#include <jrui.h>
 
 //  Compiled Vulkan shaders
 #include "../shaders/vtx_shader3d.spv"
 #include "../shaders/frg_shader3d.spv"
+#include "../shaders/vtx_shader_ui.spv"
+#include "../shaders/frg_shader_ui.spv"
 
 static const char* const REQUIRED_LAYERS_NAMES[] =
         {
@@ -1166,7 +1169,9 @@ static void destroy_swapchain(VkDevice device, jta_vulkan_swapchain* this)
     JDM_LEAVE_FUNCTION;
 }
 
-static gfx_result render_pass_state_create(VkDevice device, VkRenderPass render_pass, const jta_vulkan_swapchain* swapchain, jta_vulkan_render_pass* this)
+static gfx_result render_pass_state_create(
+        VkDevice device, VkRenderPass render_pass, const jta_vulkan_swapchain* swapchain, jta_vulkan_render_pass* this,
+        int has_depth)
 {
     JDM_ENTER_FUNCTION;
     gfx_result res;
@@ -1185,7 +1190,7 @@ static gfx_result render_pass_state_create(VkDevice device, VkRenderPass render_
             {
                     .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
                     .renderPass = render_pass,
-                    .attachmentCount = 2,
+                    .attachmentCount = has_depth ? 2 : 1,
                     .pAttachments = attachments,
                     .width = swapchain->window_extent.width,
                     .height = swapchain->window_extent.height,
@@ -1232,6 +1237,53 @@ static gfx_result render_pass_state_destroy(VkDevice device, jta_vulkan_render_p
     return GFX_RESULT_SUCCESS;
 }
 
+static gfx_result queue_create(VkDevice dev, uint32_t idx, jta_vulkan_queue* this, const char* purpose)
+{
+    JDM_ENTER_FUNCTION;
+    vkGetDeviceQueue(dev, idx, 0, &this->handle);
+    VkCommandPoolCreateInfo pool_info =
+            {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+            .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+            .queueFamilyIndex = idx,
+            };
+    VkResult vk_res = vkCreateCommandPool(dev, &pool_info, NULL, &this->transient_pool);
+    if (vk_res != VK_SUCCESS)
+    {
+        JDM_ERROR("Could not create command pool for %s queue, reason: %s(%d)", purpose, vk_result_to_str(vk_res), vk_res);
+        JDM_LEAVE_FUNCTION;
+        return GFX_RESULT_BAD_VK_CALL;
+    }
+    VkFenceCreateInfo fence_info =
+            {
+            .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+//            .flags = VK_FENCE_CREATE_SIGNALED_BIT,
+            };
+    vk_res = vkCreateFence(dev, &fence_info, NULL, &this->fence);
+    if (vk_res != VK_SUCCESS)
+    {
+        JDM_ERROR("Could not create fence for %s queue, reason: %s(%d)", purpose, vk_result_to_str(vk_res), vk_res);
+        vkDestroyCommandPool(dev, this->transient_pool, NULL);
+        JDM_LEAVE_FUNCTION;
+        return GFX_RESULT_BAD_VK_CALL;
+    }
+
+    JDM_LEAVE_FUNCTION;
+    return GFX_RESULT_SUCCESS;
+}
+
+static gfx_result queue_destroy(VkDevice dev, jta_vulkan_queue* this)
+{
+    JDM_ENTER_FUNCTION;
+
+    vkQueueWaitIdle(this->handle);
+    vkDestroyCommandPool(dev, this->transient_pool, NULL);
+    vkDestroyFence(dev, this->fence, NULL);
+
+    JDM_LEAVE_FUNCTION;
+    return GFX_RESULT_SUCCESS;
+}
+
 gfx_result
 jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_vulkan_window_context** p_out)
 {
@@ -1261,11 +1313,11 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
     VkPipeline pipeline_mesh = VK_NULL_HANDLE;
     VkPipeline pipeline_cf = VK_NULL_HANDLE;
     int32_t i_gfx_queue;
-    VkQueue queue_gfx;
+    jta_vulkan_queue vk_queue_gfx;
     int32_t i_prs_queue;
-    VkQueue queue_prs;
+    jta_vulkan_queue vk_queue_prs;
     int32_t i_trs_queue;
-    VkQueue queue_trs;
+    jta_vulkan_queue vk_queue_trs;
     VkSampleCountFlags samples;
     VkSurfaceKHR surface = VK_NULL_HANDLE;
     vk_buffer_allocator* allocator = NULL;
@@ -1273,10 +1325,12 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
     jta_vulkan_render_pass pass_mesh;
     VkRenderPass render_pass_cf = VK_NULL_HANDLE;
     jta_vulkan_render_pass pass_cf;
-    VkFence fence_transfer = VK_NULL_HANDLE;
     vk_buffer_allocation transfer_buffer;
-    VkCommandPool transfer_pool = VK_NULL_HANDLE;
 
+    VkPipelineLayout layout_2d = VK_NULL_HANDLE;
+    VkPipeline pipeline_ui = VK_NULL_HANDLE;
+    VkRenderPass render_pass_ui = VK_NULL_HANDLE;
+    jta_vulkan_render_pass pass_ui;
 
     //  Ask jwin to create the window surface
     const jwin_result jwin_res = jwin_window_create_window_vk_surface(ctx->instance, win, NULL, NULL, &vk_res, &surface);
@@ -1430,9 +1484,24 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
         }
         this->device = device;
 
-        vkGetDeviceQueue(device, i_gfx_queue, 0, &queue_gfx);
-        vkGetDeviceQueue(device, i_prs_queue, 0, &queue_prs);
-        vkGetDeviceQueue(device, i_trs_queue, 0, &queue_trs);
+        res = queue_create(device, i_gfx_queue, &vk_queue_gfx, "graphics");
+        if (res != GFX_RESULT_SUCCESS)
+        {
+            JDM_ERROR("Could not create graphics queue");
+            goto failed;
+        }
+        res = queue_create(device, i_gfx_queue, &vk_queue_prs, "presentation");
+        if (res != GFX_RESULT_SUCCESS)
+        {
+            JDM_ERROR("Could not create presentation queue");
+            goto failed;
+        }
+        res = queue_create(device, i_gfx_queue, &vk_queue_trs, "transfer");
+        if (res != GFX_RESULT_SUCCESS)
+        {
+            JDM_ERROR("Could not create transfer queue");
+            goto failed;
+        }
     }
 
     //  Create buffer allocator
@@ -1542,7 +1611,7 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
             res = GFX_RESULT_BAD_VK_CALL;
             goto failed;
         }
-        res = render_pass_state_create(device, render_pass_mesh, &swapchain, &pass_mesh);
+        res = render_pass_state_create(device, render_pass_mesh, &swapchain, &pass_mesh, 1);
         if (res != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not create render pass state, reason: %s", gfx_result_to_str(res));
@@ -1563,7 +1632,7 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
                         .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
                         .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
                         .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                        .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                        .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                 };
         VkAttachmentReference color_attach_ref =
                 {
@@ -1623,7 +1692,7 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
             goto failed;
         }
 
-        res = render_pass_state_create(device, render_pass_cf, &swapchain, &pass_cf);
+        res = render_pass_state_create(device, render_pass_cf, &swapchain, &pass_cf, 1);
         if (res != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not create render pass state, reason: %s", gfx_result_to_str(res));
@@ -1922,19 +1991,6 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
 
     //  Transfer data
     {
-        VkFenceCreateInfo fence_create_info =
-                {
-                .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-                .flags = VK_FENCE_CREATE_SIGNALED_BIT,
-                };
-        vk_res = vkCreateFence(device, &fence_create_info, NULL, &fence_transfer);
-        if (vk_res != VK_SUCCESS)
-        {
-            JDM_ERROR("Could not create transfer buffer fence, reason: %s(%d)", vk_result_to_str(vk_res), vk_res);
-            res = GFX_RESULT_BAD_VK_CALL;
-            goto failed;
-        }
-
         i32 ret_alloc = vk_buffer_allocate(
                 allocator,
                 1 << 8,
@@ -1960,30 +2016,302 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
             res = GFX_RESULT_BAD_ALLOC;
             goto failed;
         }
+    }
 
-        VkCommandPoolCreateInfo create_info =
+
+    //  Create the pipeline layout for UI rendering
+    {
+        VkPushConstantRange push_constant_2d_ubo =
                 {
-                .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-                .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
-                .queueFamilyIndex = i_trs_queue,
+                        .offset = 0,
+                        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+                        .size = sizeof(ubo_ui),
                 };
-        vk_res = vkCreateCommandPool(device, &create_info, NULL, &transfer_pool);
+        VkPipelineLayoutCreateInfo create_info =
+                {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+                        .pushConstantRangeCount = 1,
+                        .pPushConstantRanges = &push_constant_2d_ubo,
+                };
+
+        vk_res = vkCreatePipelineLayout(device, &create_info, NULL, &layout_2d);
         if (vk_res != VK_SUCCESS)
         {
-            JDM_ERROR("Could not allocate command buffer for transfer operaitons: %s(%d)", vk_result_to_str(vk_res), vk_res);
+            JDM_ERROR("Could not create pipeline layout for ui rendering, reason: %s(%d)", vk_result_to_str(vk_res), vk_res);
             res = GFX_RESULT_BAD_VK_CALL;
             goto failed;
         }
     }
 
+    //  Create the render pass for the UI drawing
+    {
+        //    color attachment
+        VkAttachmentDescription color_attachment_desc =
+                {
+                        .format = swapchain.window_format.format,
+                        .samples = VK_SAMPLE_COUNT_1_BIT,
+                        .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+                        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                        .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                        .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                };
+        VkAttachmentReference color_attach_ref =
+                {
+                .attachment = 0,
+                .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                };
+        VkSubpassDescription subpass_description =
+                {
+                        .colorAttachmentCount = 1,
+                        .pColorAttachments = &color_attach_ref,
+                };
+        VkSubpassDependency subpass_dependency =
+                {
+                        .srcSubpass = VK_SUBPASS_EXTERNAL,
+                        .dstSubpass = 0,
+                        .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+                        .srcAccessMask = 0,
+                        .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+                        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                };
+        VkRenderPassCreateInfo create_info =
+                {
+                        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+                        .attachmentCount = 1,
+                        .pAttachments = &color_attachment_desc,
+                        .dependencyCount = 1,
+                        .pDependencies = &subpass_dependency,
+                        .subpassCount = 1,
+                        .pSubpasses = &subpass_description,
+                };
+        vk_res = vkCreateRenderPass(device, &create_info, NULL, &render_pass_ui);
+        if (vk_res != VK_SUCCESS)
+        {
+            JDM_ERROR("Could not create mesh render pass, reason: %s(%d)", vk_result_to_str(vk_res), vk_res);
+            res = GFX_RESULT_BAD_VK_CALL;
+            goto failed;
+        }
+        res = render_pass_state_create(device, render_pass_ui, &swapchain, &pass_ui, 0);
+        if (res != GFX_RESULT_SUCCESS)
+        {
+            JDM_ERROR("Could not create render pass state, reason: %s", gfx_result_to_str(res));
+            vkDestroyRenderPass(device, render_pass_mesh, NULL);
+            render_pass_mesh = VK_NULL_HANDLE;
+            goto failed;
+        }
+    }
+
+    //  Create the UI pipeline
+    {
+        VkShaderModule module_vtx_ui, module_frg_ui;
+        VkVertexInputBindingDescription vtx_binding_desc_geometry =
+                {
+                        .binding = 0,
+                        .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+                        .stride = sizeof(jrui_vertex),
+                };
+        VkVertexInputAttributeDescription position_attribute_description =
+                {
+                        .binding = 0,
+                        .location = 0,
+                        .format = VK_FORMAT_R32G32_SFLOAT,
+                        .offset = offsetof(jrui_vertex, x),
+                };
+        VkVertexInputAttributeDescription tex_coords_attribute_description =
+                {
+                        .binding = 0,
+                        .location = 1,
+                        .format = VK_FORMAT_R32G32_SFLOAT,
+                        .offset = offsetof(jrui_vertex, u),
+                };
+        VkVertexInputAttributeDescription tex_idx_attribute_description =
+                {
+                        .binding = 0,
+                        .location = 2,
+                        .format = VK_FORMAT_R32_SINT,
+                        .offset = offsetof(jrui_vertex, texture_idx),
+                };
+        VkVertexInputAttributeDescription color_attribute_description =
+                {
+                        .binding = 0,
+                        .location = 3,
+                        .format = VK_FORMAT_R8G8B8A8_UNORM,
+                        .offset = offsetof(jrui_vertex, color),
+                };
+        VkShaderModuleCreateInfo shader_vtx_create_info =
+                {
+                        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+                        .codeSize = sizeof(vtx_shader_ui),
+                        .pCode = vtx_shader_ui,
+                };
+        VkShaderModuleCreateInfo shader_frg_create_info =
+                {
+                        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+                        .codeSize = sizeof(frg_shader_ui),
+                        .pCode = frg_shader_ui,
+                };
+        vk_res = vkCreateShaderModule(device, &shader_vtx_create_info, NULL, &module_vtx_ui);
+        if (vk_res != VK_SUCCESS)
+        {
+            JDM_ERROR("Could not create vertex shader module (UI), reason: %s(%d)", vk_result_to_str(vk_res), vk_res);
+            res = GFX_RESULT_NO_VTX_SHADER;
+            goto failed;
+        }
+        vk_res = vkCreateShaderModule(device, &shader_frg_create_info, NULL, &module_frg_ui);
+        if (vk_res != VK_SUCCESS)
+        {
+            JDM_ERROR("Could not create fragment shader module (UI), reason: %s(%d)", vk_result_to_str(vk_res), vk_res);
+            vkDestroyShaderModule(device, module_vtx_ui, NULL);
+            res = GFX_RESULT_NO_FRG_SHADER;
+            goto failed;
+        }
+
+        VkPipelineShaderStageCreateInfo pipeline_shader_stage_vtx_info =
+                {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                        .stage = VK_SHADER_STAGE_VERTEX_BIT,
+                        .module = module_vtx_ui,
+                        .pName = "main",
+                };
+
+        VkPipelineShaderStageCreateInfo pipeline_shader_stage_frg_info =
+                {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                        .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+                        .module = module_frg_ui,
+                        .pName = "main",
+                };
+        VkPipelineShaderStageCreateInfo shader_stage_info_array[] =
+                {
+                        pipeline_shader_stage_vtx_info, pipeline_shader_stage_frg_info
+                };
+        VkDynamicState dynamic_states[] =
+                {
+                        VK_DYNAMIC_STATE_VIEWPORT,
+                        VK_DYNAMIC_STATE_SCISSOR,
+                };
+        VkPipelineDynamicStateCreateInfo dynamic_state_info =
+                {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+                        .dynamicStateCount = sizeof(dynamic_states) / sizeof(*dynamic_states),
+                        .pDynamicStates = dynamic_states,
+                };
+        VkVertexInputAttributeDescription attrib_description_array[] =
+                {
+                        position_attribute_description, tex_coords_attribute_description, tex_idx_attribute_description, color_attribute_description,
+                };
+        VkVertexInputBindingDescription binding_description_array[] =
+                {
+                        vtx_binding_desc_geometry
+                };
+        VkPipelineVertexInputStateCreateInfo vtx_state_create_info =
+                {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+                        .vertexAttributeDescriptionCount = sizeof(attrib_description_array) / sizeof(*attrib_description_array),
+                        .pVertexAttributeDescriptions = attrib_description_array,
+                        .vertexBindingDescriptionCount = sizeof(binding_description_array) / sizeof(*binding_description_array),
+                        .pVertexBindingDescriptions = binding_description_array,
+                };
+        VkPipelineInputAssemblyStateCreateInfo input_assembly_create_info =
+                {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+                        .primitiveRestartEnable = VK_FALSE,
+                        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+                };
+        VkPipelineViewportStateCreateInfo viewport_create_info =
+                {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+                        .viewportCount = 1,
+                        .pViewports = &this->viewport,
+                        .scissorCount = 1,
+                        .pScissors = &this->scissor,
+                };
+        VkPipelineRasterizationStateCreateInfo rasterizer_create_info =
+                {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+                        .depthClampEnable = VK_FALSE,
+                        .rasterizerDiscardEnable = VK_FALSE,
+                        .polygonMode = VK_POLYGON_MODE_FILL,
+                        .lineWidth = 1.0f,
+                        .cullMode = VK_CULL_MODE_BACK_BIT,
+                        .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+                        .depthBiasEnable = VK_FALSE,
+                };
+        VkPipelineMultisampleStateCreateInfo ms_state_create_info =
+                {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+                        .sampleShadingEnable = VK_FALSE,
+                        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+                };
+        VkPipelineColorBlendAttachmentState cb_attachment_state =
+                {
+                        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT|VK_COLOR_COMPONENT_G_BIT|VK_COLOR_COMPONENT_B_BIT|VK_COLOR_COMPONENT_A_BIT,
+                        .blendEnable = VK_FALSE,
+                };
+        VkPipelineColorBlendStateCreateInfo cb_state_create_info =
+                {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+                        .logicOpEnable = VK_FALSE,
+                        .attachmentCount = 1,
+                        .pAttachments = &cb_attachment_state,
+                        .blendConstants =
+                                {
+                                VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                                VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                                VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                                VK_BLEND_FACTOR_ONE,
+                                }
+                };
+        VkPipelineDepthStencilStateCreateInfo dp_state_info =
+                {
+                        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+                        .depthTestEnable = VK_FALSE,
+                        .depthBoundsTestEnable = VK_FALSE,
+                        .stencilTestEnable = VK_FALSE,
+                };
+        VkGraphicsPipelineCreateInfo create_info_ui =
+                {
+                        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+                        .stageCount = 2,
+                        .pStages = shader_stage_info_array,
+                        .pVertexInputState = &vtx_state_create_info,
+                        .pInputAssemblyState = &input_assembly_create_info,
+                        .pViewportState = &viewport_create_info,
+                        .pRasterizationState = &rasterizer_create_info,
+                        .pMultisampleState = &ms_state_create_info,
+                        .pDepthStencilState = &dp_state_info,
+                        .pColorBlendState = &cb_state_create_info,
+                        .pDynamicState = &dynamic_state_info,
+                        .layout = layout_2d,
+                        .renderPass = render_pass_ui,
+                        .subpass = 0,
+                        .basePipelineHandle = VK_NULL_HANDLE,
+                        .basePipelineIndex = -1,
+                };
+        VkPipeline pipeline;
+        vk_res = vkCreateGraphicsPipelines(device, NULL, 1, &create_info_ui, NULL, &pipeline);
+        vkDestroyShaderModule(device, module_frg_ui, NULL);
+        vkDestroyShaderModule(device, module_vtx_ui, NULL);
+        if (vk_res != VK_SUCCESS)
+        {
+            JDM_ERROR("Failed creating the graphics pipelines, reason: %s(%d)", vk_result_to_str(vk_res), vk_res);
+            res = GFX_RESULT_NO_PIPELINE;
+            goto failed;
+        }
+        pipeline_ui = pipeline;
+    }
+    this->pipeline_ui = pipeline_ui;
+
     (void) samples;
     this->swapchain = swapchain;
-    this->transfer_buffer_fence = fence_transfer;
     this->transfer_buffer = transfer_buffer;
     this->buffer_allocator = allocator;
-    this->transfer_pool = transfer_pool;
     this->pipeline_cf = pipeline_cf;
     this->pipeline_mesh = pipeline_mesh;
+    this->render_pass_ui = render_pass_ui;
+    this->pass_ui = pass_ui;
     this->pass_cf = pass_cf;
     this->render_pass_cf = render_pass_cf;
     this->pass_mesh = pass_mesh;
@@ -1991,25 +2319,30 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
     this->layout_mesh = layout_3d;
     this->physical_device = physical_device;
     this->device = device;
-    this->i_queue_gfx = i_gfx_queue;
-    this->queue_gfx = queue_gfx;
-    this->i_queue_transfer = i_trs_queue;
-    this->queue_transfer = queue_trs;
-    this->i_queue_present = i_prs_queue;
-    this->queue_present = queue_prs;
+    this->queue_graphics_data = vk_queue_gfx;
+    this->queue_present_data = vk_queue_prs;
+    this->queue_transfer_data = vk_queue_trs;
     this->window_surface = surface;
+
+    this->layout_ui = layout_2d;
+
+
     *p_out = this;
     JDM_LEAVE_FUNCTION;
     return GFX_RESULT_SUCCESS;
 
 failed:
-    if (transfer_pool != VK_NULL_HANDLE)
+    if (vk_queue_gfx.handle != VK_NULL_HANDLE)
     {
-        vkDestroyCommandPool(device, transfer_pool, NULL);
+        queue_destroy(device, &vk_queue_gfx);
     }
-    if (fence_transfer != VK_NULL_HANDLE)
+    if (vk_queue_prs.handle != VK_NULL_HANDLE)
     {
-        vkDestroyFence(device, fence_transfer, NULL);
+        queue_destroy(device, &vk_queue_prs);
+    }
+    if (vk_queue_trs.handle != VK_NULL_HANDLE)
+    {
+        queue_destroy(device, &vk_queue_trs);
     }
     if (pipeline_cf != VK_NULL_HANDLE)
     {
@@ -2045,6 +2378,20 @@ failed:
     {
         vkDestroySurfaceKHR(ctx->instance, surface, NULL);
     }
+    if (layout_2d != VK_NULL_HANDLE)
+    {
+        vkDestroyPipelineLayout(device, layout_2d, NULL);
+    }
+    if (pipeline_ui != VK_NULL_HANDLE)
+    {
+        vkDestroyPipeline(device, pipeline_ui, NULL);
+    }
+    if (render_pass_ui != VK_NULL_HANDLE)
+    {
+        render_pass_state_destroy(device, &pass_ui);
+        vkDestroyRenderPass(device, render_pass_ui, NULL);
+    }
+
     lin_jallocator_restore_current(G_LIN_JALLOCATOR, base);
     JDM_LEAVE_FUNCTION;
     return res;
@@ -2054,9 +2401,15 @@ void jta_vulkan_window_context_destroy(jta_vulkan_window_context* ctx)
 {
     JDM_ENTER_FUNCTION;
     vkDeviceWaitIdle(ctx->device);
-    vkDestroyCommandPool(ctx->device, ctx->transfer_pool, NULL);
+    queue_destroy(ctx->device, &ctx->queue_graphics_data);
+    queue_destroy(ctx->device, &ctx->queue_present_data);
+    queue_destroy(ctx->device, &ctx->queue_transfer_data);
+    vkDestroyPipelineLayout(ctx->device, ctx->layout_ui, NULL);
+    vkDestroyPipeline(ctx->device, ctx->pipeline_ui, NULL);
+    render_pass_state_destroy(ctx->device, &ctx->pass_ui);
+    vkDestroyRenderPass(ctx->device, ctx->render_pass_ui, NULL);
+
     vk_buffer_deallocate(ctx->buffer_allocator, &ctx->transfer_buffer);
-    vkDestroyFence(ctx->device, ctx->transfer_buffer_fence, NULL);
     vkDestroyPipeline(ctx->device, ctx->pipeline_cf, NULL);
     vkDestroyPipeline(ctx->device, ctx->pipeline_mesh, NULL);
     render_pass_state_destroy(ctx->device, &ctx->pass_cf);
@@ -2107,8 +2460,8 @@ acquire:
                     ctx->window_surface,
                     ctx->device,
                     &new_swapchain,
-                    ctx->i_queue_gfx,
-                    ctx->i_queue_present,
+                    ctx->queue_graphics_data.index,
+                    ctx->queue_present_data.index,
                     2, ctx->buffer_allocator);
             if (res != GFX_RESULT_SUCCESS)
             {
@@ -2182,7 +2535,7 @@ gfx_result jta_vulkan_end_draw(jta_vulkan_window_context* ctx, VkCommandBuffer c
             .pWaitSemaphores = ctx->swapchain.sem_available + i_frame,
             .pWaitDstStageMask = stage_flags,
             };
-    vk_res = vkQueueSubmit(ctx->queue_gfx, 1, &submit_info, ctx->swapchain.fen_swap[i_frame]);
+    vk_res = vkQueueSubmit(ctx->queue_graphics_data.handle, 1, &submit_info, ctx->swapchain.fen_swap[i_frame]);
     if (vk_res)
     {
         JDM_ERROR("Could not submit command buffer to graphics queue, resason: %s(%d)", vk_result_to_str(vk_res), vk_res);
@@ -2199,7 +2552,7 @@ gfx_result jta_vulkan_end_draw(jta_vulkan_window_context* ctx, VkCommandBuffer c
             .waitSemaphoreCount = 1,
             .pWaitSemaphores = ctx->swapchain.sem_present + i_frame,
             };
-    vk_res = vkQueuePresentKHR(ctx->queue_present, &present_info);
+    vk_res = vkQueuePresentKHR(ctx->queue_present_data.handle, &present_info);
     ctx->swapchain.current_img = (i_frame + 1) % ctx->swapchain.frames_in_flight;
     switch (vk_res)
     {
@@ -2225,21 +2578,15 @@ gfx_result jta_vulkan_memory_to_buffer(
         const vk_buffer_allocation* destination)
 {
     JDM_ENTER_FUNCTION;
-    gfx_result res;
-    VkResult vk_res = vkWaitForFences(ctx->device, 1, &ctx->transfer_buffer_fence, VK_TRUE, UINT64_MAX);
-    if (vk_res != VK_SUCCESS)
+    VkCommandBuffer cmd_buffer;
+    gfx_result res = jta_vulkan_queue_begin_transient(ctx, &ctx->queue_transfer_data, &cmd_buffer);
+    if (res != GFX_RESULT_SUCCESS)
     {
-        JDM_ERROR("Could not wait for the transfer buffer fence, reason: %s(%d)", vk_result_to_str(vk_res), vk_res);
-        res = GFX_RESULT_BAD_FENCE_WAIT;
-        goto failed;
+        JDM_ERROR("Could not begin transient command, reason: %s", gfx_result_to_str(res));
+        JDM_LEAVE_FUNCTION;
+        return res;
     }
-    vk_res = vkResetFences(ctx->device, 1, &ctx->transfer_buffer_fence);
-    if (vk_res != VK_SUCCESS)
-    {
-        JDM_ERROR("Could not reset the transfer buffer fence, reason: %s(%d)", vk_result_to_str(vk_res), vk_res);
-        res = GFX_RESULT_BAD_FENCE_RESET;
-        goto failed;
-    }
+
     void* mapped_memory = vk_map_allocation(&ctx->transfer_buffer);
     if (!mapped_memory)
     {
@@ -2257,33 +2604,7 @@ gfx_result jta_vulkan_memory_to_buffer(
     memcpy(mapped_memory, ((const uint8_t*)ptr) + offset, transfer_size);
     vk_unmap_allocation(mapped_memory, &ctx->transfer_buffer);
     mapped_memory = (void*)0xCCCCCCCCCCCCCCCC;
-    VkCommandBuffer cmd_buffer;
-    VkCommandBufferAllocateInfo allocate_info =
-            {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-            .commandBufferCount = 1,
-            .commandPool = ctx->transfer_pool,
-            .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-            };
-    vk_res = vkAllocateCommandBuffers(ctx->device, &allocate_info, &cmd_buffer);
-    if (vk_res != VK_SUCCESS)
-    {
-        JDM_ERROR("Could not allocate command buffer for transfer allocation, reason: %s(%d)", vk_result_to_str(vk_res), vk_res);
-        res = GFX_RESULT_BAD_VK_CALL;
-        goto failed;
-    }
-    static const VkCommandBufferBeginInfo begin_info =
-            {
-            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-            .flags = 0,
-            };
-    vk_res = vkBeginCommandBuffer(cmd_buffer, &begin_info);
-    if (vk_res != VK_SUCCESS)
-    {
-        JDM_ERROR("Could not begin the command buffer for transfer allocation, reason: %s(%d)", vk_result_to_str(vk_res), vk_res);
-        res = GFX_RESULT_BAD_VK_CALL;
-        goto failed;
-    }
+
     const VkBufferCopy cpy_info =
             {
             .size = transfer_size,
@@ -2291,23 +2612,10 @@ gfx_result jta_vulkan_memory_to_buffer(
             .srcOffset = ctx->transfer_buffer.offset,
             };
     vkCmdCopyBuffer(cmd_buffer, ctx->transfer_buffer.buffer, destination->buffer, 1, &cpy_info);
-    vk_res = vkEndCommandBuffer(cmd_buffer);
-    if (vk_res != VK_SUCCESS)
+    res = jta_vulkan_queue_end_transient(ctx, &ctx->queue_transfer_data, cmd_buffer);
+    if (res != GFX_RESULT_SUCCESS)
     {
-        JDM_ERROR("Could not end the command buffer for transfer allocation, reason: %s(%d)", vk_result_to_str(vk_res), vk_res);
-        res = GFX_RESULT_BAD_VK_CALL;
-        goto failed;
-    }
-    const VkSubmitInfo submit_info =
-            {
-            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-            .commandBufferCount = 1,
-            .pCommandBuffers = &cmd_buffer,
-            };
-    vk_res = vkQueueSubmit(ctx->queue_transfer, 1, &submit_info, ctx->transfer_buffer_fence);
-    if (vk_res != VK_SUCCESS)
-    {
-        JDM_ERROR("Could not submit the command buffer for transfer allocation, reason: %s(%d)", vk_result_to_str(vk_res), vk_res);
+        JDM_ERROR("Could not end transient command, reason: %s", gfx_result_to_str(res));
         res = GFX_RESULT_BAD_VK_CALL;
         goto failed;
     }
@@ -2320,6 +2628,77 @@ gfx_result jta_vulkan_memory_to_buffer(
     //  Tail recursion FTW
     return jta_vulkan_memory_to_buffer(ctx, offset + left_over, left_over, ((const uint8_t*)ptr) + transfer_size, destination_offset + transfer_size, destination);
 failed:
+    JDM_LEAVE_FUNCTION;
+    return res;
+}
+
+gfx_result jta_vulkan_queue_begin_transient(
+        const jta_vulkan_window_context* ctx, const jta_vulkan_queue* queue, VkCommandBuffer* p_cmd_buffer)
+{
+    JDM_ENTER_FUNCTION;
+
+    const VkCommandBufferAllocateInfo allocate_info =
+            {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            .commandBufferCount = 1,
+            .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            .commandPool = queue->transient_pool,
+            };
+    VkCommandBuffer buffer;
+    VkResult result = vkAllocateCommandBuffers(ctx->device, &allocate_info, &buffer);
+    if (result != VK_SUCCESS)
+    {
+        JDM_ERROR("Could not allocate transient command buffer for queue %"PRIu32", reason: %s(%d)", queue->index,
+                  vk_result_to_str(result), result);
+        JDM_LEAVE_FUNCTION;
+        return GFX_RESULT_BAD_VK_CALL;
+    }
+    static const VkCommandBufferBeginInfo begin_info =
+            {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .pInheritanceInfo = NULL,
+            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+            };
+    result = vkBeginCommandBuffer(buffer, &begin_info);
+    if (result != VK_SUCCESS)
+    {
+        JDM_ERROR("Could not begin command buffer");
+        vkFreeCommandBuffers(ctx->device, queue->transient_pool, 1, &buffer);
+        JDM_LEAVE_FUNCTION;
+        return GFX_RESULT_BAD_VK_CALL;
+    }
+    *p_cmd_buffer = buffer;
+    
+    JDM_LEAVE_FUNCTION;
+    return GFX_RESULT_SUCCESS;
+}
+
+gfx_result jta_vulkan_queue_end_transient(
+        const jta_vulkan_window_context* ctx, const jta_vulkan_queue* queue, VkCommandBuffer cmd_buffer)
+{
+    JDM_ENTER_FUNCTION;
+    VkResult result = vkEndCommandBuffer(cmd_buffer);
+    gfx_result res = GFX_RESULT_SUCCESS;
+    if (result == VK_SUCCESS)
+    {
+        const VkSubmitInfo submit_info =
+                {
+                .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+                .commandBufferCount = 1,
+                .pCommandBuffers = &cmd_buffer,
+                };
+        (void)vkQueueSubmit(queue->handle, 1, &submit_info, queue->fence);
+        (void)vkWaitForFences(ctx->device, 1, &queue->fence, VK_TRUE, UINT64_MAX);
+        (void)vkResetFences(ctx->device, 1, &queue->fence);
+    }
+    else
+    {
+        JDM_ERROR("Could not end command buffer, reason: %s(%d)", vk_result_to_str(result), result);
+        res = GFX_RESULT_BAD_VK_CALL;
+    }
+    vkFreeCommandBuffers(ctx->device, queue->transient_pool, 1, &cmd_buffer);
+    
+    
     JDM_LEAVE_FUNCTION;
     return res;
 }

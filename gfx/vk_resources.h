@@ -10,9 +10,6 @@
 #include "../jwin/source/common.h"
 
 const char* vk_result_to_str(VkResult res);
-
-const char* vk_result_message(VkResult res);
-
 /**
  * @brief Purpose of this struct is to hold data which is window independent and can be created before the window
  */
@@ -71,6 +68,15 @@ struct jta_vulkan_swapchain_struct
 };
 typedef struct jta_vulkan_swapchain_struct jta_vulkan_swapchain;
 
+struct jta_vulkan_queue_struct
+{
+    VkQueue handle;
+    uint32_t index;
+    VkCommandPool transient_pool;
+    VkFence fence;
+};
+typedef struct jta_vulkan_queue_struct jta_vulkan_queue;
+
 
 /**
  * @brief Purpose of this struct is to hold data which is intrinsically linked with the window and must be created after
@@ -83,17 +89,26 @@ struct jta_vulkan_window_context_struct
 
     VkSurfaceKHR window_surface;            //  surface handle to the window's surface
 
-    uint32_t i_queue_gfx;                   //  device's graphical queue index
-    VkQueue queue_gfx;                      //  device's graphical queue handle
-    uint32_t i_queue_present;               //  index of the device's queue used for presentation
-    VkQueue queue_present;                  //  handle of the device's queue used for presentation
-    uint32_t i_queue_transfer;              //  index of the device's queue used for memory transfer operations
-    VkQueue queue_transfer;                 //  handle of the device's queue used for memory transfer operations
+//    uint32_t i_queue_gfx;                   //  device's graphical queue index
+//    VkQueue queue_gfx;                      //  device's graphical queue handle
+//    uint32_t i_queue_present;               //  index of the device's queue used for presentation
+//    VkQueue queue_present;                  //  handle of the device's queue used for presentation
+//    uint32_t i_queue_transfer;              //  index of the device's queue used for memory transfer operations
+//    VkQueue queue_transfer;                 //  handle of the device's queue used for memory transfer operations
+//    VkCommandPool transfer_pool;            //  command pool associated with queue_transfer
+//    VkFence transfer_buffer_fence;          //  fence to synchronize the transfer buffer
+
+    jta_vulkan_queue queue_graphics_data;   //  queue for issuing graphics commands
+    jta_vulkan_queue queue_transfer_data;   //  queue for issuing transfer commands
+    jta_vulkan_queue queue_present_data;    //  queue for issuing presentation commands
 
     VkPipelineLayout layout_mesh;           //  pipeline layout used to draw 3D mesh geometry with solid colors
+    VkPipelineLayout layout_ui;             //  pipeline layout used to draw 2D ui overlay
 
-    VkPipeline pipeline_mesh;               //  pipeline layout used to draw 3D mesh geometry with solid colors
-    VkPipeline pipeline_cf;                 //  pipeline layout used to draw 3D mesh geometry with solid colors
+    VkPipeline pipeline_mesh;               //  pipeline used to draw 3D mesh geometry with solid colors
+    VkPipeline pipeline_cf;                 //  pipeline used to draw 3D mesh geometry with solid colors
+    VkPipeline pipeline_ui;                 //  pipeline used to draw 2D ui overlay
+
 
     vk_buffer_allocator* buffer_allocator;  //  memory allocator for vulkan memory
     jwin_window* window;                    //  the window this was created for
@@ -106,12 +121,13 @@ struct jta_vulkan_window_context_struct
     VkRenderPass render_pass_cf;            //  render pass for issuing 3d rendering commands after the mesh is rendered
     jta_vulkan_render_pass pass_cf;         //  data associated with render pass (framebuffers)
 
+    VkRenderPass render_pass_ui;            //  render pass for issuing 2d rendering commands after the pass_cf is done
+    jta_vulkan_render_pass pass_ui;         //  data associated with render pass (framebuffers)
+
     VkViewport viewport;                    //  viewport for drawing
     VkRect2D scissor;                       //  scissors for drawing
 
-    VkCommandPool transfer_pool;            //  command pool used to create command buffers for transfer operations
     vk_buffer_allocation transfer_buffer;   //  allocation for the transfer buffer
-    VkFence transfer_buffer_fence;          //  fence to synchronize the transfer buffer
 };
 typedef struct jta_vulkan_window_context_struct jta_vulkan_window_context;
 
@@ -132,5 +148,12 @@ gfx_result jta_vulkan_end_draw(jta_vulkan_window_context* ctx, VkCommandBuffer c
 gfx_result jta_vulkan_memory_to_buffer(
         jta_vulkan_window_context* ctx, uint64_t offset, uint64_t size, const void* ptr, uint64_t destination_offset,
         const vk_buffer_allocation* destination);
+
+gfx_result jta_vulkan_queue_begin_transient(
+        const jta_vulkan_window_context* ctx, const jta_vulkan_queue* queue,
+        VkCommandBuffer* p_cmd_buffer);
+
+gfx_result jta_vulkan_queue_end_transient(
+        const jta_vulkan_window_context* ctx, const jta_vulkan_queue* queue, VkCommandBuffer cmd_buffer);
 
 #endif //JTA_VK_RESOURCES_H

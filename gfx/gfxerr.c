@@ -37,6 +37,8 @@ static const char* const jio_result_strings[GFX_RESULT_COUNT] =
                 [GFX_RESULT_BAD_VK_CALL] = "Vulkan function failed",
                 [GFX_RESULT_NO_DEVICES] = "No device was appropriate",
                 [GFX_RESULT_NOT_READY] = "Swapchain is not ready yet",
+                [GFX_RESULT_LOW_TRANSFER_MEM] = "Transfer memory is too low",
+                [GFX_RESULT_BAD_TRANSITION] = "Image transition was not supported",
         };
 
 const char* gfx_result_to_str(gfx_result res)
