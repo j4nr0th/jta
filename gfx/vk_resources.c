@@ -11,10 +11,10 @@
 #include <jrui.h>
 
 //  Compiled Vulkan shaders
-#include "../shaders/vtx_shader3d.spv"
-#include "../shaders/frg_shader3d.spv"
-#include "../shaders/vtx_shader_ui.spv"
-#include "../shaders/frg_shader_ui.spv"
+#include "vtx_shader3d.vert.h"
+#include "frg_shader3d.frag.h"
+#include "vtx_shader_ui.vert.h"
+#include "frg_shader_ui.frag.h"
 
 static const char* const REQUIRED_LAYERS_NAMES[] =
         {
@@ -1802,14 +1802,14 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
         VkShaderModuleCreateInfo shader_vtx_create_info =
                 {
                         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-                        .codeSize = sizeof(vtx_shader3d),
-                        .pCode = vtx_shader3d,
+                        .codeSize = vtx_shader3d_vert_size,
+                        .pCode = vtx_shader3d_vert,
                 };
         VkShaderModuleCreateInfo shader_frg_create_info =
                 {
                         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-                        .codeSize = sizeof(frg_shader3d),
-                        .pCode = frg_shader3d,
+                        .codeSize = frg_shader3d_frag_size,
+                        .pCode = frg_shader3d_frag,
                 };
         vk_res = vkCreateShaderModule(device, &shader_vtx_create_info, NULL, &module_vtx_3d);
         if (vk_res != VK_SUCCESS)
@@ -2145,14 +2145,14 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
         VkShaderModuleCreateInfo shader_vtx_create_info =
                 {
                         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-                        .codeSize = sizeof(vtx_shader_ui),
-                        .pCode = vtx_shader_ui,
+                        .codeSize = vtx_shader_ui_vert_size,
+                        .pCode = vtx_shader_ui_vert,
                 };
         VkShaderModuleCreateInfo shader_frg_create_info =
                 {
                         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-                        .codeSize = sizeof(frg_shader_ui),
-                        .pCode = frg_shader_ui,
+                        .codeSize = frg_shader_ui_frag_size,
+                        .pCode = frg_shader_ui_frag,
                 };
         vk_res = vkCreateShaderModule(device, &shader_vtx_create_info, NULL, &module_vtx_ui);
         if (vk_res != VK_SUCCESS)

@@ -28,6 +28,10 @@ list(APPEND JTA_SOLVER_SOURCE_FILES core/jtaerr.c core/jtapoints.c core/jtamater
 list(APPEND JTA_SOLVER_HEADER_FILES core/jtaerr.h core/jtapoints.h core/jtamaterials.h core/jtaprofiles.h
         core/jtaelements.h core/jtanaturalbcs.h core/jtanumericalbcs.h core/jtaproblem.h core/jtasolve.h)
 
+include(cmake/Shaders.cmake)
+shaders_target_setup()
+add_shader_folder("${PROJECT_SOURCE_DIR}/shaders")
+
 add_subdirectory(jio)
 add_subdirectory(jmem)
 add_subdirectory(jdm)
@@ -71,9 +75,10 @@ endif ()
 configure_file(test_configuration.cfg "${CMAKE_BINARY_DIR}/test_configuration.cfg" COPYONLY)
 
 target_include_directories(jta PRIVATE jio/include jdm/include jmem/source/include jmtx/source jrui/include)
-target_link_libraries(jta PRIVATE vulkan X11 m jmem jfmt jdm jio jmtx jwin jrui)
+target_link_libraries(jta PRIVATE vulkan X11 m jmem jfmt jdm jio jmtx jwin jrui shaders)
 
 enable_testing()
 #add_executable(geo_test gfx/gfx_math.h gfx/gfx_math.c gfx/camera.c gfx/camera.h gfx/drawing_3d.h gfx/drawing_3d.c ${JFW_SOURCE_FILES} ${JFW_HEADER_FILES} gfx/rotation_camera_test.c)
 #target_link_libraries(geo_test PRIVATE m X11 vulkan jdm)
 add_subdirectory(mem)
+

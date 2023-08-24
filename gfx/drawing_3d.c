@@ -185,6 +185,7 @@ gfx_result jta_draw_frame(
                     .clearValueCount = 1,
                     .pClearValues = clear_array,
                     .framebuffer = wnd_ctx->pass_ui.framebuffers[i_img],
+                    .renderArea.extent = wnd_ctx->swapchain.window_extent,
             };
     vkCmdBeginRenderPass(cmd_buffer, &render_pass_ui_info, VK_SUBPASS_CONTENTS_INLINE);
     //  Draw ui
@@ -217,7 +218,7 @@ gfx_result jta_draw_frame(
                         .offset = {(int32_t)e->clip_region.x0, (int32_t)e->clip_region.y0},
                         .extent = {(uint32_t)(e->clip_region.x1 - e->clip_region.x0), (uint32_t)(e->clip_region.y1 - e->clip_region.y0)}
                         };
-//                vkCmdSetScissor(cmd_buffer, 0, 1, &scissor);
+                vkCmdSetScissor(cmd_buffer, 0, 1, &scissor);
                 vkCmdDrawIndexed(cmd_buffer, e->count_idx, 1, e->first_idx, 0, 0);
             }
         }
