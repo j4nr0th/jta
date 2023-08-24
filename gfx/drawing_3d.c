@@ -10,7 +10,7 @@
 #include <jdm.h>
 
 gfx_result jta_draw_frame(
-        jta_vulkan_window_context* wnd_ctx, mtx4 view_matrix, jta_structure_meshes* meshes,
+        jta_vulkan_window_context* wnd_ctx, jta_ui_state* ui_state, mtx4 view_matrix, jta_structure_meshes* meshes,
         const jta_camera_3d* camera)
 {
     jta_timer timer_render;
@@ -54,6 +54,8 @@ gfx_result jta_draw_frame(
             {
                     clear_color, clear_ds
             };
+
+
     VkRenderPassBeginInfo render_pass_3d_info =
             {
                     .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -119,7 +121,9 @@ gfx_result jta_draw_frame(
 
         ubo_3d ubo =
                 {
-                        .proj = mtx4_projection(M_PI_2 * (1), ((f32)wnd_ctx->swapchain.window_extent.width)/((f32)wnd_ctx->swapchain.window_extent.height), 1.0f, n, f),
+                        .proj = mtx4_projection(
+                                M_PI_2 * (1), ((f32) wnd_ctx->swapchain.window_extent.width) /
+                                              ((f32) wnd_ctx->swapchain.window_extent.height), 1.0f, n, f),
                         .view = view_matrix,
                         .view_direction = camera->uz,
                 };
@@ -130,14 +134,16 @@ gfx_result jta_draw_frame(
     {
         const jta_mesh* mesh = meshes->mesh_array + i;
         if (mesh->count == 0) continue;
-        VkBuffer buffers[2] = { mesh->common_geometry_vtx.buffer, mesh->instance_memory.buffer};
-        VkDeviceSize offsets[2] = { mesh->common_geometry_vtx.offset, mesh->instance_memory.offset};
+        VkBuffer buffers[2] = { mesh->common_geometry_vtx.buffer, mesh->instance_memory.buffer };
+        VkDeviceSize offsets[2] = { mesh->common_geometry_vtx.offset, mesh->instance_memory.offset };
         vkCmdBindVertexBuffers(cmd_buffer, 0, 2, buffers, offsets);
-        vkCmdBindIndexBuffer(cmd_buffer, mesh->common_geometry_idx.buffer, mesh->common_geometry_idx.offset, VK_INDEX_TYPE_UINT16);
+        vkCmdBindIndexBuffer(
+                cmd_buffer, mesh->common_geometry_idx.buffer, mesh->common_geometry_idx.offset,
+                VK_INDEX_TYPE_UINT16);
         vkCmdDrawIndexed(cmd_buffer, mesh->model.idx_count, mesh->count, 0, 0, 0);
     }
-    vkCmdEndRenderPass(cmd_buffer);
 
+    vkCmdEndRenderPass(cmd_buffer);
     //  Drawing the coordinate frame
 
     VkRenderPassBeginInfo render_pass_cf_info =
@@ -149,7 +155,7 @@ gfx_result jta_draw_frame(
                     .framebuffer = wnd_ctx->pass_cf.framebuffers[i_img],
             };
     VkExtent2D extent_cf = wnd_ctx->swapchain.window_extent;
-    VkOffset2D offset_cf = { (int32_t)extent_cf.width, 0 };
+    VkOffset2D offset_cf = { (int32_t) extent_cf.width, 0 };
 
     {
         extent_cf.width >>= 3;
@@ -162,13 +168,15 @@ gfx_result jta_draw_frame(
         {
             extent_cf.height = extent_cf.width;
         }
-        offset_cf.x -= (int32_t)extent_cf.width;
+        offset_cf.x -= (int32_t) extent_cf.width;
 
         //  Configure cf render pass
         render_pass_cf_info.renderArea.offset = offset_cf;
         render_pass_cf_info.renderArea.extent = extent_cf;
     }
     vkCmdBeginRenderPass(cmd_buffer, &render_pass_cf_info, VK_SUBPASS_CONTENTS_INLINE);
+
+    vkCmdEndRenderPass(cmd_buffer);
 
     VkRenderPassBeginInfo render_pass_ui_info =
             {
@@ -178,9 +186,42 @@ gfx_result jta_draw_frame(
                     .pClearValues = clear_array,
                     .framebuffer = wnd_ctx->pass_ui.framebuffers[i_img],
             };
-    vkCmdEndRenderPass(cmd_buffer);
-
     vkCmdBeginRenderPass(cmd_buffer, &render_pass_ui_info, VK_SUBPASS_CONTENTS_INLINE);
+    //  Draw ui
+    if (ui_state->ui_vtx_buffer.size && ui_state->ui_idx_buffer.size)
+    {
+        size_t n_elements;
+        jrui_render_element* elements;
+        jrui_receive_element_data(ui_state->ui_context, &n_elements, &elements);
+        if (n_elements)
+        {
+            vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, wnd_ctx->pipeline_ui);
+
+            const ubo_ui push_const =
+                    {
+                    .offset_x = +(float)wnd_ctx->swapchain.window_extent.width / 2,
+                    .offset_y = +(float)wnd_ctx->swapchain.window_extent.height / 2,
+                    .scale_x = 2/(float)wnd_ctx->swapchain.window_extent.width,
+                    .scale_y = 2/(float)wnd_ctx->swapchain.window_extent.height,
+                    };
+            vkCmdSetViewport(cmd_buffer, 0, 1, &wnd_ctx->viewport);
+            vkCmdSetScissor(cmd_buffer, 0, 1, &wnd_ctx->scissor);
+            vkCmdPushConstants(cmd_buffer, wnd_ctx->layout_ui, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push_const), &push_const);
+            vkCmdBindVertexBuffers(cmd_buffer, 0, 1, &ui_state->ui_vtx_buffer.buffer, &ui_state->ui_vtx_buffer.offset);
+            vkCmdBindIndexBuffer(cmd_buffer, ui_state->ui_idx_buffer.buffer, ui_state->ui_idx_buffer.offset, VK_INDEX_TYPE_UINT16);
+            for (size_t i = 0; i < n_elements; ++i)
+            {
+                const jrui_render_element* e = elements + i;
+                VkRect2D scissor =
+                        {
+                        .offset = {(int32_t)e->clip_region.x0, (int32_t)e->clip_region.y0},
+                        .extent = {(uint32_t)(e->clip_region.x1 - e->clip_region.x0), (uint32_t)(e->clip_region.y1 - e->clip_region.y0)}
+                        };
+//                vkCmdSetScissor(cmd_buffer, 0, 1, &scissor);
+                vkCmdDrawIndexed(cmd_buffer, e->count_idx, 1, e->first_idx, 0, 0);
+            }
+        }
+    }
 
     vkCmdEndRenderPass(cmd_buffer);
 

@@ -55,7 +55,9 @@ add_executable(jta main.c
         gfx/vk_resources.c
         gfx/vk_resources.h
         gfx/textures.c
-        gfx/textures.h)
+        gfx/textures.h
+        ui_tree.c
+        ui_tree.h)
 
 add_compile_definitions(JALLOC_TRAP_COUNT=128)
 add_compile_definitions(JALLOC_TRACKING=1)
@@ -69,7 +71,7 @@ endif ()
 configure_file(test_configuration.cfg "${CMAKE_BINARY_DIR}/test_configuration.cfg" COPYONLY)
 
 target_include_directories(jta PRIVATE jio/include jdm/include jmem/source/include jmtx/source jrui/include)
-target_link_libraries(jta PRIVATE vulkan X11 m jmem jfmt jdm jio jmtx jwin)
+target_link_libraries(jta PRIVATE vulkan X11 m jmem jfmt jdm jio jmtx jwin jrui)
 
 enable_testing()
 #add_executable(geo_test gfx/gfx_math.h gfx/gfx_math.c gfx/camera.c gfx/camera.h gfx/drawing_3d.h gfx/drawing_3d.c ${JFW_SOURCE_FILES} ${JFW_HEADER_FILES} gfx/rotation_camera_test.c)

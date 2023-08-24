@@ -2051,10 +2051,12 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
                         .format = swapchain.window_format.format,
                         .samples = VK_SAMPLE_COUNT_1_BIT,
                         .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+//                        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
                         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
                         .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
                         .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
                         .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+//                        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
                         .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
                 };
         VkAttachmentReference color_attach_ref =
@@ -2074,7 +2076,7 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
                         .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
                         .srcAccessMask = 0,
                         .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-                        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
                 };
         VkRenderPassCreateInfo create_info =
                 {
@@ -2256,20 +2258,14 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
                         .logicOpEnable = VK_FALSE,
                         .attachmentCount = 1,
                         .pAttachments = &cb_attachment_state,
-                        .blendConstants =
-                                {
-                                VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-                                VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-                                VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-                                VK_BLEND_FACTOR_ONE,
-                                }
                 };
-        VkPipelineDepthStencilStateCreateInfo dp_state_info =
+        VkPipelineDepthStencilStateCreateInfo ds_state =
                 {
-                        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-                        .depthTestEnable = VK_FALSE,
-                        .depthBoundsTestEnable = VK_FALSE,
-                        .stencilTestEnable = VK_FALSE,
+                    .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+                    .depthBoundsTestEnable = VK_FALSE,
+                    .depthTestEnable = VK_FALSE,
+                    .depthWriteEnable = VK_FALSE,
+                    .stencilTestEnable = VK_FALSE,
                 };
         VkGraphicsPipelineCreateInfo create_info_ui =
                 {
@@ -2281,7 +2277,7 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
                         .pViewportState = &viewport_create_info,
                         .pRasterizationState = &rasterizer_create_info,
                         .pMultisampleState = &ms_state_create_info,
-                        .pDepthStencilState = &dp_state_info,
+                        .pDepthStencilState = &ds_state,
                         .pColorBlendState = &cb_state_create_info,
                         .pDynamicState = &dynamic_state_info,
                         .layout = layout_2d,

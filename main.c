@@ -7,7 +7,6 @@
 #include "mem/aligned_jalloc.h"
 #include <jmem/jmem.h>
 #include <jdm.h>
-#include <jio/iocfg.h>
 
 
 #include "jwin/source/jwin.h"
@@ -21,10 +20,12 @@
 #include "core/jtanaturalbcs.h"
 #include "core/jtanumericalbcs.h"
 #include "config/config_loading.h"
+#include "ui_tree.h"
 
 
-
-static i32 jdm_error_hook_callback_function(const char* thread_name, u32 stack_trace_count, const char*const* stack_trace, jdm_message_level level, u32 line, const char* file, const char* function, const char* message, void* param)
+static i32 jdm_error_hook_callback_function(
+        const char* thread_name, u32 stack_trace_count, const char* const* stack_trace, jdm_message_level level,
+        u32 line, const char* file, const char* function, const char* message, void* param)
 {
     FILE* out;
     const char* level_str = jdm_message_level_str(level);
@@ -44,7 +45,7 @@ static i32 jdm_error_hook_callback_function(const char* thread_name, u32 stack_t
     }
     fprintf(out, "%s[%s]\n", stack_trace[0], thread_name);
 
-    (void)param;
+    (void) param;
 
     return 0;
 }
@@ -52,7 +53,7 @@ static i32 jdm_error_hook_callback_function(const char* thread_name, u32 stack_t
 static void double_free_hook(ill_jallocator* allocator, void* param)
 {
     JDM_ENTER_FUNCTION;
-    (void)param;
+    (void) param;
     JDM_ERROR("Double free detected by allocator (%p)", allocator);
     JDM_LEAVE_FUNCTION;
 }
@@ -60,22 +61,28 @@ static void double_free_hook(ill_jallocator* allocator, void* param)
 static void invalid_alloc(ill_jallocator* allocator, void* param)
 {
     JDM_ENTER_FUNCTION;
-    (void)param;
+    (void) param;
     JDM_ERROR("Bad allocation detected by allocator (%p)", allocator);
     JDM_LEAVE_FUNCTION;
 }
 
-//static void jmem_trap(uint32_t idx, void* param)
-//{
-//    (void)param;
-//    (void)idx;
-//    __builtin_trap();
-//}
+static void jmem_trap(uint32_t idx, void* param)
+{
+    (void)param;
+    (void)idx;
+    __builtin_trap();
+}
 
 static void jwin_err_report_fn(const char* msg, const char* file, int line, const char* function, void* state)
 {
     (void) state;
     JDM_ERROR("JWIN error (%s:%d - %s): %s", file, line, function, msg);
+}
+
+static void jrui_error_callback(const char* msg, const char* function, const char* file, int line, void* state)
+{
+    (void) state;
+    JDM_ERROR("JRUI error (%s:%d - %s): %s", file, line, function, msg);
 }
 
 int main(int argc, char* argv[argc])
@@ -107,9 +114,9 @@ int main(int argc, char* argv[argc])
     {
         jdm_allocator_callbacks jdm_callbacks =
                 {
-                .param = G_JALLOCATOR,
-                .alloc = (void* (*)(void*, uint64_t)) ill_jalloc,
-                .free = (void (*)(void*, void*)) ill_jfree,
+                        .param = G_JALLOCATOR,
+                        .alloc = (void* (*)(void*, uint64_t)) ill_jalloc,
+                        .free = (void (*)(void*, void*)) ill_jfree,
                 };
         jdm_init_thread(
                 "master",
@@ -131,6 +138,8 @@ int main(int argc, char* argv[argc])
     }
     f64 dt = jta_timer_get(&main_timer);
     JDM_TRACE("Initialization time: %g sec", dt);
+
+//    ill_jallocator_set_debug_trap(G_JALLOCATOR, 110, jmem_trap, NULL);
 
     //  Load up the configuration
 
@@ -160,8 +169,6 @@ int main(int argc, char* argv[argc])
     gfx_find_bounding_sphere(&problem_setup.point_list, &geo_base, &geo_radius);
 
 
-
-
     jwin_context* jctx = NULL;
     jwin_window* jwnd = NULL;
     jta_vulkan_window_context* wnd_ctx = NULL;
@@ -176,20 +183,20 @@ int main(int argc, char* argv[argc])
     {
         const jwin_allocator_callbacks allocator_callbacks =
                 {
-                .alloc = (void* (*)(void*, uint64_t)) ill_jalloc,
-                .realloc = (void* (*)(void*, void*, uint64_t)) ill_jrealloc,
-                .free = (void (*)(void*, void*)) ill_jfree,
-                .state = G_JALLOCATOR,
+                        .alloc = (void* (*)(void*, uint64_t)) ill_jalloc,
+                        .realloc = (void* (*)(void*, void*, uint64_t)) ill_jrealloc,
+                        .free = (void (*)(void*, void*)) ill_jfree,
+                        .state = G_JALLOCATOR,
                 };
         const jwin_error_callbacks error_callbacks =
                 {
-                .report = jwin_err_report_fn,
-                .state = NULL,
+                        .report = jwin_err_report_fn,
+                        .state = NULL,
                 };
         const jwin_context_create_info ctx_info =
                 {
-                .allocator_callbacks = &allocator_callbacks,
-                .error_callbacks = &error_callbacks,
+                        .allocator_callbacks = &allocator_callbacks,
+                        .error_callbacks = &error_callbacks,
                 };
         jwin_res = jwin_context_create(&ctx_info, &jctx);
         if (jwin_res != JWIN_RESULT_SUCCESS)
@@ -198,10 +205,10 @@ int main(int argc, char* argv[argc])
         }
         const jwin_window_create_info win_info =
                 {
-                .fixed_size = 1,
-                .width = 1600,
-                .height = 900,
-                .title = "JANSYS - jta - 0.0.1",
+                        .fixed_size = 1,
+                        .width = 1600,
+                        .height = 900,
+                        .title = "JANSYS - jta - 0.0.1",
                 };
         jwin_res = jwin_window_create(jctx, &win_info, &jwnd);
         if (jwin_res != JWIN_RESULT_SUCCESS)
@@ -209,7 +216,6 @@ int main(int argc, char* argv[argc])
             JDM_FATAL("Could not create window, reason: %s", jwin_result_msg_str(jwin_res));
         }
     }
-    jwin_window_show(jwnd);
     gfx_res = jta_vulkan_window_context_create(jwnd, vk_ctx, &wnd_ctx);
     if (gfx_res != GFX_RESULT_SUCCESS)
     {
@@ -239,7 +245,8 @@ int main(int argc, char* argv[argc])
         JDM_FATAL("Could not create cone mesh: %s", gfx_result_to_str(gfx_res));
     }
 
-    gfx_res = jta_structure_meshes_generate_undeformed(&undeformed_meshes, &master_config.display, &problem_setup, wnd_ctx);
+    gfx_res = jta_structure_meshes_generate_undeformed(
+            &undeformed_meshes, &master_config.display, &problem_setup, wnd_ctx);
     if (gfx_res != GFX_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not generate undeformed mesh, reason: %s", gfx_result_to_str(gfx_res));
@@ -250,9 +257,9 @@ int main(int argc, char* argv[argc])
     JDM_TRACE("Mesh generation time: %g sec", dt);
 
 
-
-
-    JDM_TRACE("Total of %"PRIu64" triangles in the mesh\n", mesh_polygon_count(&undeformed_meshes.cylinders) + mesh_polygon_count(&undeformed_meshes.spheres) + mesh_polygon_count(&undeformed_meshes.cones));
+    JDM_TRACE("Total of %"PRIu64" triangles in the mesh\n",
+              mesh_polygon_count(&undeformed_meshes.cylinders) + mesh_polygon_count(&undeformed_meshes.spheres) +
+              mesh_polygon_count(&undeformed_meshes.cones));
     jta_camera_3d camera;
     jta_camera_set(
             &camera,                                    //  Camera
@@ -264,6 +271,47 @@ int main(int argc, char* argv[argc])
             4.0f,                                       //  Turn sensitivity
             1.0f                                        //  Move sensitivity
                   );
+
+    //  Initialize JRUI context
+    jrui_context* ui_ctx;
+    {
+        unsigned wnd_w, wnd_h;
+        jwin_window_get_size(jwnd, &wnd_w, &wnd_h);
+        const jrui_allocator_callbacks allocator_callbacks =
+                {
+                .state = G_JALLOCATOR,
+                .allocate = (void* (*)(void*, size_t)) ill_jalloc,
+                .deallocate = (void (*)(void*, void*)) ill_jfree,
+                .reallocate = (void* (*)(void*, void*, size_t)) ill_jrealloc,
+                };
+        const jrui_error_callbacks error_callbacks =
+                {
+                .report = jrui_error_callback,
+                .param = NULL,
+                };
+
+
+
+        UI_ROOT.container.width = wnd_w;
+        UI_ROOT.container.height = wnd_h / 8;
+        jrui_context_create_info context_create_info =
+                {
+                    .width = wnd_w,
+                    .height = wnd_h,
+                    .font_type = JRUI_FONT_TYPE_FROM_FONTCONFIG,
+                    .font_info.fc_info.fc_string = "Monospace:size=24",
+                    .allocator_callbacks = &allocator_callbacks,
+                    .error_callbacks = &error_callbacks,
+                    .root = UI_ROOT,
+                };
+
+        jrui_result jrui_res = jrui_context_create(context_create_info, &ui_ctx);
+        if (jrui_res != JRUI_RESULT_SUCCESS)
+        {
+            JDM_FATAL("Could not initialize UI, reason: %s (%s)", jrui_result_to_str(jrui_res), jrui_result_message(jrui_res));
+        }
+        int updated;
+    }
 
 
     jta_solution solution = {};
@@ -278,10 +326,14 @@ int main(int argc, char* argv[argc])
                     .config = &master_config,
                     .meshes = undeformed_meshes,
                     .needs_redraw = 1,
+                    .ui_state = { .ui_context = ui_ctx },
             };
+
+    jwin_window_show(jwnd);
     for (unsigned i = 0; i < JTA_HANDLER_COUNT; ++i)
     {
-        jwin_res = jwin_window_set_event_handler(jwnd, JTA_HANDLER_ARRAY[i].type, JTA_HANDLER_ARRAY[i].callback, &draw_state);
+        jwin_res = jwin_window_set_event_handler(
+                jwnd, JTA_HANDLER_ARRAY[i].type, JTA_HANDLER_ARRAY[i].callback, &draw_state);
         if (jwin_res != JWIN_RESULT_SUCCESS)
         {
             JDM_FATAL("Failed setting the event handler %u, reason: %s (%s)", i,
@@ -289,13 +341,6 @@ int main(int argc, char* argv[argc])
         }
     }
 
-//    jwnd->functions.dtor_fn = wnd_dtor;
-//    jwnd->functions.draw = wnd_draw;
-//    jwnd->functions.mouse_button_press = truss_mouse_button_press;
-//    jwnd->functions.mouse_button_release = truss_mouse_button_release;
-//    jwnd->functions.mouse_motion = truss_mouse_motion;
-//    jwnd->functions.button_up = truss_key_press;
-//    jwnd->functions.mouse_button_double_press = truss_mouse_button_double_press;
 
 
 
@@ -310,22 +355,46 @@ int main(int argc, char* argv[argc])
         }
         if (jwin_res != JWIN_RESULT_SUCCESS)
         {
-            JDM_FATAL("jwin_context_handle_events returned: %s (%s)", jwin_result_to_str(jwin_res), jwin_result_msg_str(jwin_res));
+            JDM_FATAL("jwin_context_handle_events returned: %s (%s)", jwin_result_to_str(jwin_res),
+                      jwin_result_msg_str(jwin_res));
         }
-        if (draw_state.needs_redraw)
+        int ui_redraw = 0;
+        (void) jrui_context_build(ui_ctx, &ui_redraw);
+        if (ui_redraw)
         {
-            jta_draw_frame(wnd_ctx, draw_state.view_matrix, &draw_state.meshes, &draw_state.camera);
+            if (draw_state.ui_state.ui_vtx_buffer.buffer)
+            {
+                vk_buffer_deallocate(wnd_ctx->buffer_allocator, &draw_state.ui_state.ui_vtx_buffer);
+            }
+            if (draw_state.ui_state.ui_idx_buffer.buffer)
+            {
+                vk_buffer_deallocate(wnd_ctx->buffer_allocator, &draw_state.ui_state.ui_idx_buffer);
+            }
+            jrui_vertex* vertices;
+            uint16_t* indices;
+            size_t vtx_count, idx_count;
+            jrui_receive_vertex_data(ui_ctx, &vtx_count, &vertices);
+            jrui_receive_index_data(ui_ctx, &idx_count, &indices);
+            vk_buffer_allocate(wnd_ctx->buffer_allocator, 1, sizeof(*vertices) * vtx_count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_TRANSFER_DST_BIT|VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &draw_state.ui_state.ui_vtx_buffer);
+            vk_buffer_allocate(wnd_ctx->buffer_allocator, 1, sizeof(*indices) * idx_count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_TRANSFER_DST_BIT|VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &draw_state.ui_state.ui_idx_buffer);
+            jta_vulkan_memory_to_buffer(wnd_ctx, 0, sizeof(*vertices) * vtx_count, vertices, 0, &draw_state.ui_state.ui_vtx_buffer);
+            jta_vulkan_memory_to_buffer(wnd_ctx, 0, sizeof(*indices) * idx_count, indices, 0, &draw_state.ui_state.ui_idx_buffer);
+        }
+        if (draw_state.needs_redraw || ui_redraw)
+        {
+            jta_draw_frame(wnd_ctx, &draw_state.ui_state, draw_state.view_matrix, &draw_state.meshes, &draw_state.camera);
             draw_state.needs_redraw = 0;
         }
     }
-    if (jwin_res != JWIN_RESULT_SHOULD_CLOSE)
-    {
-        JDM_FATAL("jwin_context_wait_for_events returned: %s (%s)", jwin_result_to_str(jwin_res), jwin_result_msg_str(jwin_res));
-    }
+//    if (jwin_res != JWIN_RESULT_SHOULD_CLOSE)
+//    {
+//        JDM_FATAL("jwin_context_wait_for_events returned: %s (%s)", jwin_result_to_str(jwin_res),
+//                  jwin_result_msg_str(jwin_res));
+//    }
 
     jwnd = NULL;
 
-
+    jrui_context_destroy(ui_ctx);
     jta_solution_free(&solution);
     mesh_uninit(&draw_state.meshes.cylinders);
     mesh_uninit(&draw_state.meshes.spheres);
@@ -345,11 +414,16 @@ int main(int argc, char* argv[argc])
         G_JALLOCATOR = NULL;
         uint64_t total_allocations, max_usage, total_allocated, biggest_allocation;
         ill_jallocator_statistics(allocator, &biggest_allocation, &total_allocated, &max_usage, &total_allocations);
-        printf("G_JALLOCATOR statistics:\n\tBiggest allocation: %zu b (%g kB)\n\tTotal allocated memory: %g kB (%g MB)"
-               "\n\tMax usage: %g kB (%g MB)\n\tTotal allocations: %zu\n", (size_t)biggest_allocation, (double)biggest_allocation / 1024.0, (double)total_allocated / 1024.0, (double)total_allocated / 1024.0 / 1024.0, (double)max_usage / 1024.0, (double )max_usage / 1024.0 / 1024.0, (size_t)total_allocations);
+        printf(
+                "G_JALLOCATOR statistics:\n\tBiggest allocation: %zu b (%g kB)\n\tTotal allocated memory: %g kB (%g MB)"
+                "\n\tMax usage: %g kB (%g MB)\n\tTotal allocations: %zu\n", (size_t) biggest_allocation,
+                (double) biggest_allocation / 1024.0, (double) total_allocated / 1024.0,
+                (double) total_allocated / 1024.0 / 1024.0, (double) max_usage / 1024.0,
+                (double) max_usage / 1024.0 / 1024.0, (size_t) total_allocations);
 #ifndef NDEBUG
         uint_fast32_t leaked_block_indices[256];
-        uint_fast32_t leaked_block_count = ill_jallocator_count_used_blocks(allocator, sizeof(leaked_block_indices) / sizeof(*leaked_block_indices), leaked_block_indices);
+        uint_fast32_t leaked_block_count = ill_jallocator_count_used_blocks(
+                allocator, sizeof(leaked_block_indices) / sizeof(*leaked_block_indices), leaked_block_indices);
         for (u32 i = 0; i < leaked_block_count; ++i)
         {
             fprintf(stderr, "G_JALLOCATOR did not free block %"PRIuFAST32"\n", leaked_block_indices[i]);
@@ -363,7 +437,9 @@ int main(int argc, char* argv[argc])
         lin_jallocator_destroy(allocator);
     }
     {
-        printf("Total lifetime waste by aligned allocator: %zu\n", aligned_jallocator_lifetime_waste(G_ALIGN_JALLOCATOR));
+        printf(
+                "Total lifetime waste by aligned allocator: %zu\n",
+                aligned_jallocator_lifetime_waste(G_ALIGN_JALLOCATOR));
         aligned_jallocator* const allocator = G_ALIGN_JALLOCATOR;
         G_ALIGN_JALLOCATOR = NULL;
         aligned_jallocator_destroy(allocator);

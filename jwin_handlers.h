@@ -10,6 +10,15 @@
 #include "core/jtasolve.h"
 #include "gfx/mesh.h"
 #include "jwin/source/jwin.h"
+#include <jrui.h>
+
+typedef struct jta_ui_state_struct jta_ui_state;
+struct jta_ui_state_struct
+{
+    jrui_context* ui_context;
+    vk_buffer_allocation ui_vtx_buffer;
+    vk_buffer_allocation ui_idx_buffer;
+};
 
 typedef struct jta_draw_state_struct jta_draw_state;
 struct jta_draw_state_struct
@@ -29,22 +38,8 @@ struct jta_draw_state_struct
     jta_structure_meshes meshes;
     mtx4 view_matrix;
     int needs_redraw;
+    jta_ui_state ui_state;
 };
-
-//
-//void truss_mouse_button_press(const jwin_event_mouse_button_press* e, void* param);
-//
-//void truss_mouse_button_double_press(const jwin_event_mouse_button_double_press* e, void* param);
-//
-//void truss_mouse_button_release(const jwin_event_mouse_button_release* e, void* param);
-//
-//void truss_mouse_motion(const jwin_event_mouse_motion* e, void* param);
-//
-//void truss_key_press(const jwin_event_key_press* e, void* param);
-//
-//void refresh_event(const jwin_event_refresh* e, void* param);
-//
-//void custom_event(const jwin_event_custom* e, void* param);
 
 struct jta_event_handler_struct
 {

@@ -74,8 +74,8 @@ struct ubo_3d_struct
 typedef struct ubo_ui_struct ubo_ui;
 struct ubo_ui_struct
 {
-    float offset_x, offset_y;
     float scale_x, scale_y;
+    float offset_x, offset_y;
 };
 
 typedef struct jta_timer_struct jta_timer;

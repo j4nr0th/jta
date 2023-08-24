@@ -10,8 +10,9 @@ layout(location = 0) out vec4 color_out;
 
 void main()
 {
-    color_out = vtx_color;
+//    color_out = vtx_color;
 //    vec4 tex_clr;
+    color_out = vec4(1.0f, 0.0, 1.0f, 1.0f);
 //    if (tex_idx > 0)
 //    {
 //        tex_clr = texture(texture_sampler, tex_coords);

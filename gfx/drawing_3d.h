@@ -6,6 +6,7 @@
 #define JTA_DRAWING_3D_H
 #include "../mem/aligned_jalloc.h"
 #include <jmem/jmem.h>
+#include <jrui.h>
 
 
 
@@ -14,10 +15,11 @@
 #include "gfxerr.h"
 #include "mesh.h"
 #include "vk_resources.h"
+#include "../jwin_handlers.h"
 
 gfx_result
 jta_draw_frame(
-        jta_vulkan_window_context* wnd_ctx, mtx4 view_matrix, jta_structure_meshes* meshes,
+        jta_vulkan_window_context* wnd_ctx, jta_ui_state* ui_state, mtx4 view_matrix, jta_structure_meshes* meshes,
         const jta_camera_3d* camera);
 
 #endif //JTA_DRAWING_3D_H
