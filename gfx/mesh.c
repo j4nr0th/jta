@@ -4,61 +4,80 @@
 
 #include "mesh.h"
 #include <jdm.h>
-#include <inttypes.h>
-#include "../core/jtanumericalbcs.h"
 #include "bounding_box.h"
 
 static gfx_result mesh_allocate_vulkan_memory(jta_vulkan_window_context* ctx, jta_mesh* mesh)
 {
-    vk_buffer_allocation vtx_allocation, idx_allocation, mod_allocation;
+    jvm_buffer_allocation* vtx_allocation, *idx_allocation, *mod_allocation;
     const jta_model* const model = &mesh->model;
-    i32 res = vk_buffer_allocate(
-            ctx->buffer_allocator, 1, model->vtx_count * sizeof(*model->vtx_array),
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE,
-            &vtx_allocation);
-    if (res < 0)
+    VkBufferCreateInfo vtx_buffer_create_info =
+            {
+            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+            .size = model->vtx_count * sizeof(*model->vtx_array),
+            .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT|VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+            };
+    VkResult vk_result = jvm_buffer_create(ctx->vulkan_allocator, &vtx_buffer_create_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0, 0, &vtx_allocation);
+
+    if (vk_result != VK_SUCCESS)
     {
-        JDM_ERROR("Could not allocate buffer memory for mesh vertex buffer");
+        JDM_ERROR("Could not allocate buffer memory for mesh vertex buffer, reason: %s (%d)", vk_result_to_str(vk_result), vk_result);
         return GFX_RESULT_BAD_ALLOC;
     }
     gfx_result gfx_res;
     if ((
                 gfx_res = jta_vulkan_memory_to_buffer(
                         ctx, 0, sizeof(jta_vertex) * mesh->model.vtx_count,
-                        mesh->model.vtx_array, 0, &vtx_allocation)) != GFX_RESULT_SUCCESS)
+                        mesh->model.vtx_array, 0, vtx_allocation)) != GFX_RESULT_SUCCESS)
     {
-        vk_buffer_deallocate(ctx->buffer_allocator, &vtx_allocation);
+        jvm_buffer_destroy(vtx_allocation);
         JDM_ERROR("Could not transfer model vertex data, reason: %s", gfx_result_to_str(gfx_res));
         return gfx_res;
     }
-    res = vk_buffer_allocate(
-            ctx->buffer_allocator, 1, model->idx_count * sizeof(*model->idx_array),
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &idx_allocation);
-    if (res < 0)
+    VkBufferCreateInfo idx_create_info =
+            {
+                .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+                .size = model->idx_count * sizeof(*model->idx_array),
+                .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT|VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+            };
+    vk_result = jvm_buffer_create(ctx->vulkan_allocator, &idx_create_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0, 0, &idx_allocation);
+//            vk_buffer_allocate(
+//            ctx->vulkan_allocator, 1, model->idx_count * sizeof(*model->idx_array),
+//            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+//            VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &idx_allocation);
+    if (vk_result != VK_SUCCESS)
     {
-        vk_buffer_deallocate(ctx->buffer_allocator, &vtx_allocation);
-        JDM_ERROR("Could not allocate buffer memory for mesh vertex buffer");
+        jvm_buffer_destroy(vtx_allocation);
+        JDM_ERROR("Could not allocate buffer memory for mesh vertex buffer, reason: %s (%d)", vk_result_to_str(vk_result), vk_result);
         return GFX_RESULT_BAD_ALLOC;
     }
     gfx_res = jta_vulkan_memory_to_buffer(
             ctx, 0, model->idx_count * sizeof(*model->idx_array),
-            model->idx_array, 0, &idx_allocation);
+            model->idx_array, 0, idx_allocation);
     if (gfx_res != GFX_RESULT_SUCCESS)
     {
-        vk_buffer_deallocate(ctx->buffer_allocator, &idx_allocation);
-        vk_buffer_deallocate(ctx->buffer_allocator, &vtx_allocation);
+        jvm_buffer_destroy(idx_allocation);
+        jvm_buffer_destroy(vtx_allocation);
         JDM_ERROR("Could not transfer model index data, reason: %s", gfx_result_to_str(gfx_res));
         return gfx_res;
     }
-    res = vk_buffer_allocate(
-            ctx->buffer_allocator, 1, mesh->capacity * sizeof(*mesh->model_data), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &mod_allocation);
-    if (res < 0)
+    VkBufferCreateInfo vtx2_create_info =
+            {
+                .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+                .size = mesh->capacity * sizeof(*mesh->model_data),
+                .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT|VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+            };
+    vk_result = jvm_buffer_create(ctx->vulkan_allocator, &vtx2_create_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0, 0, &mod_allocation);
+//            vk_buffer_allocate(
+//            ctx->vulkan_allocator, 1, mesh->capacity * sizeof(*mesh->model_data), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+//            VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &mod_allocation);
+    if (vk_result != VK_SUCCESS)
     {
-        vk_buffer_deallocate(ctx->buffer_allocator, &vtx_allocation);
-        vk_buffer_deallocate(ctx->buffer_allocator, &idx_allocation);
-        JDM_ERROR("Could not allocate buffer memory for model data buffer");
+        jvm_buffer_destroy(idx_allocation);
+        jvm_buffer_destroy(vtx_allocation);
+        JDM_ERROR("Could not allocate buffer memory for model memory, reason: %s (%d)", vk_result_to_str(vk_result), vk_result);
         return GFX_RESULT_BAD_ALLOC;
     }
     mesh->instance_memory = mod_allocation;
@@ -67,18 +86,17 @@ static gfx_result mesh_allocate_vulkan_memory(jta_vulkan_window_context* ctx, jt
     return GFX_RESULT_SUCCESS;
 }
 
-static gfx_result clean_mesh_model(jta_model* model)
+static void clean_mesh_model(jta_model* model)
 {
     ill_jfree(G_JALLOCATOR, model->vtx_array);
     ill_jfree(G_JALLOCATOR, model->idx_array);
     memset(model, 0, sizeof *model);
-    return GFX_RESULT_SUCCESS;
 }
 
 static gfx_result generate_truss_model(jta_model* const p_out, const u16 pts_per_side)
 {
     jta_vertex* vertices;
-    if (!(vertices = ill_jalloc(G_JALLOCATOR, 2 * pts_per_side * sizeof *vertices)))
+    if (!(vertices = ill_jalloc(G_JALLOCATOR, (uint_fast64_t)2 * pts_per_side * sizeof *vertices)))
     {
         JDM_ERROR("Could not allocate memory for truss model");
         return GFX_RESULT_BAD_ALLOC;
@@ -86,7 +104,7 @@ static gfx_result generate_truss_model(jta_model* const p_out, const u16 pts_per
     jta_vertex* const btm = vertices;
     jta_vertex* const top = vertices + pts_per_side;
     u16* indices;
-    if (!(indices = ill_jalloc(G_JALLOCATOR, 3 * 2 * pts_per_side * sizeof *indices)))
+    if (!(indices = ill_jalloc(G_JALLOCATOR, (uint_fast64_t)3 * 2 * pts_per_side * sizeof *indices)))
     {
         JDM_ERROR("Could not allocate memory for truss model");
         ill_jfree(G_JALLOCATOR, vertices);
@@ -177,11 +195,14 @@ gfx_result mesh_init_truss(jta_mesh* mesh, u16 pts_per_side, jta_vulkan_window_c
     return GFX_RESULT_SUCCESS;
 }
 
-gfx_result mesh_uninit(jta_mesh* mesh)
+void mesh_destroy(const jta_vulkan_window_context* ctx, jta_mesh* mesh)
 {
     ill_jfree(G_JALLOCATOR, mesh->model_data);
     clean_mesh_model(&mesh->model);
-    return GFX_RESULT_SUCCESS;
+
+    jta_vulkan_context_enqueue_destroy_buffer(ctx, mesh->instance_memory);
+    jta_vulkan_context_enqueue_destroy_buffer(ctx, mesh->common_geometry_idx);
+    jta_vulkan_context_enqueue_destroy_buffer(ctx, mesh->common_geometry_vtx);
 }
 
 static gfx_result
@@ -203,23 +224,35 @@ mesh_add_new(
         }
         mesh->model_data = new_ptr;
         //  Reallocate memory on the GPU
-        vk_buffer_allocation new_alloc;
-        vk_buffer_deallocate(ctx->buffer_allocator, &mesh->instance_memory);
-        i32 res = vk_buffer_allocate(
-                ctx->buffer_allocator, 1, sizeof(*mesh->model_data) * new_capacity,
-                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE,
-                &new_alloc);
-        if (res < 0)
+        jvm_buffer_allocation* new_alloc;
+        jvm_buffer_destroy(mesh->instance_memory);
+        VkBufferCreateInfo create_info =
+                {
+                .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+                .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+                .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT|VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                .size = sizeof(*mesh->model_data) * new_capacity,
+                };
+        VkResult vk_res = jvm_buffer_create(ctx->vulkan_allocator, &create_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0, 0, &new_alloc);
+//                vk_buffer_allocate(
+//                ctx->vulkan_allocator, 1, sizeof(*mesh->model_data) * new_capacity,
+//                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE,
+//                &new_alloc);
+        if (vk_res != VK_SUCCESS)
         {
-            JDM_ERROR("Could not reallocate vulkan memory for the instance data");
-            res = vk_buffer_allocate(
-                    ctx->buffer_allocator, 1, sizeof(*mesh->model_data) * mesh->capacity,
-                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE,
-                    &new_alloc);
-            if (res < 0)
+            JDM_ERROR("Could not reallocate vulkan memory for the instance data, reason: %s (%d)", vk_result_to_str(vk_res), vk_res);
+            create_info.size = sizeof(*mesh->model_data) * mesh->capacity;
+            vk_res = jvm_buffer_create(ctx->vulkan_allocator, &create_info, 0, 0, 0, &new_alloc);
+//                    vk_buffer_allocate(
+//                    ctx->vulkan_allocator, 1, sizeof(*mesh->model_data) * mesh->capacity,
+//                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE,
+//                    &new_alloc);
+            if (vk_res != VK_SUCCESS)
             {
-                JDM_FATAL("Could not restore the mesh memory!");
+                JDM_FATAL("Could not restore the mesh memory, reason: %s (%d)", vk_result_to_str(vk_res), vk_res);
             }
+            mesh->instance_memory = new_alloc;
+            return GFX_RESULT_BAD_ALLOC;
         }
         mesh->instance_memory = new_alloc;
 
@@ -509,7 +542,7 @@ gfx_result jta_mesh_update_instance(jta_mesh* mesh, jta_vulkan_window_context* c
     JDM_ENTER_FUNCTION;
 
     jta_vulkan_memory_to_buffer(
-            ctx, 0, sizeof(jta_model_data) * mesh->count, mesh->model_data, 0, &mesh->instance_memory);
+            ctx, 0, sizeof(jta_model_data) * mesh->count, mesh->model_data, 0, mesh->instance_memory);
     mesh->up_to_date = 1;
 
     JDM_LEAVE_FUNCTION;
@@ -521,10 +554,10 @@ gfx_result jta_mesh_update_model(jta_mesh* mesh, jta_vulkan_window_context* ctx)
     JDM_ENTER_FUNCTION;
 
     jta_vulkan_memory_to_buffer(
-            ctx, 0, sizeof(jta_vertex) * mesh->model.vtx_count, mesh->model.vtx_array, 0, &mesh->common_geometry_vtx);
+            ctx, 0, sizeof(jta_vertex) * mesh->model.vtx_count, mesh->model.vtx_array, 0, mesh->common_geometry_vtx);
 
     jta_vulkan_memory_to_buffer(
-            ctx, 0, sizeof(jta_vertex) * mesh->model.vtx_count, mesh->model.vtx_array, 0, &mesh->common_geometry_idx);
+            ctx, 0, sizeof(jta_vertex) * mesh->model.vtx_count, mesh->model.vtx_array, 0, mesh->common_geometry_idx);
 
     JDM_LEAVE_FUNCTION;
     return GFX_RESULT_SUCCESS;
@@ -1021,5 +1054,16 @@ gfx_result jta_structure_meshes_generate_deformed(
     lin_jallocator_restore_current(G_LIN_JALLOCATOR, base);
     JDM_LEAVE_FUNCTION;
     return res;
+}
+
+void jta_structure_meshes_destroy(jta_vulkan_window_context* ctx, jta_structure_meshes* meshes)
+{
+    JDM_ENTER_FUNCTION;
+
+    mesh_destroy(ctx, &meshes->cylinders);
+    mesh_destroy(ctx, &meshes->cones);
+    mesh_destroy(ctx, &meshes->spheres);
+
+    JDM_LEAVE_FUNCTION;
 }
 

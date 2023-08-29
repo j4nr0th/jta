@@ -16,8 +16,8 @@ typedef struct jta_ui_state_struct jta_ui_state;
 struct jta_ui_state_struct
 {
     jrui_context* ui_context;
-    vk_buffer_allocation ui_vtx_buffer;
-    vk_buffer_allocation ui_idx_buffer;
+    jvm_buffer_allocation* ui_vtx_buffer;
+    jvm_buffer_allocation* ui_idx_buffer;
 };
 
 typedef struct jta_draw_state_struct jta_draw_state;

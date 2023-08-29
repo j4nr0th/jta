@@ -16,3 +16,6 @@
 [submodule "jrui"]
 	path = jrui
 	url = git@github.com:j4nr0th/jrui
+[submodule "jvm"]
+	path = jvm
+	url = git@github.com:j4nr0th/jvm

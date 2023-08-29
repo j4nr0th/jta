@@ -1,2 +1,0 @@
-add_executable(aligned_allocator_test aligned_jalloc.c aligned_jalloc.h tests/aligned_test.c)
-add_test(NAME aligned_test COMMAND aligned_allocator_test)

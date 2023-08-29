@@ -4,7 +4,6 @@
 #include <assert.h>
 #include <inttypes.h>
 
-#include "mem/aligned_jalloc.h"
 #include <jmem/jmem.h>
 #include <jdm.h>
 
@@ -91,12 +90,7 @@ int main(int argc, char* argv[argc])
     jta_timer_set(&main_timer);
     //  Create allocators
     //  Estimated to be 512 kB per small pool and 512 kB per med pool
-    G_ALIGN_JALLOCATOR = aligned_jallocator_create(1, 1);
-    if (!G_ALIGN_JALLOCATOR)
-    {
-        fputs("Could not create aligned allocator\n", stderr);
-        exit(EXIT_FAILURE);
-    }
+
     G_LIN_JALLOCATOR = lin_jallocator_create(1 << 20);
     if (!G_LIN_JALLOCATOR)
     {
@@ -310,7 +304,6 @@ int main(int argc, char* argv[argc])
         {
             JDM_FATAL("Could not initialize UI, reason: %s (%s)", jrui_result_to_str(jrui_res), jrui_result_message(jrui_res));
         }
-        int updated;
     }
 
 
@@ -362,23 +355,58 @@ int main(int argc, char* argv[argc])
         (void) jrui_context_build(ui_ctx, &ui_redraw);
         if (ui_redraw)
         {
-            if (draw_state.ui_state.ui_vtx_buffer.buffer)
-            {
-                vk_buffer_deallocate(wnd_ctx->buffer_allocator, &draw_state.ui_state.ui_vtx_buffer);
-            }
-            if (draw_state.ui_state.ui_idx_buffer.buffer)
-            {
-                vk_buffer_deallocate(wnd_ctx->buffer_allocator, &draw_state.ui_state.ui_idx_buffer);
-            }
             jrui_vertex* vertices;
             uint16_t* indices;
             size_t vtx_count, idx_count;
             jrui_receive_vertex_data(ui_ctx, &vtx_count, &vertices);
             jrui_receive_index_data(ui_ctx, &idx_count, &indices);
-            vk_buffer_allocate(wnd_ctx->buffer_allocator, 1, sizeof(*vertices) * vtx_count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_TRANSFER_DST_BIT|VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &draw_state.ui_state.ui_vtx_buffer);
-            vk_buffer_allocate(wnd_ctx->buffer_allocator, 1, sizeof(*indices) * idx_count, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_TRANSFER_DST_BIT|VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, &draw_state.ui_state.ui_idx_buffer);
-            jta_vulkan_memory_to_buffer(wnd_ctx, 0, sizeof(*vertices) * vtx_count, vertices, 0, &draw_state.ui_state.ui_vtx_buffer);
-            jta_vulkan_memory_to_buffer(wnd_ctx, 0, sizeof(*indices) * idx_count, indices, 0, &draw_state.ui_state.ui_idx_buffer);
+            //  Must make sure that drawing commands have finished before touching these
+            if (draw_state.ui_state.ui_vtx_buffer && jvm_buffer_allocation_get_size(draw_state.ui_state.ui_vtx_buffer) < sizeof(*vertices) * vtx_count)
+            {
+                jta_vulkan_context_enqueue_destroy_buffer(wnd_ctx, draw_state.ui_state.ui_vtx_buffer);
+                draw_state.ui_state.ui_vtx_buffer = NULL;
+            }
+            if (!draw_state.ui_state.ui_vtx_buffer)
+            {
+                VkBufferCreateInfo vtx_create_info =
+                        {
+                                .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+                                .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+                                .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT|VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                                .size = sizeof(*vertices) * vtx_count
+                        };
+
+                VkResult vk_res = jvm_buffer_create(
+                        wnd_ctx->vulkan_allocator, &vtx_create_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0, 0,
+                        &draw_state.ui_state.ui_vtx_buffer);
+                if (vk_res != VK_SUCCESS)
+                {
+                    JDM_FATAL("Could not create a new UI VTX buffer, reason: %s (%d)", vk_result_to_str(vk_res), vk_res);
+                }
+            }
+            if (draw_state.ui_state.ui_idx_buffer && jvm_buffer_allocation_get_size(draw_state.ui_state.ui_vtx_buffer) < sizeof(*indices) * idx_count)
+            {
+                jta_vulkan_context_enqueue_destroy_buffer(wnd_ctx, draw_state.ui_state.ui_idx_buffer);
+                draw_state.ui_state.ui_idx_buffer = NULL;
+            }
+            if (!draw_state.ui_state.ui_idx_buffer)
+            {
+                VkBufferCreateInfo idx_create_info =
+                        {
+                                .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+                                .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+                                .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT|VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                                .size = sizeof(*indices) * idx_count
+                        };
+                VkResult vk_res = jvm_buffer_create(wnd_ctx->vulkan_allocator, &idx_create_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0, 0, &draw_state.ui_state.ui_idx_buffer);
+                if (vk_res != VK_SUCCESS)
+                {
+                    JDM_FATAL("Could not create a new UI IDX buffer, reason: %s (%d)", vk_result_to_str(vk_res), vk_res);
+                }
+            }
+            
+            jta_vulkan_memory_to_buffer(wnd_ctx, 0, sizeof(*vertices) * vtx_count, vertices, 0, draw_state.ui_state.ui_vtx_buffer);
+            jta_vulkan_memory_to_buffer(wnd_ctx, 0, sizeof(*indices) * idx_count, indices, 0, draw_state.ui_state.ui_idx_buffer);
         }
         if (draw_state.needs_redraw || ui_redraw)
         {
@@ -386,19 +414,11 @@ int main(int argc, char* argv[argc])
             draw_state.needs_redraw = 0;
         }
     }
-//    if (jwin_res != JWIN_RESULT_SHOULD_CLOSE)
-//    {
-//        JDM_FATAL("jwin_context_wait_for_events returned: %s (%s)", jwin_result_to_str(jwin_res),
-//                  jwin_result_msg_str(jwin_res));
-//    }
 
     jwnd = NULL;
 
     jrui_context_destroy(ui_ctx);
     jta_solution_free(&solution);
-    mesh_uninit(&draw_state.meshes.cylinders);
-    mesh_uninit(&draw_state.meshes.spheres);
-    mesh_uninit(&draw_state.meshes.cones);
     if (jctx)
     {
         jwin_context_destroy(jctx);
@@ -435,14 +455,6 @@ int main(int argc, char* argv[argc])
         lin_jallocator* const allocator = G_LIN_JALLOCATOR;
         G_LIN_JALLOCATOR = NULL;
         lin_jallocator_destroy(allocator);
-    }
-    {
-        printf(
-                "Total lifetime waste by aligned allocator: %zu\n",
-                aligned_jallocator_lifetime_waste(G_ALIGN_JALLOCATOR));
-        aligned_jallocator* const allocator = G_ALIGN_JALLOCATOR;
-        G_ALIGN_JALLOCATOR = NULL;
-        aligned_jallocator_destroy(allocator);
     }
     return 0;
 }

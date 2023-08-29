@@ -5,7 +5,8 @@
 #ifndef JTA_VK_RESOURCES_H
 #define JTA_VK_RESOURCES_H
 #include "../common/common.h"
-#include "../mem/vk_mem_allocator.h"
+#include <jvm.h>
+#include "frame_queue.h"
 #include "gfxerr.h"
 #include "../jwin/source/common.h"
 
@@ -57,14 +58,14 @@ struct jta_vulkan_swapchain_struct
     VkSemaphore* sem_available;         //  Semaphores used to synchronize image available calls
     VkFence* fen_swap;                  //  Fences used to synchronize swapchain's swap
 
-    VkImage depth_img;                  //  Image used for the depth view. Since depth attachment does not need to be
+    jvm_image_allocation* depth_img;    //  Image used for the depth view. Since depth attachment does not need to be
                                         //  presented, there is no problem with overwriting it as soon as a render call
                                         //  is done using it.
-    VkDeviceMemory depth_mem;           //  Memory backing the depth_img
     VkFormat depth_fmt;                 //  Format used for the depth buffer
     VkImageView depth_view;             //  Image view used to access the depth buffer
     int has_stencil;                    //  Zero, when the depth format does not support stencil
 
+    jta_frame_job_queue** frame_queues; //  Queues, which execute all jobs submitted during previous frame before starting again
 };
 typedef struct jta_vulkan_swapchain_struct jta_vulkan_swapchain;
 
@@ -89,15 +90,6 @@ struct jta_vulkan_window_context_struct
 
     VkSurfaceKHR window_surface;            //  surface handle to the window's surface
 
-//    uint32_t i_queue_gfx;                   //  device's graphical queue index
-//    VkQueue queue_gfx;                      //  device's graphical queue handle
-//    uint32_t i_queue_present;               //  index of the device's queue used for presentation
-//    VkQueue queue_present;                  //  handle of the device's queue used for presentation
-//    uint32_t i_queue_transfer;              //  index of the device's queue used for memory transfer operations
-//    VkQueue queue_transfer;                 //  handle of the device's queue used for memory transfer operations
-//    VkCommandPool transfer_pool;            //  command pool associated with queue_transfer
-//    VkFence transfer_buffer_fence;          //  fence to synchronize the transfer buffer
-
     jta_vulkan_queue queue_graphics_data;   //  queue for issuing graphics commands
     jta_vulkan_queue queue_transfer_data;   //  queue for issuing transfer commands
     jta_vulkan_queue queue_present_data;    //  queue for issuing presentation commands
@@ -110,7 +102,7 @@ struct jta_vulkan_window_context_struct
     VkPipeline pipeline_ui;                 //  pipeline used to draw 2D ui overlay
 
 
-    vk_buffer_allocator* buffer_allocator;  //  memory allocator for vulkan memory
+    jvm_allocator* vulkan_allocator;        //  memory allocator for vulkan memory
     jwin_window* window;                    //  the window this was created for
 
     jta_vulkan_swapchain swapchain;         //  swapchain for the window
@@ -127,7 +119,9 @@ struct jta_vulkan_window_context_struct
     VkViewport viewport;                    //  viewport for drawing
     VkRect2D scissor;                       //  scissors for drawing
 
-    vk_buffer_allocation transfer_buffer;   //  allocation for the transfer buffer
+    jvm_buffer_allocation* transfer_buffer; //  allocation for the transfer buffer
+
+    jta_frame_job_queue* current_queue;     // handle to the queue for the current frame, for jobs to execute after the current frame is done
 };
 typedef struct jta_vulkan_window_context_struct jta_vulkan_window_context;
 
@@ -147,7 +141,7 @@ gfx_result jta_vulkan_end_draw(jta_vulkan_window_context* ctx, VkCommandBuffer c
 
 gfx_result jta_vulkan_memory_to_buffer(
         jta_vulkan_window_context* ctx, uint64_t offset, uint64_t size, const void* ptr, uint64_t destination_offset,
-        const vk_buffer_allocation* destination);
+        jvm_buffer_allocation* destination);
 
 gfx_result jta_vulkan_queue_begin_transient(
         const jta_vulkan_window_context* ctx, const jta_vulkan_queue* queue,
@@ -155,5 +149,9 @@ gfx_result jta_vulkan_queue_begin_transient(
 
 gfx_result jta_vulkan_queue_end_transient(
         const jta_vulkan_window_context* ctx, const jta_vulkan_queue* queue, VkCommandBuffer cmd_buffer);
+
+gfx_result jta_vulkan_context_enqueue_frame_job(const jta_vulkan_window_context* ctx, void(*job_callback)(void* job_param), void* job_param);
+
+void jta_vulkan_context_enqueue_destroy_buffer(const jta_vulkan_window_context* ctx, jvm_buffer_allocation* buffer);
 
 #endif //JTA_VK_RESOURCES_H

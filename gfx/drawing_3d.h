@@ -4,7 +4,6 @@
 
 #ifndef JTA_DRAWING_3D_H
 #define JTA_DRAWING_3D_H
-#include "../mem/aligned_jalloc.h"
 #include <jmem/jmem.h>
 #include <jrui.h>
 

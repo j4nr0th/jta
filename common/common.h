@@ -53,11 +53,9 @@ union jta_color_union
 typedef union jta_color_union jta_color;
 
 #include <jmem/jmem.h>
-#include "../mem/aligned_jalloc.h"
 
 
 extern lin_jallocator* G_LIN_JALLOCATOR;
-extern aligned_jallocator* G_ALIGN_JALLOCATOR;
 extern ill_jallocator* G_JALLOCATOR;
 
 #include <assert.h>

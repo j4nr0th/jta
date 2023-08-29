@@ -39,40 +39,10 @@ gfx_result jta_texture_load(
             .tiling = info.tiling,
             .flags = 0,
             };
-    VkResult vk_res = vkCreateImage(ctx->device, &create_info, NULL, &this->img);
+    VkResult vk_res = jvm_image_create(ctx->vulkan_allocator, &create_info, 0, 0, 0, &this->img);
     if (vk_res != VK_SUCCESS)
     {
-        JDM_ERROR("Could not create texture image, reason: %s(%d)", vk_result_to_str(vk_res), vk_res);
-        ill_jfree(G_JALLOCATOR, this);
-        JDM_LEAVE_FUNCTION;
-        return GFX_RESULT_BAD_VK_CALL;
-    }
-
-    VkMemoryRequirements mem_req;
-    vkGetImageMemoryRequirements(ctx->device, this->img, &mem_req);
-
-    VkMemoryAllocateInfo allocate_info =
-            {
-            .sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
-            .allocationSize = mem_req.size,
-            .memoryTypeIndex = find_device_memory_type(vk_allocator_mem_props(ctx->buffer_allocator), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
-            };
-    vk_res = vkAllocateMemory(ctx->device, &allocate_info, NULL, &this->mem);
-    if (vk_res != VK_SUCCESS)
-    {
-        JDM_ERROR("Could not allocate memory for image, reason: %s(%d)", vk_result_to_str(vk_res), vk_res);
-        vkDestroyImage(ctx->device, this->img, NULL);
-        ill_jfree(G_JALLOCATOR, this);
-        JDM_LEAVE_FUNCTION;
-        return GFX_RESULT_BAD_VK_CALL;
-    }
-
-    vk_res = vkBindImageMemory(ctx->device, this->img, this->mem, 0);
-    if (vk_res != VK_SUCCESS)
-    {
-        JDM_ERROR("Could not bind memory to image, reason: %s(%d)", vk_result_to_str(vk_res), vk_res);
-        vkFreeMemory(ctx->device, this->mem, NULL);
-        vkDestroyImage(ctx->device, this->img, NULL);
+        JDM_ERROR("Could not allocate texture image, reason: %s (%d)", vk_result_to_str(vk_res), vk_res);
         ill_jfree(G_JALLOCATOR, this);
         JDM_LEAVE_FUNCTION;
         return GFX_RESULT_BAD_VK_CALL;
@@ -106,7 +76,7 @@ gfx_result jta_texture_load(
     return GFX_RESULT_SUCCESS;
 
 failed:
-    jta_texture_destroy(ctx, this);
+    jta_texture_destroy(this);
     JDM_LEAVE_FUNCTION;
     return res;
 }
@@ -157,7 +127,7 @@ gfx_result jta_texture_transition(
             .newLayout = layout_new,
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image = texture->img,
+            .image = jvm_image_allocation_get_image(texture->img),
             .subresourceRange =
                     {
                     .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -188,10 +158,11 @@ gfx_result jta_vulkan_memory_to_texture(
 {
     JDM_ENTER_FUNCTION;
     gfx_result res;
-    if (size > ctx->transfer_buffer.size)
+    if (size > jvm_buffer_allocation_get_size(ctx->transfer_buffer))
     {
-        JDM_ERROR("Transfer buffer's size (%zu) is insufficient for transfer of %zu bytes to texture", (size_t)ctx->transfer_buffer.size, (size_t)size);
+        JDM_ERROR("Transfer buffer's size (%zu) is insufficient for transfer of %zu bytes to texture", (size_t)jvm_buffer_allocation_get_size(ctx->transfer_buffer), (size_t)size);
         res = GFX_RESULT_LOW_TRANSFER_MEM;
+        goto failed;
     }
     VkCommandBuffer cmd_buffer;
     res = jta_vulkan_queue_begin_transient(ctx, &ctx->queue_transfer_data, &cmd_buffer);
@@ -201,16 +172,24 @@ gfx_result jta_vulkan_memory_to_texture(
         goto failed;
     }
 
-    void* mapped_memory = vk_map_allocation(&ctx->transfer_buffer);
-    if (!mapped_memory)
+    void* mapped_memory;
+    size_t mapped_size;
+    VkResult vk_res = jvm_buffer_map(ctx->transfer_buffer, &mapped_size, &mapped_memory);
+    if (vk_res != VK_SUCCESS)
     {
-        JDM_ERROR("Could not map transfer buffer to host memory");
+        JDM_ERROR("Could not map transfer buffer to host memory, reason: %s (%d)", vk_result_to_str(vk_res), vk_res);
         res = GFX_RESULT_MAP_FAILED;
         goto failed;
     }
     memcpy(mapped_memory, ((const uint8_t*)ptr), size);
-    vk_unmap_allocation(mapped_memory, &ctx->transfer_buffer);
+    vk_res = jvm_buffer_unmap(ctx->transfer_buffer);
     mapped_memory = (void*)0xCCCCCCCCCCCCCCCC;
+    if (vk_res != VK_SUCCESS)
+    {
+        JDM_ERROR("Could not unmap transfer buffer, reason: %s (%d)", vk_result_to_str(vk_res), vk_res);
+        res = GFX_RESULT_MAP_FAILED;
+        goto failed;
+    }
 
     const VkBufferImageCopy cpy_info =
             {
@@ -228,7 +207,7 @@ gfx_result jta_vulkan_memory_to_texture(
                     .imageOffset = {0, 0, 0},
                     .imageExtent = {destination->width, destination->height, 1},
             };
-    vkCmdCopyBufferToImage(cmd_buffer, ctx->transfer_buffer.buffer, destination->img, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &cpy_info);
+    vkCmdCopyBufferToImage(cmd_buffer, jvm_buffer_allocation_get_buffer(ctx->transfer_buffer), jvm_image_allocation_get_image(destination->img), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &cpy_info);
     res = jta_vulkan_queue_end_transient(ctx, &ctx->queue_transfer_data, cmd_buffer);
     if (res != GFX_RESULT_SUCCESS)
     {
@@ -245,12 +224,11 @@ failed:
     return res;
 }
 
-gfx_result jta_texture_destroy(const jta_vulkan_window_context* ctx, jta_texture* tex)
+gfx_result jta_texture_destroy(jta_texture* tex)
 {
     JDM_ENTER_FUNCTION;
 
-    vkFreeMemory(ctx->device, tex->mem, NULL);
-    vkDestroyImage(ctx->device, tex->img, NULL);
+    jvm_image_destroy(tex->img);
     ill_jfree(G_JALLOCATOR, tex);
 
     JDM_LEAVE_FUNCTION;

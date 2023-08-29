@@ -134,11 +134,11 @@ gfx_result jta_draw_frame(
     {
         const jta_mesh* mesh = meshes->mesh_array + i;
         if (mesh->count == 0) continue;
-        VkBuffer buffers[2] = { mesh->common_geometry_vtx.buffer, mesh->instance_memory.buffer };
-        VkDeviceSize offsets[2] = { mesh->common_geometry_vtx.offset, mesh->instance_memory.offset };
+        VkBuffer buffers[2] = { jvm_buffer_allocation_get_buffer(mesh->common_geometry_vtx), jvm_buffer_allocation_get_buffer(mesh->instance_memory) };
+        VkDeviceSize offsets[2] = { 0, 0 };
         vkCmdBindVertexBuffers(cmd_buffer, 0, 2, buffers, offsets);
         vkCmdBindIndexBuffer(
-                cmd_buffer, mesh->common_geometry_idx.buffer, mesh->common_geometry_idx.offset,
+                cmd_buffer, jvm_buffer_allocation_get_buffer(mesh->common_geometry_idx), 0,
                 VK_INDEX_TYPE_UINT16);
         vkCmdDrawIndexed(cmd_buffer, mesh->model.idx_count, mesh->count, 0, 0, 0);
     }
@@ -189,7 +189,7 @@ gfx_result jta_draw_frame(
             };
     vkCmdBeginRenderPass(cmd_buffer, &render_pass_ui_info, VK_SUBPASS_CONTENTS_INLINE);
     //  Draw ui
-    if (ui_state->ui_vtx_buffer.size && ui_state->ui_idx_buffer.size)
+//    if (ui_state->ui_vtx_buffer.size && ui_state->ui_idx_buffer.size)
     {
         size_t n_elements;
         jrui_render_element* elements;
@@ -208,8 +208,10 @@ gfx_result jta_draw_frame(
             vkCmdSetViewport(cmd_buffer, 0, 1, &wnd_ctx->viewport);
             vkCmdSetScissor(cmd_buffer, 0, 1, &wnd_ctx->scissor);
             vkCmdPushConstants(cmd_buffer, wnd_ctx->layout_ui, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push_const), &push_const);
-            vkCmdBindVertexBuffers(cmd_buffer, 0, 1, &ui_state->ui_vtx_buffer.buffer, &ui_state->ui_vtx_buffer.offset);
-            vkCmdBindIndexBuffer(cmd_buffer, ui_state->ui_idx_buffer.buffer, ui_state->ui_idx_buffer.offset, VK_INDEX_TYPE_UINT16);
+            VkDeviceSize offset_0 = 0;
+            VkBuffer buffers = jvm_buffer_allocation_get_buffer(ui_state->ui_vtx_buffer);
+            vkCmdBindVertexBuffers(cmd_buffer, 0, 1, &buffers, &offset_0);
+            vkCmdBindIndexBuffer(cmd_buffer, jvm_buffer_allocation_get_buffer(ui_state->ui_idx_buffer), 0, VK_INDEX_TYPE_UINT16);
             for (size_t i = 0; i < n_elements; ++i)
             {
                 const jrui_render_element* e = elements + i;

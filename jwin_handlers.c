@@ -241,7 +241,7 @@ static void truss_key_press(const jwin_event_key_press* e, void* param)
         if (res != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not initialise new cone mesh, reason: %s", gfx_result_to_str(res));
-            mesh_uninit(&new_meshes.spheres);
+            mesh_destroy(NULL, &new_meshes.spheres);
             goto end;
         }
 
@@ -249,8 +249,8 @@ static void truss_key_press(const jwin_event_key_press* e, void* param)
         if (res != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not initialise new cylinder mesh, reason: %s", gfx_result_to_str(res));
-            mesh_uninit(&new_meshes.cones);
-            mesh_uninit(&new_meshes.spheres);
+            mesh_destroy(NULL, &new_meshes.cones);
+            mesh_destroy(NULL, &new_meshes.spheres);
             goto end;
         }
 
@@ -262,9 +262,9 @@ static void truss_key_press(const jwin_event_key_press* e, void* param)
 //            if (res != GFX_RESULT_SUCCESS)
 //            {
 //                JDM_ERROR("Could not create new mesh, reason: %s", gfx_result_to_str(res));
-//                mesh_uninit(&new_meshes.cones);
-//                mesh_uninit(&new_meshes.spheres);
-//                mesh_uninit(&new_meshes.cylinders);
+//                mesh_destroy(&new_meshes.cones);
+//                mesh_destroy(&new_meshes.spheres);
+//                mesh_destroy(&new_meshes.cylinders);
 //                goto end;
 //            }
             res = jta_structure_meshes_generate_deformed(
@@ -279,17 +279,17 @@ static void truss_key_press(const jwin_event_key_press* e, void* param)
         if (res != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not create new mesh, reason: %s", gfx_result_to_str(res));
-            mesh_uninit(&new_meshes.cones);
-            mesh_uninit(&new_meshes.spheres);
-            mesh_uninit(&new_meshes.cylinders);
+            mesh_destroy(NULL, &new_meshes.cones);
+            mesh_destroy(NULL, &new_meshes.spheres);
+            mesh_destroy(NULL, &new_meshes.cylinders);
             goto end;
         }
 
         jta_structure_meshes old_meshes = state->meshes;
         state->meshes = new_meshes;
-        mesh_uninit(&old_meshes.cones);
-        mesh_uninit(&old_meshes.spheres);
-        mesh_uninit(&old_meshes.cylinders);
+        mesh_destroy(NULL, &old_meshes.cones);
+        mesh_destroy(NULL, &old_meshes.spheres);
+        mesh_destroy(NULL, &old_meshes.cylinders);
         state->needs_redraw = 1;
     }
 
@@ -347,6 +347,16 @@ static void destroy_event(const jwin_event_destroy* e, void* param)
     (void) param;
     jta_draw_state* const state = param;
     vkDeviceWaitIdle(state->wnd_ctx->device);
+    //  Destroy allocated buffers
+    jta_structure_meshes_destroy(state->wnd_ctx, &state->meshes);
+    if (state->ui_state.ui_vtx_buffer)
+    {
+        jvm_buffer_destroy(state->ui_state.ui_vtx_buffer);
+    }
+    if (state->ui_state.ui_idx_buffer)
+    {
+        jvm_buffer_destroy(state->ui_state.ui_idx_buffer);
+    }
     jta_vulkan_window_context_destroy(state->wnd_ctx);
     jta_vulkan_context_destroy(state->vk_ctx);
 }

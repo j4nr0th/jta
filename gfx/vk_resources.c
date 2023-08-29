@@ -594,7 +594,7 @@ void jta_vulkan_context_destroy(jta_vulkan_context* ctx)
 static gfx_result create_swapchain(
         jwin_window* win, VkPhysicalDevice physical_device, VkSurfaceKHR surface,
         VkDevice device, jta_vulkan_swapchain* this, uint32_t i_gfx_queue, uint32_t i_prs_queue,
-        uint32_t frames_in_flight, vk_buffer_allocator* allocator)
+        uint32_t frames_in_flight, jvm_allocator* allocator)
 {
     JDM_ENTER_FUNCTION;
     gfx_result res = GFX_RESULT_SUCCESS;
@@ -611,14 +611,14 @@ static gfx_result create_swapchain(
     VkExtent2D extent;
     VkImageView* views = NULL;
     VkCommandPool cmd_pool = VK_NULL_HANDLE;
-    VkDeviceMemory depth_mem = VK_NULL_HANDLE;
-    VkImage depth_img = VK_NULL_HANDLE;
+    jvm_image_allocation* depth_img = NULL;
     VkImageView depth_view = VK_NULL_HANDLE;
     VkFormat depth_format;
     VkCommandBuffer* cmd_buffers = NULL;
     VkSemaphore* sem_present = VK_NULL_HANDLE;
     VkSemaphore* sem_available = VK_NULL_HANDLE;
     VkFence* fen_swap = VK_NULL_HANDLE;
+    jta_frame_job_queue** frame_queues = NULL;
 
     {
         VkSurfaceCapabilitiesKHR surface_capabilities;
@@ -859,59 +859,20 @@ static gfx_result create_swapchain(
                         .samples = VK_SAMPLE_COUNT_1_BIT,
                         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
                 };
-        vk_res = vkCreateImage(device, &create_info, NULL, &depth_img);
+        vk_res = jvm_image_create(allocator, &create_info, 0, 0, 0, &depth_img);
         if (vk_res != VK_SUCCESS)
         {
             JDM_ERROR("Could not create depth buffer image, reason: %s(%d)", vk_result_to_str(vk_res), vk_res);
             res = GFX_RESULT_NO_DEPBUF_IMG;
             goto failed;
         }
-        VkMemoryRequirements mem_req;
-        vkGetImageMemoryRequirements(device, depth_img, &mem_req);
-        u32 heap_type;
-        {
-            const VkPhysicalDeviceMemoryProperties* mem_props = vk_allocator_mem_props(allocator);
-            for (heap_type = 0; heap_type < mem_props->memoryTypeCount; ++heap_type)
-            {
-                if (mem_req.memoryTypeBits & (1 << heap_type) && mem_props->memoryTypes[heap_type].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
-                {
-                    break;
-                }
-            }
-            if (heap_type == mem_props->memoryTypeCount)
-            {
-                JDM_ERROR("Could not find appropriate memory type for the depth image storage");
-                res = GFX_RESULT_NO_MEM_TYPE;
-                goto failed;
-            }
-        }
-        VkMemoryAllocateInfo alloc_info =
-                {
-                        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-                        .allocationSize = mem_req.size,
-                        .memoryTypeIndex = heap_type,
-                        .pNext = nullptr,
-                };
-        vk_res = vkAllocateMemory(device, &alloc_info, NULL, &depth_mem);
-        if (vk_res != VK_SUCCESS)
-        {
-            JDM_ERROR("Could not allocate memory for the depth image: %s(%d)", vk_result_to_str(vk_res), vk_res);
-            res = GFX_RESULT_BAD_ALLOC;
-            goto failed;
-        }
-        vk_res = vkBindImageMemory(device, depth_img, depth_mem, 0);
-        if (vk_res != VK_SUCCESS)
-        {
-            JDM_ERROR("Failed binding depth image to its memory allocation: %s(%d)", vk_result_to_str(vk_res), vk_res);
-            res = GFX_RESULT_BAD_IMG_BIND;
-            goto failed;
-        }
+
         VkImageViewCreateInfo view_info =
                 {
                         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
                         .viewType = VK_IMAGE_VIEW_TYPE_2D,
                         .format = depth_format,
-                        .image = depth_img,
+                        .image = jvm_image_allocation_get_image(depth_img),
 
                         .components.a = VK_COMPONENT_SWIZZLE_A,
                         .components.r = VK_COMPONENT_SWIZZLE_R,
@@ -1045,12 +1006,37 @@ static gfx_result create_swapchain(
         }
     }
 
+    //  Create frame job queues
+    {
+        frame_queues = ill_jalloc(G_JALLOCATOR, sizeof(*frame_queues) * frames_in_flight);
+        if (!frame_queues)
+        {
+            JDM_ERROR("Could not allocate memory for frame job queues");
+            res = GFX_RESULT_BAD_ALLOC;
+            goto failed;
+        }
+        for (unsigned i = 0; i < frames_in_flight; ++i)
+        {
+            res = jta_frame_job_queue_create(32, frame_queues + i);
+            if (res != GFX_RESULT_SUCCESS)
+            {
+                JDM_ERROR("Could not create frame queue at index %u out of %u", i, frames_in_flight);
+                for (unsigned j = 0; j < i; ++j)
+                {
+                    jta_frame_job_queue_destroy(frame_queues[j]);
+                }
+                ill_jfree(G_JALLOCATOR, frame_queues);
+                frame_queues = NULL;
+                goto failed;
+            }
+        }
+    }
 
+    this->frame_queues = frame_queues;
     this->frames_in_flight = frames_in_flight;
     this->fen_swap = fen_swap;
     this->sem_present = sem_present;
     this->sem_available = sem_available;
-    this->depth_mem = depth_mem;
     this->depth_img = depth_img;
     this->depth_view = depth_view;
     this->depth_fmt = depth_format;
@@ -1067,6 +1053,14 @@ static gfx_result create_swapchain(
     return GFX_RESULT_SUCCESS;
 
 failed:
+    if (frame_queues)
+    {
+        for (unsigned i = 0; i < frames_in_flight; ++i)
+        {
+            jta_frame_job_queue_destroy(frame_queues[i]);
+        }
+        ill_jfree(G_JALLOCATOR, frame_queues);
+    }
     if (fen_swap != VK_NULL_HANDLE)
     {
         for (unsigned i = 0; i < frames_in_flight; ++i)
@@ -1102,11 +1096,7 @@ failed:
     }
     if (depth_img != VK_NULL_HANDLE)
     {
-        vkDestroyImage(device, depth_img, NULL);
-    }
-    if (depth_mem != VK_NULL_HANDLE)
-    {
-        vkFreeMemory(device, depth_mem, NULL);
+        jvm_image_destroy(depth_img);
     }
     if (cmd_pool != VK_NULL_HANDLE)
     {
@@ -1134,6 +1124,11 @@ static void destroy_swapchain(VkDevice device, jta_vulkan_swapchain* this)
     JDM_ENTER_FUNCTION;
     for (unsigned i = 0; i < this->frames_in_flight; ++i)
     {
+        jta_frame_job_queue_destroy(this->frame_queues[i]);
+    }
+    ill_jfree(G_JALLOCATOR, this->frame_queues);
+    for (unsigned i = 0; i < this->frames_in_flight; ++i)
+    {
         vkDestroyFence(device, this->fen_swap[i], NULL);
     }
     ill_jfree(G_JALLOCATOR, this->fen_swap);
@@ -1151,9 +1146,7 @@ static void destroy_swapchain(VkDevice device, jta_vulkan_swapchain* this)
     ill_jfree(G_JALLOCATOR, this->cmd_buffers);
     vkDestroyImageView(device, this->depth_view, NULL);
 
-    vkDestroyImage(device, this->depth_img, NULL);
-
-    vkFreeMemory(device, this->depth_mem, NULL);
+    jvm_image_destroy(this->depth_img);
 
     vkDestroyCommandPool(device, this->cmd_pool, NULL);
 
@@ -1284,6 +1277,12 @@ static gfx_result queue_destroy(VkDevice dev, jta_vulkan_queue* this)
     return GFX_RESULT_SUCCESS;
 }
 
+static void jvm_error_report_fn(void* state, const char* msg, const char* file, int line, const char* function)
+{
+    (void) state;
+    JDM_ERROR("JVM module error (%s:%d - %s): \"%s\"", file, line, function, msg);
+}
+
 gfx_result
 jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_vulkan_window_context** p_out)
 {
@@ -1320,12 +1319,12 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
     jta_vulkan_queue vk_queue_trs;
     VkSampleCountFlags samples;
     VkSurfaceKHR surface = VK_NULL_HANDLE;
-    vk_buffer_allocator* allocator = NULL;
+    jvm_allocator* allocator = NULL;
     VkRenderPass render_pass_mesh = VK_NULL_HANDLE;
     jta_vulkan_render_pass pass_mesh;
     VkRenderPass render_pass_cf = VK_NULL_HANDLE;
     jta_vulkan_render_pass pass_cf;
-    vk_buffer_allocation transfer_buffer;
+    jvm_buffer_allocation* transfer_buffer;
 
     VkPipelineLayout layout_2d = VK_NULL_HANDLE;
     VkPipeline pipeline_ui = VK_NULL_HANDLE;
@@ -1504,11 +1503,39 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
         }
     }
 
+    jvm_allocation_callbacks allocation_callbacks =
+            {
+            .state = G_JALLOCATOR,
+            .allocate = (void* (*)(void*, uint64_t)) ill_jalloc,
+            .free = (void (*)(void*, void*)) ill_jfree,
+            .reallocate = (void* (*)(void*, void*, uint64_t)) ill_jrealloc,
+            };
+
+    jvm_error_callbacks error_callbacks =
+            {
+            .state = NULL,
+            .report = jvm_error_report_fn,
+            };
+
     //  Create buffer allocator
-    allocator = vk_buffer_allocator_create(device, physical_device, 1 << 20);
-    if (!allocator)
+    jvm_allocator_create_info allocator_create_info =
+            {
+            .automatically_free_unused = 1,
+            .min_allocation_size = 1024,
+            .device = device,
+            .physical_device = physical_device,
+            .min_pool_size = 0,
+#ifndef NDEBUG
+            .allocation_callbacks = NULL,
+#else
+            .allocation_callbacks = &allocation_callbacks
+#endif
+            .error_callbacks = &error_callbacks,
+            };
+    vk_res = jvm_allocator_create(allocator_create_info, NULL, &allocator);
+    if (vk_res != VK_SUCCESS)
     {
-        JDM_ERROR("Could not create buffer allocator");
+        JDM_ERROR("Could not create buffer allocator, reason: %s (%d)", vk_result_to_str(vk_res), vk_res);
         res = GFX_RESULT_BAD_ALLOC;
         goto failed;
     }
@@ -1991,28 +2018,17 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
 
     //  Transfer data
     {
-        i32 ret_alloc = vk_buffer_allocate(
-                allocator,
-                1 << 8,
-                1 << 12,
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                VK_SHARING_MODE_EXCLUSIVE, &transfer_buffer);
-        if (ret_alloc < 0)
+        VkBufferCreateInfo transfer_buffer_create_info =
+                {
+                .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+                .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                .size = 1 << 20,
+                .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+                };
+        vk_res = jvm_buffer_create(allocator, &transfer_buffer_create_info, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 0, 1, &transfer_buffer);
+        if (vk_res != VK_SUCCESS)
         {
-            JDM_ERROR("Could not allocate memory needed by transfer buffer");
-            res = GFX_RESULT_BAD_ALLOC;
-            goto failed;
-        }
-        //  reserve memory for index and vertex buffers
-        ret_alloc = vk_buffer_reserve(allocator, 0, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_TRANSFER_DST_BIT|VK_BUFFER_USAGE_VERTEX_BUFFER_BIT|VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE);
-        if (ret_alloc != 0)
-        {
-            ret_alloc = vk_buffer_reserve(allocator, 0, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_BUFFER_USAGE_TRANSFER_DST_BIT|VK_BUFFER_USAGE_VERTEX_BUFFER_BIT|VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE);
-        }
-        if (ret_alloc != 0)
-        {
-            JDM_ERROR("Could not reserve device memory for vtx and idx buffers");
+            JDM_ERROR("Could not allocate memory needed by transfer buffer, reason: %s (%d)", vk_result_to_str(vk_res), vk_res);
             res = GFX_RESULT_BAD_ALLOC;
             goto failed;
         }
@@ -2303,7 +2319,7 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
     (void) samples;
     this->swapchain = swapchain;
     this->transfer_buffer = transfer_buffer;
-    this->buffer_allocator = allocator;
+    this->vulkan_allocator = allocator;
     this->pipeline_cf = pipeline_cf;
     this->pipeline_mesh = pipeline_mesh;
     this->render_pass_ui = render_pass_ui;
@@ -2368,7 +2384,7 @@ failed:
     }
     if (allocator)
     {
-        vk_buffer_allocator_destroy(allocator);
+        jvm_allocator_destroy(allocator);
     }
     if (surface != VK_NULL_HANDLE)
     {
@@ -2397,6 +2413,13 @@ void jta_vulkan_window_context_destroy(jta_vulkan_window_context* ctx)
 {
     JDM_ENTER_FUNCTION;
     vkDeviceWaitIdle(ctx->device);
+
+    //  Process all enqueued work in the swapchain
+    for (unsigned i = 0; i < ctx->swapchain.frames_in_flight; ++i)
+    {
+        jta_frame_job_queue_execute(ctx->swapchain.frame_queues[i]);
+    }
+
     queue_destroy(ctx->device, &ctx->queue_graphics_data);
     queue_destroy(ctx->device, &ctx->queue_present_data);
     queue_destroy(ctx->device, &ctx->queue_transfer_data);
@@ -2405,7 +2428,7 @@ void jta_vulkan_window_context_destroy(jta_vulkan_window_context* ctx)
     render_pass_state_destroy(ctx->device, &ctx->pass_ui);
     vkDestroyRenderPass(ctx->device, ctx->render_pass_ui, NULL);
 
-    vk_buffer_deallocate(ctx->buffer_allocator, &ctx->transfer_buffer);
+    jvm_buffer_destroy(ctx->transfer_buffer);
     vkDestroyPipeline(ctx->device, ctx->pipeline_cf, NULL);
     vkDestroyPipeline(ctx->device, ctx->pipeline_mesh, NULL);
     render_pass_state_destroy(ctx->device, &ctx->pass_cf);
@@ -2414,7 +2437,7 @@ void jta_vulkan_window_context_destroy(jta_vulkan_window_context* ctx)
     vkDestroyRenderPass(ctx->device, ctx->render_pass_mesh, NULL);
     vkDestroyPipelineLayout(ctx->device, ctx->layout_mesh, NULL);
     destroy_swapchain(ctx->device, &ctx->swapchain);
-    vk_buffer_allocator_destroy(ctx->buffer_allocator);
+    jvm_allocator_destroy(ctx->vulkan_allocator);
     vkDestroySurfaceKHR(ctx->ctx->instance, ctx->window_surface, NULL);
     vkDestroyDevice(ctx->device, NULL);
     //    memset(ctx, 0xCC, sizeof(*ctx));
@@ -2458,7 +2481,7 @@ acquire:
                     &new_swapchain,
                     ctx->queue_graphics_data.index,
                     ctx->queue_present_data.index,
-                    2, ctx->buffer_allocator);
+                    2, ctx->vulkan_allocator);
             if (res != GFX_RESULT_SUCCESS)
             {
                 JDM_ERROR("Could not recreate window swapchain, reason: %s(%d)", vk_result_to_str(vk_res), vk_res);
@@ -2506,6 +2529,12 @@ acquire:
         JDM_LEAVE_FUNCTION;
         return GFX_RESULT_BAD_VK_CALL;
     }
+    //  Set the correct frame job queue
+    jta_frame_job_queue* current_queue = ctx->swapchain.frame_queues[i_frame];
+    //  Execute all previous jobs
+    jta_frame_job_queue_execute(current_queue);
+    ctx->current_queue = current_queue;
+
     *p_buffer = cmd_buffer;
     *p_img = ctx->swapchain.last_img;
     JDM_LEAVE_FUNCTION;
@@ -2571,7 +2600,7 @@ gfx_result jta_vulkan_end_draw(jta_vulkan_window_context* ctx, VkCommandBuffer c
 
 gfx_result jta_vulkan_memory_to_buffer(
         jta_vulkan_window_context* ctx, uint64_t offset, uint64_t size, const void* ptr, uint64_t destination_offset,
-        const vk_buffer_allocation* destination)
+        jvm_buffer_allocation* destination)
 {
     JDM_ENTER_FUNCTION;
     VkCommandBuffer cmd_buffer;
@@ -2583,31 +2612,39 @@ gfx_result jta_vulkan_memory_to_buffer(
         return res;
     }
 
-    void* mapped_memory = vk_map_allocation(&ctx->transfer_buffer);
-    if (!mapped_memory)
+    size_t mapped_size;
+    void* mapped_memory;
+    VkResult vk_res = jvm_buffer_map(ctx->transfer_buffer, &mapped_size, &mapped_memory);
+    if (vk_res != VK_SUCCESS)
     {
-        JDM_ERROR("Could not map transfer buffer to host memory");
+        JDM_ERROR("Could not map transfer buffer to host memory, reason: %s (%d)", vk_result_to_str(vk_res), vk_res);
         res = GFX_RESULT_MAP_FAILED;
         goto failed;
     }
     uint64_t transfer_size = size;
     uint64_t left_over = 0;
-    if (transfer_size > ctx->transfer_buffer.size)
+    if (transfer_size > jvm_buffer_allocation_get_size(ctx->transfer_buffer))
     {
-        transfer_size = ctx->transfer_buffer.size;
+        transfer_size = jvm_buffer_allocation_get_size(ctx->transfer_buffer);
         left_over = size - transfer_size;
     }
     memcpy(mapped_memory, ((const uint8_t*)ptr) + offset, transfer_size);
-    vk_unmap_allocation(mapped_memory, &ctx->transfer_buffer);
+    vk_res = jvm_buffer_unmap(ctx->transfer_buffer);
+    if (vk_res != VK_SUCCESS)
+    {
+        JDM_ERROR("Could not unmap transfer buffer to host memory, reason: %s (%d)", vk_result_to_str(vk_res), vk_res);
+        res = GFX_RESULT_MAP_FAILED;
+        goto failed;
+    }
     mapped_memory = (void*)0xCCCCCCCCCCCCCCCC;
 
     const VkBufferCopy cpy_info =
             {
             .size = transfer_size,
-            .dstOffset = destination->offset + destination_offset,
-            .srcOffset = ctx->transfer_buffer.offset,
+            .dstOffset = 0 + destination_offset,
+            .srcOffset = 0
             };
-    vkCmdCopyBuffer(cmd_buffer, ctx->transfer_buffer.buffer, destination->buffer, 1, &cpy_info);
+    vkCmdCopyBuffer(cmd_buffer, jvm_buffer_allocation_get_buffer(ctx->transfer_buffer), jvm_buffer_allocation_get_buffer(destination), 1, &cpy_info);
     res = jta_vulkan_queue_end_transient(ctx, &ctx->queue_transfer_data, cmd_buffer);
     if (res != GFX_RESULT_SUCCESS)
     {
@@ -2698,3 +2735,40 @@ gfx_result jta_vulkan_queue_end_transient(
     JDM_LEAVE_FUNCTION;
     return res;
 }
+
+gfx_result jta_vulkan_context_enqueue_frame_job(const jta_vulkan_window_context* ctx, void(*job_callback)(void* job_param), void* job_param)
+{
+    JDM_ENTER_FUNCTION;
+    const gfx_result res = jta_frame_job_queue_add_job(ctx->current_queue, job_callback, job_param);
+    JDM_LEAVE_FUNCTION;
+    return res;
+}
+
+
+
+static void destroy_buffer_queue_job(void* param)
+{
+    JDM_ENTER_FUNCTION;
+    jvm_buffer_allocation* const allocation = param;
+    const VkResult result = jvm_buffer_destroy(allocation);
+    if (result != VK_SUCCESS)
+    {
+        JDM_ERROR("Destroying an enqueued buffer returned %s (%d)", vk_result_to_str(result), result);
+    }
+    JDM_LEAVE_FUNCTION;
+}
+
+void
+jta_vulkan_context_enqueue_destroy_buffer(const jta_vulkan_window_context* ctx, jvm_buffer_allocation* buffer)
+{
+    JDM_ENTER_FUNCTION;
+
+    const gfx_result res = jta_vulkan_context_enqueue_frame_job(ctx, destroy_buffer_queue_job, buffer);
+    if (res != GFX_RESULT_SUCCESS)
+    {
+        JDM_ERROR("Failed enqueueing buffer destruction, reason: %s", gfx_result_to_str(res));
+    }
+
+    JDM_LEAVE_FUNCTION;
+}
+
