@@ -14,11 +14,9 @@ list(APPEND UTILITY_SOURCE_FILES common/common.c)
 list(APPEND UTILITY_HEADER_FILES common/common.h)
 
 list(APPEND GFX_SOURCE_FILES
-        #gfx/vk_state.c
-        gfx/drawing_3d.c gfx/camera.c jwin_handlers.c gfx/gfxerr.c gfx/bounding_box.c gfx/mesh.c)
+        gfx/drawing.c gfx/camera.c jwin_handlers.c gfx/gfxerr.c gfx/bounding_box.c gfx/mesh.c)
 list(APPEND GFX_HEADER_FILES
-        #gfx/vk_state.h
-        gfx/drawing_3d.h gfx/camera.h jwin_handlers.h gfx/gfxerr.h gfx/bounding_box.h gfx/mesh.h)
+        gfx/drawing.h gfx/camera.h jwin_handlers.h gfx/gfxerr.h gfx/bounding_box.h gfx/mesh.h)
 
 list(APPEND JTA_SOLVER_SOURCE_FILES core/jtaerr.c core/jtapoints.c core/jtamaterials.c core/jtaprofiles.c
         core/jtaelements.c core/jtanaturalbcs.c core/jtanumericalbcs.c core/jtaproblem.c core/jtasolve.c)
@@ -27,12 +25,6 @@ list(APPEND JTA_SOLVER_HEADER_FILES core/jtaerr.h core/jtapoints.h core/jtamater
 
 
 
-#add_custom_command(
-#        OUTPUT shaders/frg_shader3d.spv shaders/vtx_shader3d.spv shaders/frg_shader_ui.spv shaders/vtx_shader_ui.spv
-#        COMMAND ${PROJECT_SOURCE_DIR}/shaders/compile_shaders.sh shaders
-#        DEPENDS shaders/compile_shaders.sh shaders/frg_shader3d.frag shaders/vtx_shader3d.vert shaders/frg_shader_ui.frag shaders/vtx_shader_ui.vert)
-#list(APPEND JTA_SHADERS shaders/frg_shader3d.spv shaders/vtx_shader3d.spv shaders/frg_shader_ui.spv shaders/vtx_shader_ui.spv)
-
 add_executable(jta main.c
         ${FORMATTED_IO_SOURCE_FILES} ${FORMATTED_IO_HEADER_FILES}
         ${UTILITY_SOURCE_FILES} ${UTILITY_HEADER_FILES}
@@ -40,7 +32,6 @@ add_executable(jta main.c
         ${PARSING_SOURCE_FILES} ${PARSING_HEADER_FILES}
         ${UTILITY_SOURCE_FILES} ${UTILITY_HEADER_FILES}
         ${JTA_SOLVER_SOURCE_FILES} ${JTA_SOLVER_HEADER_FILES}
-#        ${JTA_SHADERS}
         config/config_loading.c config/config_loading.h gfx/color_map.c gfx/color_map.h config/config_execution.c config/config_execution.h
         gfx/vk_resources.c
         gfx/vk_resources.h
@@ -77,7 +68,4 @@ configure_file(test_configuration.cfg "${CMAKE_BINARY_DIR}/test_configuration.cf
 target_include_directories(jta PRIVATE jio/include jdm/include jmem/source/include jmtx/source jrui/include jvm/include)
 target_link_libraries(jta PRIVATE vulkan X11 m jmem jfmt jdm jio jmtx jwin jrui jvm shaders)
 
-enable_testing()
-#add_executable(geo_test gfx/gfx_math.h gfx/gfx_math.c gfx/camera.c gfx/camera.h gfx/drawing_3d.h gfx/drawing_3d.c ${JFW_SOURCE_FILES} ${JFW_HEADER_FILES} gfx/rotation_camera_test.c)
-#target_link_libraries(geo_test PRIVATE m X11 vulkan jdm)
 

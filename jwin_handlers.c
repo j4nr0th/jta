@@ -5,7 +5,7 @@
 #include <inttypes.h>
 #include "jwin_handlers.h"
 #include "core/jtasolve.h"
-#include "gfx/drawing_3d.h"
+#include "gfx/drawing.h"
 #include <solvers/jacobi_point_iteration.h>
 #include <solvers/bicgstab_iteration.h>
 
@@ -279,17 +279,17 @@ static void truss_key_press(const jwin_event_key_press* e, void* param)
         if (res != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not create new mesh, reason: %s", gfx_result_to_str(res));
-            mesh_destroy(NULL, &new_meshes.cones);
-            mesh_destroy(NULL, &new_meshes.spheres);
-            mesh_destroy(NULL, &new_meshes.cylinders);
+            mesh_destroy(state->wnd_ctx, &new_meshes.cones);
+            mesh_destroy(state->wnd_ctx, &new_meshes.spheres);
+            mesh_destroy(state->wnd_ctx, &new_meshes.cylinders);
             goto end;
         }
 
         jta_structure_meshes old_meshes = state->meshes;
         state->meshes = new_meshes;
-        mesh_destroy(NULL, &old_meshes.cones);
-        mesh_destroy(NULL, &old_meshes.spheres);
-        mesh_destroy(NULL, &old_meshes.cylinders);
+        mesh_destroy(state->wnd_ctx, &old_meshes.cones);
+        mesh_destroy(state->wnd_ctx, &old_meshes.spheres);
+        mesh_destroy(state->wnd_ctx, &old_meshes.cylinders);
         state->needs_redraw = 1;
     }
 
@@ -357,6 +357,7 @@ static void destroy_event(const jwin_event_destroy* e, void* param)
     {
         jvm_buffer_destroy(state->ui_state.ui_idx_buffer);
     }
+    jta_texture_destroy(state->wnd_ctx, state->ui_state.ui_font_texture);
     jta_vulkan_window_context_destroy(state->wnd_ctx);
     jta_vulkan_context_destroy(state->vk_ctx);
 }

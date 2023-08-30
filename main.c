@@ -11,7 +11,7 @@
 #include "jwin/source/jwin.h"
 
 
-#include "gfx/drawing_3d.h"
+#include "gfx/drawing.h"
 #include "gfx/camera.h"
 #include "gfx/bounding_box.h"
 #include "jwin_handlers.h"
@@ -89,7 +89,6 @@ int main(int argc, char* argv[argc])
     jta_timer main_timer;
     jta_timer_set(&main_timer);
     //  Create allocators
-    //  Estimated to be 512 kB per small pool and 512 kB per med pool
 
     G_LIN_JALLOCATOR = lin_jallocator_create(1 << 20);
     if (!G_LIN_JALLOCATOR)
@@ -132,8 +131,6 @@ int main(int argc, char* argv[argc])
     }
     f64 dt = jta_timer_get(&main_timer);
     JDM_TRACE("Initialization time: %g sec", dt);
-
-//    ill_jallocator_set_debug_trap(G_JALLOCATOR, 110, jmem_trap, NULL);
 
     //  Load up the configuration
 
@@ -268,6 +265,7 @@ int main(int argc, char* argv[argc])
 
     //  Initialize JRUI context
     jrui_context* ui_ctx;
+    jta_texture* fnt_tex;
     {
         unsigned wnd_w, wnd_h;
         jwin_window_get_size(jwnd, &wnd_w, &wnd_h);
@@ -304,6 +302,21 @@ int main(int argc, char* argv[argc])
         {
             JDM_FATAL("Could not initialize UI, reason: %s (%s)", jrui_result_to_str(jrui_res), jrui_result_message(jrui_res));
         }
+        unsigned fnt_w, fnt_h;
+        const unsigned char* p_tex;
+        jrui_context_font_info(ui_ctx, &fnt_w, &fnt_h, &p_tex);
+        jta_texture_create_info tex_info =
+                {
+                    .format = VK_FORMAT_R8_UNORM,
+                    .samples = VK_SAMPLE_COUNT_1_BIT,
+                    .tiling = VK_IMAGE_TILING_OPTIMAL,
+                };
+        gfx_res = jta_texture_load(fnt_w, fnt_h, p_tex, wnd_ctx, tex_info, &fnt_tex);
+        if (gfx_res != GFX_RESULT_SUCCESS)
+        {
+            JDM_FATAL("Could not load UI font texture, reason: %s", gfx_result_to_str(gfx_res));
+        }
+        jta_ui_bind_font_texture(wnd_ctx, fnt_tex);
     }
 
 
@@ -319,7 +332,7 @@ int main(int argc, char* argv[argc])
                     .config = &master_config,
                     .meshes = undeformed_meshes,
                     .needs_redraw = 1,
-                    .ui_state = { .ui_context = ui_ctx },
+                    .ui_state = { .ui_context = ui_ctx, .ui_font_texture = fnt_tex },
             };
 
     jwin_window_show(jwnd);

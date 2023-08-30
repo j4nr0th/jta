@@ -33,8 +33,6 @@ gfx_result jta_texture_load(
             .mipLevels = 1,
             .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
             .imageType = VK_IMAGE_TYPE_2D,
-            .queueFamilyIndexCount = 2,
-            .pQueueFamilyIndices = queue_indices,
             .usage = VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_TRANSFER_DST_BIT,
             .tiling = info.tiling,
             .flags = 0,
@@ -47,7 +45,8 @@ gfx_result jta_texture_load(
         JDM_LEAVE_FUNCTION;
         return GFX_RESULT_BAD_VK_CALL;
     }
-
+    this->height = h;
+    this->width = w;
     gfx_result res = jta_texture_transition(
             ctx, this, VK_FORMAT_R8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     if (res != GFX_RESULT_SUCCESS)
@@ -71,12 +70,69 @@ gfx_result jta_texture_load(
         goto failed;
     }
 
+    VkImageViewCreateInfo view_info =
+            {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .image = jvm_image_allocation_get_image(this->img),
+            .subresourceRange =
+                    {
+                    .baseArrayLayer = 0,
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .baseMipLevel = 0,
+                    .layerCount = 1,
+                    .levelCount = 1,
+                    },
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = create_info.format,
+            .components =
+                    {
+                    .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+                    .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+                    .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+                    .a = VK_COMPONENT_SWIZZLE_IDENTITY
+                    },
+            };
+
+    vk_res = vkCreateImageView(ctx->device, &view_info, NULL, &this->view);
+    if (vk_res != VK_SUCCESS)
+    {
+        JDM_ERROR("Could not create texture's image view, reason: %s (%d)", vk_result_to_str(vk_res), vk_res);
+        res = GFX_RESULT_BAD_VK_CALL;
+        goto failed;
+    }
+
+    VkSamplerCreateInfo sampler_info =
+            {
+            .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+            .magFilter = VK_FILTER_LINEAR,
+            .minFilter = VK_FILTER_LINEAR,
+            .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+            .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+            .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+            .anisotropyEnable = VK_FALSE,
+            .maxAnisotropy = 1.0f,
+            .unnormalizedCoordinates = VK_FALSE,
+            .compareEnable = VK_FALSE,
+            .compareOp = VK_COMPARE_OP_ALWAYS,
+            .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+            .mipLodBias = 0.0f,
+            .minLod = 0.0f,
+            .maxLod = 0.0f,
+            };
+    vk_res = vkCreateSampler(ctx->device, &sampler_info, NULL, &this->sampler);
+    if (vk_res != VK_SUCCESS)
+    {
+        JDM_ERROR("Could not create texture's sampler, reason: %s (%d)", vk_result_to_str(vk_res), vk_res);
+        res = GFX_RESULT_BAD_VK_CALL;
+        goto failed;
+    }
+
     *p_out = this;
     JDM_LEAVE_FUNCTION;
     return GFX_RESULT_SUCCESS;
 
 failed:
-    jta_texture_destroy(this);
+    jta_texture_destroy(ctx, this);
     JDM_LEAVE_FUNCTION;
     return res;
 }
@@ -107,11 +163,11 @@ gfx_result jta_texture_transition(
     }
     else if (layout_old == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
     {
-        access_dst = VK_ACCESS_TRANSFER_WRITE_BIT;
-        access_src = VK_ACCESS_SHADER_READ_BIT;
+        access_src = VK_ACCESS_TRANSFER_WRITE_BIT;
+        access_dst = VK_ACCESS_SHADER_READ_BIT;
 
         src_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        dst_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        dst_stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
     }
     else
     {
@@ -224,10 +280,17 @@ failed:
     return res;
 }
 
-gfx_result jta_texture_destroy(jta_texture* tex)
+gfx_result jta_texture_destroy(const jta_vulkan_window_context* ctx, jta_texture* tex)
 {
     JDM_ENTER_FUNCTION;
-
+    if (tex->sampler != VK_NULL_HANDLE)
+    {
+        vkDestroySampler(ctx->device, tex->sampler, NULL);
+    }
+    if (tex->view != VK_NULL_HANDLE)
+    {
+        vkDestroyImageView(ctx->device, tex->view, NULL);
+    }
     jvm_image_destroy(tex->img);
     ill_jfree(G_JALLOCATOR, tex);
 

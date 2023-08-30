@@ -3,6 +3,7 @@
 //
 
 #include "ui_tree.h"
+#include <jdm.h>
 #include <stdio.h>
 
 static void bnt1_callback(void* param)
@@ -46,3 +47,31 @@ jrui_widget_create_info UI_ROOT =
                 .child = &bottom_row
                 }
         };
+
+gfx_result jta_ui_bind_font_texture(const jta_vulkan_window_context* ctx, jta_texture* texture)
+{
+    JDM_ENTER_FUNCTION;
+
+    VkDescriptorImageInfo info =
+            {
+            .sampler = texture->sampler,
+            .imageView = texture->view,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            };
+
+    VkWriteDescriptorSet write_set =
+            {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = ctx->descriptor_ui,
+            .dstBinding = 0,
+            .dstArrayElement = 0,
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorCount = 1,
+            .pImageInfo = &info,
+            };
+
+    vkUpdateDescriptorSets(ctx->device, 1, &write_set, 0, NULL);
+
+    JDM_LEAVE_FUNCTION;
+    return GFX_RESULT_SUCCESS;
+}

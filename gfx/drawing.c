@@ -4,7 +4,7 @@
 
 #include <time.h>
 #include <jdm.h>
-#include "drawing_3d.h"
+#include "drawing.h"
 #include "camera.h"
 #include <inttypes.h>
 #include <jdm.h>
@@ -182,14 +182,14 @@ gfx_result jta_draw_frame(
             {
                     .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
                     .renderPass = wnd_ctx->render_pass_ui,
-                    .clearValueCount = 1,
+                    .clearValueCount = 0,
                     .pClearValues = clear_array,
                     .framebuffer = wnd_ctx->pass_ui.framebuffers[i_img],
                     .renderArea.extent = wnd_ctx->swapchain.window_extent,
             };
     vkCmdBeginRenderPass(cmd_buffer, &render_pass_ui_info, VK_SUBPASS_CONTENTS_INLINE);
     //  Draw ui
-//    if (ui_state->ui_vtx_buffer.size && ui_state->ui_idx_buffer.size)
+    if (jvm_buffer_allocation_get_size(ui_state->ui_vtx_buffer) && jvm_buffer_allocation_get_size(ui_state->ui_idx_buffer))
     {
         size_t n_elements;
         jrui_render_element* elements;
@@ -197,7 +197,7 @@ gfx_result jta_draw_frame(
         if (n_elements)
         {
             vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, wnd_ctx->pipeline_ui);
-
+            vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, wnd_ctx->layout_ui, 0, 1, &wnd_ctx->descriptor_ui, 0, NULL);
             const ubo_ui push_const =
                     {
                     .offset_x = +(float)wnd_ctx->swapchain.window_extent.width / 2,

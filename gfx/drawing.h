@@ -2,8 +2,8 @@
 // Created by jan on 18.5.2023.
 //
 
-#ifndef JTA_DRAWING_3D_H
-#define JTA_DRAWING_3D_H
+#ifndef JTA_DRAWING_H
+#define JTA_DRAWING_H
 #include <jmem/jmem.h>
 #include <jrui.h>
 
@@ -21,4 +21,4 @@ jta_draw_frame(
         jta_vulkan_window_context* wnd_ctx, jta_ui_state* ui_state, mtx4 view_matrix, jta_structure_meshes* meshes,
         const jta_camera_3d* camera);
 
-#endif //JTA_DRAWING_3D_H
+#endif //JTA_DRAWING_H

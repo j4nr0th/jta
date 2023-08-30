@@ -1331,6 +1331,10 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
     VkRenderPass render_pass_ui = VK_NULL_HANDLE;
     jta_vulkan_render_pass pass_ui;
 
+    VkDescriptorSetLayout desc_set_layout_ui = VK_NULL_HANDLE;
+    VkDescriptorPool ui_desc_pool = VK_NULL_HANDLE;
+
+
     //  Ask jwin to create the window surface
     const jwin_result jwin_res = jwin_window_create_window_vk_surface(ctx->instance, win, NULL, NULL, &vk_res, &surface);
     if (jwin_res != JWIN_RESULT_SUCCESS)
@@ -2043,17 +2047,78 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
                         .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
                         .size = sizeof(ubo_ui),
                 };
+        VkDescriptorSetLayoutBinding set_layout =
+                {
+                        .binding = 0,
+                        .descriptorCount = 1,
+                        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                };
+        VkDescriptorSetLayoutCreateInfo layout_info =
+                {
+                        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+                        .bindingCount = 1,
+                        .pBindings = &set_layout,
+                };
+        vk_res = vkCreateDescriptorSetLayout(device, &layout_info, NULL, &desc_set_layout_ui);
+        if (vk_res != VK_SUCCESS)
+        {
+            JDM_ERROR("Could not create descriptor set layout for ui rendering, reason: %s(%d)",
+                      vk_result_to_str(vk_res), vk_res);
+            res = GFX_RESULT_BAD_VK_CALL;
+            goto failed;
+        }
         VkPipelineLayoutCreateInfo create_info =
                 {
                         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
                         .pushConstantRangeCount = 1,
                         .pPushConstantRanges = &push_constant_2d_ubo,
+                        .setLayoutCount = 1,
+                        .pSetLayouts = &desc_set_layout_ui,
                 };
 
         vk_res = vkCreatePipelineLayout(device, &create_info, NULL, &layout_2d);
         if (vk_res != VK_SUCCESS)
         {
-            JDM_ERROR("Could not create pipeline layout for ui rendering, reason: %s(%d)", vk_result_to_str(vk_res), vk_res);
+            JDM_ERROR("Could not create pipeline layout for ui rendering, reason: %s(%d)", vk_result_to_str(vk_res),
+                      vk_res);
+            res = GFX_RESULT_BAD_VK_CALL;
+            goto failed;
+        }
+    }
+    
+    //  Create descriptor sets and pools
+    {
+        VkDescriptorPoolSize pool_size =
+                {
+                .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                .descriptorCount = 1,
+                };
+        VkDescriptorPoolCreateInfo pool_create_info =
+                {
+                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+                .maxSets = 1,
+                .pPoolSizes = &pool_size,
+                .poolSizeCount = 1,
+                };
+        vk_res = vkCreateDescriptorPool(device, &pool_create_info, NULL, &ui_desc_pool);
+        if (vk_res != VK_SUCCESS)
+        {
+            JDM_ERROR("Could not create descriptor pool for ui rendering, reason: %s(%d)", vk_result_to_str(vk_res), vk_res);
+            res = GFX_RESULT_BAD_VK_CALL;
+            goto failed;
+        }
+        VkDescriptorSetAllocateInfo allocate_info =
+                {
+                .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+                .descriptorSetCount = 1,
+                .descriptorPool = ui_desc_pool,
+                .pSetLayouts = &desc_set_layout_ui
+                };
+        vk_res = vkAllocateDescriptorSets(device, &allocate_info, &this->descriptor_ui);
+        if (vk_res != VK_SUCCESS)
+        {
+            JDM_ERROR("Could not allocate descriptor for ui rendering, reason: %s(%d)", vk_result_to_str(vk_res), vk_res);
             res = GFX_RESULT_BAD_VK_CALL;
             goto failed;
         }
@@ -2316,6 +2381,8 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
     }
     this->pipeline_ui = pipeline_ui;
 
+    vkGetPhysicalDeviceProperties(physical_device, &this->device_properties);
+
     (void) samples;
     this->swapchain = swapchain;
     this->transfer_buffer = transfer_buffer;
@@ -2337,13 +2404,22 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
     this->window_surface = surface;
 
     this->layout_ui = layout_2d;
-
+    this->descriptor_layout_ui = desc_set_layout_ui;
+    this->desc_pool_ui = ui_desc_pool;
 
     *p_out = this;
     JDM_LEAVE_FUNCTION;
     return GFX_RESULT_SUCCESS;
 
 failed:
+    if (desc_set_layout_ui != VK_NULL_HANDLE)
+    {
+        vkDestroyDescriptorSetLayout(device, desc_set_layout_ui, NULL);
+    }
+    if (ui_desc_pool != VK_NULL_HANDLE)
+    {
+        vkDestroyDescriptorPool(device, ui_desc_pool, NULL);
+    }
     if (vk_queue_gfx.handle != VK_NULL_HANDLE)
     {
         queue_destroy(device, &vk_queue_gfx);
@@ -2419,6 +2495,9 @@ void jta_vulkan_window_context_destroy(jta_vulkan_window_context* ctx)
     {
         jta_frame_job_queue_execute(ctx->swapchain.frame_queues[i]);
     }
+
+    vkDestroyDescriptorSetLayout(ctx->device, ctx->descriptor_layout_ui, NULL);
+    vkDestroyDescriptorPool(ctx->device, ctx->desc_pool_ui, NULL);
 
     queue_destroy(ctx->device, &ctx->queue_graphics_data);
     queue_destroy(ctx->device, &ctx->queue_present_data);

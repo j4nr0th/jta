@@ -5,7 +5,7 @@
 #include "../common/common.h"
 #include "gfx_math.h"
 #include "camera.h"
-#include "drawing_3d.h"
+#include "drawing.h"
 
 static int test_camera_rotation(void)
 {

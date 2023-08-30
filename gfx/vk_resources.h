@@ -122,6 +122,11 @@ struct jta_vulkan_window_context_struct
     jvm_buffer_allocation* transfer_buffer; //  allocation for the transfer buffer
 
     jta_frame_job_queue* current_queue;     // handle to the queue for the current frame, for jobs to execute after the current frame is done
+
+    VkPhysicalDeviceProperties device_properties;   //  Properties of the physical device
+    VkDescriptorSetLayout descriptor_layout_ui;
+    VkDescriptorPool desc_pool_ui;
+    VkDescriptorSet descriptor_ui;
 };
 typedef struct jta_vulkan_window_context_struct jta_vulkan_window_context;
 

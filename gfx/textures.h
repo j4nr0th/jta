@@ -10,7 +10,9 @@
 struct jta_texture_struct
 {
     jvm_image_allocation* img;
+    VkImageView view;
     unsigned width, height;
+    VkSampler sampler;
 };
 typedef struct jta_texture_struct jta_texture;
 
@@ -32,7 +34,7 @@ gfx_result jta_texture_load(
         unsigned w, unsigned h, const void* ptr, const jta_vulkan_window_context* ctx, jta_texture_create_info info,
         jta_texture** p_out);
 
-gfx_result jta_texture_destroy(jta_texture* tex);
+gfx_result jta_texture_destroy(const jta_vulkan_window_context* ctx, jta_texture* tex);
 
 
 #endif //JTA_TEXTURES_H

@@ -10,12 +10,14 @@
 #include "core/jtasolve.h"
 #include "gfx/mesh.h"
 #include "jwin/source/jwin.h"
+#include "gfx/textures.h"
 #include <jrui.h>
 
 typedef struct jta_ui_state_struct jta_ui_state;
 struct jta_ui_state_struct
 {
     jrui_context* ui_context;
+    jta_texture* ui_font_texture;
     jvm_buffer_allocation* ui_vtx_buffer;
     jvm_buffer_allocation* ui_idx_buffer;
 };
