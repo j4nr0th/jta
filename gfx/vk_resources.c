@@ -586,7 +586,9 @@ const char* vk_result_to_str(VkResult res)
 
 void jta_vulkan_context_destroy(jta_vulkan_context* ctx)
 {
+#ifndef NDEBUG
     ctx->vkDestroyDebugUtilsMessengerEXT(ctx->instance, ctx->dbg_messenger, NULL);
+#endif
     vkDestroyInstance(ctx->instance, ctx->allocator);
     ill_jfree(G_JALLOCATOR, ctx);
 }
@@ -1532,7 +1534,7 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
 #ifndef NDEBUG
             .allocation_callbacks = NULL,
 #else
-            .allocation_callbacks = &allocation_callbacks
+            .allocation_callbacks = &allocation_callbacks,
 #endif
             .error_callbacks = &error_callbacks,
             };
@@ -2041,11 +2043,18 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
 
     //  Create the pipeline layout for UI rendering
     {
-        VkPushConstantRange push_constant_2d_ubo =
+        VkPushConstantRange push_constant_ranges_2d[] =
                 {
-                        .offset = 0,
-                        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-                        .size = sizeof(ubo_ui),
+                [0] =   {
+                         .offset = 0,
+                         .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+                         .size = sizeof(ubo_ui_vtx),
+                        },
+                [1] =   {
+                                .offset = sizeof(ubo_ui_vtx),
+                                .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+                                .size = sizeof(ubo_ui_frg),
+                        },
                 };
         VkDescriptorSetLayoutBinding set_layout =
                 {
@@ -2068,11 +2077,12 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
             res = GFX_RESULT_BAD_VK_CALL;
             goto failed;
         }
+
         VkPipelineLayoutCreateInfo create_info =
                 {
                         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-                        .pushConstantRangeCount = 1,
-                        .pPushConstantRanges = &push_constant_2d_ubo,
+                        .pushConstantRangeCount = sizeof(push_constant_ranges_2d) / sizeof(*push_constant_ranges_2d),
+                        .pPushConstantRanges = push_constant_ranges_2d,
                         .setLayoutCount = 1,
                         .pSetLayouts = &desc_set_layout_ui,
                 };
@@ -2331,7 +2341,13 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
         VkPipelineColorBlendAttachmentState cb_attachment_state =
                 {
                         .colorWriteMask = VK_COLOR_COMPONENT_R_BIT|VK_COLOR_COMPONENT_G_BIT|VK_COLOR_COMPONENT_B_BIT|VK_COLOR_COMPONENT_A_BIT,
-                        .blendEnable = VK_FALSE,
+                        .blendEnable = VK_TRUE,
+                        .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+                        .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                        .colorBlendOp = VK_BLEND_OP_ADD,
+                        .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+                        .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+                        .alphaBlendOp = VK_BLEND_OP_ADD,
                 };
         VkPipelineColorBlendStateCreateInfo cb_state_create_info =
                 {

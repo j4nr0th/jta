@@ -4,19 +4,17 @@ include(CTest)
 
 set(CMAKE_C_STANDARD 23)
 
-
-list(APPEND JFW_SOURCE_FILES gfx/gfx_math.c jfw/jfw_common.c
-        jfw/window.c jfw/jfw_error.c jfw/platform.c)
-list(APPEND JFW_HEADER_FILES gfx/gfx_math.h jfw/jfw_common.h
-        jfw/window.h jfw/jfw_error.h jfw/platform.h)
-
 list(APPEND UTILITY_SOURCE_FILES common/common.c)
 list(APPEND UTILITY_HEADER_FILES common/common.h)
 
 list(APPEND GFX_SOURCE_FILES
-        gfx/drawing.c gfx/camera.c jwin_handlers.c gfx/gfxerr.c gfx/bounding_box.c gfx/mesh.c)
+        gfx/drawing.c gfx/camera.c ui/jwin_handlers.c gfx/gfxerr.c gfx/bounding_box.c gfx/mesh.c
+        gfx/vk_resources.c
+        gfx/textures.c)
 list(APPEND GFX_HEADER_FILES
-        gfx/drawing.h gfx/camera.h jwin_handlers.h gfx/gfxerr.h gfx/bounding_box.h gfx/mesh.h)
+        gfx/drawing.h gfx/camera.h ui/jwin_handlers.h gfx/gfxerr.h gfx/bounding_box.h gfx/mesh.h
+        gfx/vk_resources.h
+        gfx/textures.h)
 
 list(APPEND JTA_SOLVER_SOURCE_FILES core/jtaerr.c core/jtapoints.c core/jtamaterials.c core/jtaprofiles.c
         core/jtaelements.c core/jtanaturalbcs.c core/jtanumericalbcs.c core/jtaproblem.c core/jtasolve.c)
@@ -33,12 +31,8 @@ add_executable(jta main.c
         ${UTILITY_SOURCE_FILES} ${UTILITY_HEADER_FILES}
         ${JTA_SOLVER_SOURCE_FILES} ${JTA_SOLVER_HEADER_FILES}
         config/config_loading.c config/config_loading.h gfx/color_map.c gfx/color_map.h config/config_execution.c config/config_execution.h
-        gfx/vk_resources.c
-        gfx/vk_resources.h
-        gfx/textures.c
-        gfx/textures.h
-        ui_tree.c
-        ui_tree.h
+        ui/ui_tree.c
+        ui/ui_tree.h
         gfx/frame_queue.c
         gfx/frame_queue.h)
 

@@ -14,7 +14,7 @@
 #include "gfxerr.h"
 #include "mesh.h"
 #include "vk_resources.h"
-#include "../jwin_handlers.h"
+#include "../ui/jwin_handlers.h"
 
 gfx_result
 jta_draw_frame(

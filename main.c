@@ -14,12 +14,14 @@
 #include "gfx/drawing.h"
 #include "gfx/camera.h"
 #include "gfx/bounding_box.h"
-#include "jwin_handlers.h"
+#include "ui/jwin_handlers.h"
 #include "core/jtaelements.h"
 #include "core/jtanaturalbcs.h"
 #include "core/jtanumericalbcs.h"
 #include "config/config_loading.h"
-#include "ui_tree.h"
+#include "ui/ui_tree.h"
+
+jta_config* p_cfg;
 
 
 static i32 jdm_error_hook_callback_function(
@@ -284,14 +286,15 @@ int main(int argc, char* argv[argc])
 
 
 
-        UI_ROOT.container.width = wnd_w;
-        UI_ROOT.container.height = wnd_h / 8;
+        UI_ROOT_CHILDREN[0].container.width = wnd_w;
+        UI_ROOT_CHILDREN[0].container.height = wnd_h / 8;
+        p_cfg = &master_config;
         jrui_context_create_info context_create_info =
                 {
                     .width = wnd_w,
                     .height = wnd_h,
                     .font_type = JRUI_FONT_TYPE_FROM_FONTCONFIG,
-                    .font_info.fc_info.fc_string = "Monospace:size=24",
+                    .font_info.fc_info.fc_string = "Monospace:size=16",
                     .allocator_callbacks = &allocator_callbacks,
                     .error_callbacks = &error_callbacks,
                     .root = UI_ROOT,
@@ -354,6 +357,12 @@ int main(int argc, char* argv[argc])
 //    while ((jwin_res = jwin_context_wait_for_events(jctx)) == JWIN_RESULT_SUCCESS)
     for (;;)
     {
+        jwin_res = jwin_context_wait_for_events(jctx);
+        if (jwin_res != JWIN_RESULT_SUCCESS)
+        {
+            JDM_FATAL("jwin_context_wait_for_events returned: %s (%s)", jwin_result_to_str(jwin_res),
+                      jwin_result_msg_str(jwin_res));
+        }
         jwin_res = jwin_context_handle_events(jctx);
         if (jwin_res == JWIN_RESULT_SHOULD_CLOSE)
         {
@@ -397,7 +406,7 @@ int main(int argc, char* argv[argc])
                     JDM_FATAL("Could not create a new UI VTX buffer, reason: %s (%d)", vk_result_to_str(vk_res), vk_res);
                 }
             }
-            if (draw_state.ui_state.ui_idx_buffer && jvm_buffer_allocation_get_size(draw_state.ui_state.ui_vtx_buffer) < sizeof(*indices) * idx_count)
+            if (draw_state.ui_state.ui_idx_buffer && jvm_buffer_allocation_get_size(draw_state.ui_state.ui_idx_buffer) < sizeof(*indices) * idx_count)
             {
                 jta_vulkan_context_enqueue_destroy_buffer(wnd_ctx, draw_state.ui_state.ui_idx_buffer);
                 draw_state.ui_state.ui_idx_buffer = NULL;

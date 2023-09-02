@@ -17,11 +17,6 @@ gfx_result jta_texture_load(
         JDM_LEAVE_FUNCTION;
         return GFX_RESULT_BAD_ALLOC;
     }
-    const uint32_t queue_indices[2] =
-            {
-                    ctx->queue_graphics_data.index,
-                    ctx->queue_transfer_data.index,
-            };
     VkImageCreateInfo create_info =
             {
             .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,

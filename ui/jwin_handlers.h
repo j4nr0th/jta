@@ -4,14 +4,14 @@
 
 #ifndef JTA_JWIN_HANDLERS_H
 #define JTA_JWIN_HANDLERS_H
-#include "common/common.h"
-#include "gfx/camera.h"
-#include "core/jtaproblem.h"
-#include "core/jtasolve.h"
-#include "gfx/mesh.h"
-#include "jwin/source/jwin.h"
-#include "gfx/textures.h"
-#include <jrui.h>
+#include "../common/common.h"
+#include "../gfx/camera.h"
+#include "../core/jtaproblem.h"
+#include "../core/jtasolve.h"
+#include "../gfx/mesh.h"
+#include "../jwin/source/jwin.h"
+#include "../gfx/textures.h"
+#include "jrui.h"
 
 typedef struct jta_ui_state_struct jta_ui_state;
 struct jta_ui_state_struct

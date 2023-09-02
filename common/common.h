@@ -69,11 +69,17 @@ struct ubo_3d_struct
     mtx4 proj;
     vec4 view_direction;
 };
-typedef struct ubo_ui_struct ubo_ui;
-struct ubo_ui_struct
+typedef struct ubo_ui_vtx_struct ubo_ui_vtx;
+struct ubo_ui_vtx_struct
 {
     float scale_x, scale_y;
     float offset_x, offset_y;
+};
+typedef struct ubo_ui_frg_struct ubo_ui_frg;
+struct ubo_ui_frg_struct
+{
+    float font_w, font_h;
+    float font_off_x, font_off_y;
 };
 
 typedef struct jta_timer_struct jta_timer;

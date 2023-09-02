@@ -4,10 +4,10 @@
 
 #include <inttypes.h>
 #include "jwin_handlers.h"
-#include "core/jtasolve.h"
-#include "gfx/drawing.h"
-#include <solvers/jacobi_point_iteration.h>
-#include <solvers/bicgstab_iteration.h>
+#include "../core/jtasolve.h"
+#include "../gfx/drawing.h"
+#include "solvers/jacobi_point_iteration.h"
+#include "solvers/bicgstab_iteration.h"
 
 static void truss_mouse_button_press(const jwin_event_mouse_button_press* e, void* param)
 {
@@ -22,32 +22,44 @@ static void truss_mouse_button_press(const jwin_event_mouse_button_press* e, voi
 
     case JWIN_MOUSE_BUTTON_TYPE_RIGHT:
         //  press was with rmb
-        jrui_input_mouse_press(ui_ctx, e->x, e->y, JRUI_INPUT_RMB);
-        state->track_move = 1;
-        state->mv_x = e->x; state->mv_y = e->y;
+        if (!jrui_input_mouse_press(ui_ctx, e->x, e->y, JRUI_INPUT_RMB))
+        {
+            //  if UI does not take this event, I do
+            state->track_move = 1;
+            state->mv_x = e->x; state->mv_y = e->y;
+        }
         break;
 
     case JWIN_MOUSE_BUTTON_TYPE_MIDDLE:
         //  press was with mmb
-        jrui_input_mouse_press(ui_ctx, e->x, e->y, JRUI_INPUT_MMB);
-        state->track_turn = 1;
-        state->mv_x = e->x; state->mv_y = e->y;
+        if (!jrui_input_mouse_press(ui_ctx, e->x, e->y, JRUI_INPUT_MMB))
+        {
+            //  if UI does not take this event, I do
+            state->track_turn = 1;
+            state->mv_x = e->x; state->mv_y = e->y;
+        }
         break;
 
     case JWIN_MOUSE_BUTTON_TYPE_SCROLL_UP:
         //  Scroll up
-        jrui_input_mouse_press(ui_ctx, e->x, e->y, JRUI_INPUT_SRUP);
-        jta_camera_zoom(&state->camera, +0.05f);
-        state->view_matrix = jta_camera_to_view_matrix(&state->camera);
-        state->needs_redraw = 1;
+        if (!jrui_input_mouse_press(ui_ctx, e->x, e->y, JRUI_INPUT_SRUP))
+        {
+            //  if UI does not take this event, I do
+            jta_camera_zoom(&state->camera, +0.05f);
+            state->view_matrix = jta_camera_to_view_matrix(&state->camera);
+            state->needs_redraw = 1;
+        }
         break;
 
     case JWIN_MOUSE_BUTTON_TYPE_SCROLL_DN:
         //  Scroll down
-        jrui_input_mouse_press(ui_ctx, e->x, e->y, JRUI_INPUT_SRDN);
-        jta_camera_zoom(&state->camera, -0.05f);
-        state->view_matrix = jta_camera_to_view_matrix(&state->camera);
-        state->needs_redraw = 1;
+        if (!jrui_input_mouse_press(ui_ctx, e->x, e->y, JRUI_INPUT_SRDN))
+        {
+            //  if UI does not take this event, I do
+            jta_camera_zoom(&state->camera, -0.05f);
+            state->view_matrix = jta_camera_to_view_matrix(&state->camera);
+            state->needs_redraw = 1;
+        }
         break;
 
     default:break;
@@ -84,6 +96,7 @@ static void truss_mouse_motion(const jwin_event_mouse_motion* e, void* param)
     jta_draw_state* const state = param;
     assert(state);
     int x = e->x, y = e->y;
+    jrui_input_mouse_move(state->ui_state.ui_context, x, y);
     unsigned width, height;
     jwin_window_get_size(e->base.window, &width, &height);
     //  Clamp x and y to intervals [0, width) and [0, height)
@@ -344,7 +357,6 @@ static void refresh_event(const jwin_event_refresh* e, void* param)
 static void destroy_event(const jwin_event_destroy* e, void* param)
 {
     (void) e;
-    (void) param;
     jta_draw_state* const state = param;
     vkDeviceWaitIdle(state->wnd_ctx->device);
     //  Destroy allocated buffers
@@ -369,6 +381,13 @@ static int close_event(const jwin_event_close* e, void* param)
     return 1;
 }
 
+static void unfocus_event(const jwin_event_focus_lose* e, void* param)
+{
+    (void) e;
+    jta_draw_state* const state = param;
+    jrui_input_unfocus(state->ui_state.ui_context);
+}
+
 const jta_event_handler JTA_HANDLER_ARRAY[] =
         {
                 {.type = JWIN_EVENT_TYPE_MOUSE_PRESS, .callback.mouse_button_press = truss_mouse_button_press},
@@ -379,6 +398,7 @@ const jta_event_handler JTA_HANDLER_ARRAY[] =
                 {.type = JWIN_EVENT_TYPE_REFRESH, .callback.refresh = refresh_event},
                 {.type = JWIN_EVENT_TYPE_CLOSE, .callback.close = close_event},
                 {.type = JWIN_EVENT_TYPE_DESTROY, .callback.destroy = destroy_event},
+                {.type = JWIN_EVENT_TYPE_FOCUS_LOSE, .callback.focus_lose = unfocus_event},
         };
 
 

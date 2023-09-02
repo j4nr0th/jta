@@ -198,16 +198,24 @@ gfx_result jta_draw_frame(
         {
             vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, wnd_ctx->pipeline_ui);
             vkCmdBindDescriptorSets(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, wnd_ctx->layout_ui, 0, 1, &wnd_ctx->descriptor_ui, 0, NULL);
-            const ubo_ui push_const =
+            const ubo_ui_vtx push_const_vtx =
                     {
                     .offset_x = +(float)wnd_ctx->swapchain.window_extent.width / 2,
                     .offset_y = +(float)wnd_ctx->swapchain.window_extent.height / 2,
                     .scale_x = 2/(float)wnd_ctx->swapchain.window_extent.width,
                     .scale_y = 2/(float)wnd_ctx->swapchain.window_extent.height,
                     };
+            const ubo_ui_frg push_const_frg =
+                    {
+                            .font_w = (float)ui_state->ui_font_texture->width,
+                            .font_h = (float)ui_state->ui_font_texture->height,
+                            .font_off_y = 0,
+                            .font_off_x = 0,
+                    };
             vkCmdSetViewport(cmd_buffer, 0, 1, &wnd_ctx->viewport);
             vkCmdSetScissor(cmd_buffer, 0, 1, &wnd_ctx->scissor);
-            vkCmdPushConstants(cmd_buffer, wnd_ctx->layout_ui, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push_const), &push_const);
+            vkCmdPushConstants(cmd_buffer, wnd_ctx->layout_ui, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push_const_vtx), &push_const_vtx);
+            vkCmdPushConstants(cmd_buffer, wnd_ctx->layout_ui, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(ubo_ui_vtx), sizeof(push_const_frg), &push_const_frg);
             VkDeviceSize offset_0 = 0;
             VkBuffer buffers = jvm_buffer_allocation_get_buffer(ui_state->ui_vtx_buffer);
             vkCmdBindVertexBuffers(cmd_buffer, 0, 1, &buffers, &offset_0);
@@ -220,7 +228,7 @@ gfx_result jta_draw_frame(
                         .offset = {(int32_t)e->clip_region.x0, (int32_t)e->clip_region.y0},
                         .extent = {(uint32_t)(e->clip_region.x1 - e->clip_region.x0), (uint32_t)(e->clip_region.y1 - e->clip_region.y0)}
                         };
-                vkCmdSetScissor(cmd_buffer, 0, 1, &scissor);
+//                vkCmdSetScissor(cmd_buffer, 0, 1, &scissor);
                 vkCmdDrawIndexed(cmd_buffer, e->count_idx, 1, e->first_idx, 0, 0);
             }
         }
