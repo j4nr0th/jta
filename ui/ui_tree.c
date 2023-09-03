@@ -5,6 +5,7 @@
 #include "ui_tree.h"
 #include "jdm.h"
 #include <stdio.h>
+#include "ui_sim_and_sol.h"
 
 static const jrui_widget_create_info config_display_window_text =
         {
@@ -70,12 +71,12 @@ static const jrui_widget_create_info config_display_window_elements[] =
                 },
         [1] =
                 {
-                .container = {.base_info.type = JRUI_WIDGET_TYPE_CONTAINER, .width = 400, .height = 50, .align_vertical = JRUI_ALIGN_TOP,
+                .containerf = {.base_info.type = JRUI_WIDGET_TYPE_CONTAINERF, .width = 1.0f, .height = 0.2f, .align_vertical = JRUI_ALIGN_TOP,
                               .child = &config_display_window_text}
                 },
         [2] =
                 {
-                .container = {.base_info.type = JRUI_WIDGET_TYPE_CONTAINER, .width = 400, .height = 550, .align_vertical = JRUI_ALIGN_BOTTOM,
+                .containerf = {.base_info.type = JRUI_WIDGET_TYPE_CONTAINERF, .width = 1.0f, .height = 0.8f, .align_vertical = JRUI_ALIGN_BOTTOM,
                         .child = &config_display_window_coulmn}
                 },
         };
@@ -92,12 +93,12 @@ static const jrui_widget_create_info config_display_window_stack =
 
 static const jrui_widget_create_info config_display_window_base =
         {
-        .container =
+        .containerf =
                 {
-                .base_info.type = JRUI_WIDGET_TYPE_CONTAINER,
+                .base_info.type = JRUI_WIDGET_TYPE_CONTAINERF,
                 .has_background = 0,
-                .width = 400,
-                .height = 600,
+                .width = 0.25f,
+                .height = 0.8f,
                 .align_vertical = JRUI_ALIGN_TOP,
                 .align_horizontal = JRUI_ALIGN_RIGHT,
                 .child = &config_display_window_stack,
@@ -128,15 +129,14 @@ static void bnt1_callback(jrui_widget_base* widget, void* param)
     config_display_window_info_list_row_4[1].text_h.text = buffer4;
     config_display_window_info_list_row_5[1].text_h.text = buffer5;
 
-    jrui_widget_base* p_to_replace = NULL;
-    jrui_result res = jrui_get_by_label(jrui_widget_get_context(widget), "Info window", &p_to_replace);
-    if (res != JRUI_RESULT_SUCCESS)
+    jrui_widget_base* p_to_replace = jrui_get_by_label(jrui_widget_get_context(widget), "Info window");
+    if (!p_to_replace)
     {
-        JDM_ERROR("Could not find \"Info window\" widget, reason: %s (%s)", jrui_result_to_str(res), jrui_result_message(res));
+        JDM_ERROR("Could not find \"Info window\" widget");
         JDM_LEAVE_FUNCTION;
         return;
     }
-    res = jrui_replace_widget(p_to_replace, config_display_window_base);
+    const jrui_result res = jrui_replace_widget(p_to_replace, config_display_window_base);
 
     if (res != JRUI_RESULT_SUCCESS)
     {
@@ -152,10 +152,72 @@ static void bnt1_callback(jrui_widget_base* widget, void* param)
 
     JDM_LEAVE_FUNCTION;
 }
+
+void update_text_widget(jrui_context* ctx, const char* widget_label, const char* new_text)
+{
+    jrui_widget_base* p_search = jrui_get_by_label(ctx, widget_label);
+    if (!p_search)
+    {
+        JDM_ERROR("Could not find \"%s\" widget", widget_label);
+    }
+    else
+    {
+        jrui_text_h_create_info create_info =
+                {
+                        .base_info.type = JRUI_WIDGET_TYPE_TEXT_H,
+                        .base_info.label = widget_label,
+                        .text = new_text,
+                };
+        jrui_result res = jrui_update_text_h(p_search, &create_info);
+        if (res != JRUI_RESULT_SUCCESS)
+        {
+            JDM_ERROR("Could not update \"%s\" widget, reason: %s (%s)", widget_label, jrui_result_to_str(res), jrui_result_message(res));
+        }
+    }
+}
+
 static void bnt2_callback(jrui_widget_base* widget, void* param)
 {
-    (void) param;
-    printf("Hi 2\n");
+    JDM_ENTER_FUNCTION;
+
+
+    jrui_widget_base* p_to_replace = jrui_get_by_label(jrui_widget_get_context(widget), "Info window");
+    if (!p_to_replace)
+    {
+        JDM_ERROR("Could not find \"Info window\" widget");
+        JDM_LEAVE_FUNCTION;
+        return;
+    }
+    jrui_result res;
+    res = jrui_replace_widget(p_to_replace, SIM_AND_SOL_WINDOW);
+
+    if (res != JRUI_RESULT_SUCCESS)
+    {
+        JDM_ERROR("Could not replace the \"Info window\" widget, reason: %s (%s)", jrui_result_to_str(res), jrui_result_message(res));
+    }
+
+    char buffer[64];
+
+    snprintf(buffer, sizeof(buffer), "%g", p_cfg->problem.sim_and_sol.gravity[0]);
+    update_text_widget(jrui_widget_get_context(widget), "gravity x", buffer);
+    snprintf(buffer, sizeof(buffer), "%g", p_cfg->problem.sim_and_sol.gravity[1]);
+    update_text_widget(jrui_widget_get_context(widget), "gravity y", buffer);
+    snprintf(buffer, sizeof(buffer), "%g", p_cfg->problem.sim_and_sol.gravity[2]);
+    update_text_widget(jrui_widget_get_context(widget), "gravity z", buffer);
+
+    snprintf(buffer, sizeof(buffer), "%u", p_cfg->problem.sim_and_sol.max_iterations);
+    update_text_widget(jrui_widget_get_context(widget), "iteration count", buffer);
+
+    snprintf(buffer, sizeof(buffer), "%g", p_cfg->problem.sim_and_sol.relaxation_factor);
+    update_text_widget(jrui_widget_get_context(widget), "relax factor", buffer);
+
+    snprintf(buffer, sizeof(buffer), "%g", p_cfg->problem.sim_and_sol.convergence_criterion);
+    update_text_widget(jrui_widget_get_context(widget), "convergence text", buffer);
+
+    snprintf(buffer, sizeof(buffer), "%g", p_cfg->problem.sim_and_sol.relaxation_factor);
+    update_text_widget(jrui_widget_get_context(widget), "relax factor", buffer);
+
+    JDM_LEAVE_FUNCTION;
 }
 
 static const jrui_widget_create_info left_stack_children[2] =
@@ -189,11 +251,11 @@ static const jrui_widget_create_info bottom_row =
 
 jrui_widget_create_info UI_ROOT_CHILDREN[] =
         {
-                [0] = {.container =
+                [0] = {.containerf =
                         {
-                                .base_info.type = JRUI_WIDGET_TYPE_CONTAINER,
-                                .height = 0,
-                                .width = 0,
+                                .base_info.type = JRUI_WIDGET_TYPE_CONTAINERF,
+                                .height = 0.1f,
+                                .width = 1.0f,
                                 .has_background = 0,
                                 .align_vertical = JRUI_ALIGN_BOTTOM,
                                 .align_horizontal = JRUI_ALIGN_CENTER,

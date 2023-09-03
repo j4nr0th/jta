@@ -286,9 +286,17 @@ int main(int argc, char* argv[argc])
 
 
 
-        UI_ROOT_CHILDREN[0].container.width = wnd_w;
-        UI_ROOT_CHILDREN[0].container.height = wnd_h / 8;
         p_cfg = &master_config;
+
+        jrui_color_scheme color_scheme =
+                {
+                .fg = {.r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF},
+                .bg = {.r = 0x30, .g = 0x30, .b = 0x30, .a = 0xFF},
+                .drag_bg = {.r = 0x50, .g = 0x50, .b = 0x50, .a = 0xFF},
+                .button_up = {.r = 0x80, .g = 0x80, .b = 0x80, .a = 0xFF},
+                .button_down = {.r = 0xC0, .g = 0xC0, .b = 0xC0, .a = 0xFF},
+                .button_hover = {.r = 0xA0, .g = 0xA0, .b = 0xA0, .a = 0xFF},
+                };
         jrui_context_create_info context_create_info =
                 {
                     .width = wnd_w,
@@ -297,6 +305,7 @@ int main(int argc, char* argv[argc])
                     .font_info.fc_info.fc_string = "Monospace:size=16",
                     .allocator_callbacks = &allocator_callbacks,
                     .error_callbacks = &error_callbacks,
+                    .color_scheme = &color_scheme,
                     .root = UI_ROOT,
                 };
 

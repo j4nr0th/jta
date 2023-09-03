@@ -34,7 +34,9 @@ add_executable(jta main.c
         ui/ui_tree.c
         ui/ui_tree.h
         gfx/frame_queue.c
-        gfx/frame_queue.h)
+        gfx/frame_queue.h
+        ui/ui_sim_and_sol.c
+        ui/ui_sim_and_sol.h)
 
 add_compile_definitions(JALLOC_TRAP_COUNT=128)
 add_compile_definitions(JALLOC_TRACKING=1)

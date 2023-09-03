@@ -202,28 +202,42 @@ static void truss_mouse_motion(const jwin_event_mouse_motion* e, void* param)
 
 static void truss_key_press(const jwin_event_key_press* e, void* param)
 {
-    if (e->repeated)
-    {
-        //  Do not acknowledge the repeated events
-        return;
-    }
     JDM_ENTER_FUNCTION;
     jta_draw_state* const state = param;
     jrui_context* const ui_ctx = state->ui_state.ui_context;
-    jwin_event_custom custom_redraw =
-            {
-                    .base = e->base,
-                    .custom = state,
-            };
-    custom_redraw.base.type = JWIN_EVENT_TYPE_CUSTOM + 1;
     static int solved = 0;
-    if (e->keycode == JWIN_KEY_F12)
+
+    //  Forward keys to UI
+    switch (e->keycode)
     {
-        //  Take a screenshot
-        jwin_window_send_custom_event(e->base.window, &custom_redraw);
-        state->screenshot = 1;
+    case JWIN_KEY_DOWN:jrui_input_key_down(ui_ctx, JRUI_INPUT_DOWN); break;
+    case JWIN_KEY_UP:jrui_input_key_down(ui_ctx, JRUI_INPUT_UP); break;
+    case JWIN_KEY_LEFT:jrui_input_key_down(ui_ctx, JRUI_INPUT_LEFT); break;
+    case JWIN_KEY_RIGHT:jrui_input_key_down(ui_ctx, JRUI_INPUT_RIGHT); break;
+    case JWIN_KEY_ESC:jrui_input_key_down(ui_ctx, JRUI_INPUT_ESC); break;
+    case JWIN_KEY_TAB:
+        if (e->mods & JWIN_MOD_STATE_TYPE_SHIFT)
+        {
+            jrui_input_key_down(ui_ctx, JRUI_INPUT_GROUP_NEXT);
+        }
+        else
+        {
+            jrui_input_key_down(ui_ctx, JRUI_INPUT_GROUP_PREV);
+        }
+        break;
+    case JWIN_KEY_RETURN:
+        jrui_input_key_down(ui_ctx, JRUI_INPUT_RTRN);
+        break;
+    default:break;
     }
-    else if (e->keycode == JWIN_KEY_SPACE)
+
+    if (e->repeated)
+    {
+        //  Do not acknowledge the repeated events
+        JDM_LEAVE_FUNCTION;
+        return;
+    }
+    if (e->keycode == JWIN_KEY_SPACE)
     {
         if (!solved)
         {
@@ -306,29 +320,6 @@ static void truss_key_press(const jwin_event_key_press* e, void* param)
         state->needs_redraw = 1;
     }
 
-    //  Forward keys to UI
-    switch (e->keycode)
-    {
-    case JWIN_KEY_DOWN:jrui_input_key_down(ui_ctx, JRUI_INPUT_DOWN); break;
-    case JWIN_KEY_UP:jrui_input_key_down(ui_ctx, JRUI_INPUT_UP); break;
-    case JWIN_KEY_LEFT:jrui_input_key_down(ui_ctx, JRUI_INPUT_LEFT); break;
-    case JWIN_KEY_RIGHT:jrui_input_key_down(ui_ctx, JRUI_INPUT_RIGHT); break;
-    case JWIN_KEY_ESC:jrui_input_key_down(ui_ctx, JRUI_INPUT_ESC); break;
-    case JWIN_KEY_TAB:
-        if (e->mods & JWIN_MOD_STATE_TYPE_SHIFT)
-        {
-            jrui_input_key_down(ui_ctx, JRUI_INPUT_GROUP_NEXT);
-        }
-        else
-        {
-            jrui_input_key_down(ui_ctx, JRUI_INPUT_GROUP_PREV);
-        }
-        break;
-    case JWIN_KEY_RETURN:
-        jrui_input_key_down(ui_ctx, JRUI_INPUT_RTRN);
-        break;
-    default:break;
-    }
 
 end:
     JDM_LEAVE_FUNCTION;
