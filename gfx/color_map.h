@@ -17,7 +17,7 @@ struct jta_scalar_cmap_struct
 
 typedef struct jta_scalar_cmap_struct jta_scalar_cmap;
 
-jta_result jta_scalar_cmap_from_csv(const char* filename, jta_scalar_cmap* out_cmap);
+jta_result jta_scalar_cmap_from_csv(const jio_context* io_ctx, const char* filename, jta_scalar_cmap* out_cmap);
 
 void jta_scalar_cmap_free(jta_scalar_cmap* cmap);
 

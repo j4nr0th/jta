@@ -21,7 +21,8 @@ struct jta_profile_list_struct
     f32 max_equivalent_radius;
 };
 
-jta_result jta_load_profiles(const jio_memory_file* mem_file, jta_profile_list* profile_list);
+jta_result
+jta_load_profiles(const jio_context* io_ctx, const jio_memory_file* mem_file, jta_profile_list* profile_list);
 
 void jta_free_profiles(jta_profile_list* profile_list);
 

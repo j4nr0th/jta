@@ -3,6 +3,7 @@
 //
 
 #include "jtapoints.h"
+#include <jdm.h>
 
 static const jio_string_segment POINT_FILE_HEADERS[] =
         {
@@ -34,7 +35,7 @@ static bool converter_point_label_function(jio_string_segment* v, void* param)
     point_parse_data_ss* const data = (point_parse_data_ss*)param;
     for (uint32_t i = 0; i < data->count; ++i)
     {
-        if (jio_string_segment_equal(data->values + i , v))
+        if (strncmp(data->values[i].begin , v->begin, v->len) == 0)
         {
             JDM_ERROR("Point label \"%.*s\" was already defined as point %u", (int)v->len, v->begin, i);
             JDM_LEAVE_FUNCTION;
@@ -73,18 +74,11 @@ static bool (*converter_functions[])(jio_string_segment* v, void* param) =
                 converter_float_function,
         };
 
-jta_result jta_load_points(const jio_memory_file* mem_file, jta_point_list* p_list)
+jta_result jta_load_points(const jio_context* io_ctx, const jio_memory_file* mem_file, jta_point_list* p_list)
 {
     JDM_ENTER_FUNCTION;
     jta_result res;
-    uint32_t line_count = 0;
-    jio_result jio_res = jio_memory_file_count_lines(mem_file, &line_count);
-    if (jio_res != JIO_RESULT_SUCCESS)
-    {
-        JDM_ERROR("Could not count lines in point input file, reason: %s", jio_result_to_str(jio_res));
-        res = JTA_RESULT_BAD_IO;
-        goto end;
-    }
+    uint32_t line_count = jio_memory_file_count_lines(mem_file);
 
     f32* x = ill_jalloc(G_JALLOCATOR, sizeof(*x) * (line_count - 1));
     if (!x)
@@ -128,16 +122,8 @@ jta_result jta_load_points(const jio_memory_file* mem_file, jta_point_list* p_li
             };
     point_parse_data_ss ss_data = {.values = ss, .count = 0};
     void* param_array[] = { &ss_data, float_data + 0, float_data + 1, float_data + 2, };
-    jio_stack_allocator_callbacks jio_callbacks =
-            {
-            .param = G_LIN_JALLOCATOR,
-            .alloc = (void* (*)(void*, uint64_t)) lin_jalloc,
-            .free = (void (*)(void*, void*)) lin_jfree,
-            .realloc = (void* (*)(void*, void*, uint64_t)) lin_jrealloc,
-            .restore = (void (*)(void*, void*)) lin_jallocator_restore_current,
-            .save = (void* (*)(void*)) lin_jallocator_save_state,
-            };
-    jio_res = jio_process_csv_exact(mem_file, ",", POINT_FILE_HEADER_COUNT, POINT_FILE_HEADERS, converter_functions, param_array, &jio_callbacks);
+
+    jio_result jio_res = jio_process_csv_exact(io_ctx, mem_file, ",", POINT_FILE_HEADER_COUNT, POINT_FILE_HEADERS, converter_functions, param_array);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Processing the point input file failed, reason: %s", jio_result_to_str(jio_res));

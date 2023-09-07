@@ -20,7 +20,7 @@ struct jta_point_list_struct
     jio_string_segment* label;
 };
 
-jta_result jta_load_points(const jio_memory_file* mem_file, jta_point_list* p_list);
+jta_result jta_load_points(const jio_context* io_ctx, const jio_memory_file* mem_file, jta_point_list* p_list);
 
 void jta_free_points(jta_point_list* list);
 

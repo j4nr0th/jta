@@ -6,6 +6,7 @@
 #define JTA_CONFIG_LOADING_H
 #include "../common/common.h"
 #include "../core/jtaerr.h"
+#include <jio/iobase.h>
 
 
 //  Parameters related to actually solving the equations
@@ -76,7 +77,7 @@ struct jta_config_struct
 
 typedef struct jta_config_struct jta_config;
 
-jta_result jta_load_configuration(const char* filename, jta_config* p_out);
+jta_result jta_load_configuration(const jio_context* io_ctx, const char* filename, jta_config* p_out);
 
 jta_result jta_free_configuration(jta_config* cfg);
 

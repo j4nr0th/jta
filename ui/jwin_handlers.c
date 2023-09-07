@@ -8,6 +8,7 @@
 #include "../gfx/drawing.h"
 #include "solvers/jacobi_point_iteration.h"
 #include "solvers/bicgstab_iteration.h"
+#include <jdm.h>
 
 static void truss_mouse_button_press(const jwin_event_mouse_button_press* e, void* param)
 {

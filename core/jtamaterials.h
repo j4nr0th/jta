@@ -20,7 +20,8 @@ struct jta_material_list_struct
     jio_string_segment* labels;
 };
 
-jta_result jta_load_materials(const jio_memory_file* mem_file, jta_material_list* material_list);
+jta_result
+jta_load_materials(const jio_context* io_ctx, const jio_memory_file* mem_file, jta_material_list* material_list);
 
 void jta_free_materials(jta_material_list* material_list);
 

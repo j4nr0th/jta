@@ -30,7 +30,7 @@ add_executable(jta main.c
         ${PARSING_SOURCE_FILES} ${PARSING_HEADER_FILES}
         ${UTILITY_SOURCE_FILES} ${UTILITY_HEADER_FILES}
         ${JTA_SOLVER_SOURCE_FILES} ${JTA_SOLVER_HEADER_FILES}
-        config/config_loading.c config/config_loading.h gfx/color_map.c gfx/color_map.h config/config_execution.c config/config_execution.h
+        config/config_loading.c config/config_loading.h gfx/color_map.c gfx/color_map.h
         ui/ui_tree.c
         ui/ui_tree.h
         gfx/frame_queue.c

@@ -157,15 +157,15 @@ static bool (*SCALAR_CMAP_CONVERTER_FUNCTIONS[5])(jio_string_segment* segment, v
         };
 
 
-jta_result jta_scalar_cmap_from_csv(const char* filename, jta_scalar_cmap* out_cmap)
+jta_result jta_scalar_cmap_from_csv(const jio_context* io_ctx, const char* filename, jta_scalar_cmap* out_cmap)
 {
     JDM_ENTER_FUNCTION;
     jta_result res;
     float* values = NULL;
     vec4* colors = NULL;
 
-    jio_memory_file file;
-    jio_result jio_res = jio_memory_file_create(filename, &file, 0, 0, 0);
+    jio_memory_file* file;
+    jio_result jio_res = jio_memory_file_create(io_ctx, filename, &file, 0, 0, 0);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not open colormap file \"%s\", reason: %s", filename, jio_result_to_str(jio_res));
@@ -173,21 +173,13 @@ jta_result jta_scalar_cmap_from_csv(const char* filename, jta_scalar_cmap* out_c
         goto failed;
     }
 
-    uint32_t line_count;
-    jio_res = jio_memory_file_count_lines(&file, &line_count);
-    if (jio_res != JIO_RESULT_SUCCESS)
-    {
-        JDM_ERROR("Could not count lines in colormap file \"%s\", reason: %s", filename, jio_result_to_str(jio_res));
-        (void)jio_memory_file_destroy(&file);
-        res = JTA_RESULT_BAD_IO;
-        goto failed;
-    }
+    uint32_t line_count = jio_memory_file_count_lines(file);
 
     values = ill_jalloc(G_JALLOCATOR, sizeof(*values) * (line_count - 1));
     if (!values)
     {
         JDM_ERROR("Could not allocate memory for colormap values");
-        (void)jio_memory_file_destroy(&file);
+        (void)jio_memory_file_destroy(file);
         res = JTA_RESULT_BAD_ALLOC;
         goto failed;
     }
@@ -196,7 +188,7 @@ jta_result jta_scalar_cmap_from_csv(const char* filename, jta_scalar_cmap* out_c
     if (!colors)
     {
         JDM_ERROR("Could not allocate memory for colormap colors");
-        (void)jio_memory_file_destroy(&file);
+        (void)jio_memory_file_destroy(file);
         res = JTA_RESULT_BAD_ALLOC;
         goto failed;
     }
@@ -221,17 +213,8 @@ jta_result jta_scalar_cmap_from_csv(const char* filename, jta_scalar_cmap* out_c
             color_cvts + 2,
             color_cvts + 3,
             };
-    const jio_stack_allocator_callbacks stack_callbacks =
-            {
-            .free = (void (*)(void*, void*)) lin_jfree,
-            .realloc = (void* (*)(void*, void*, uint64_t)) lin_jrealloc,
-            .alloc = (void* (*)(void*, uint64_t)) lin_jalloc,
-            .save = (void* (*)(void*)) lin_jallocator_save_state,
-            .restore = (void (*)(void*, void*)) lin_jallocator_restore_current,
-            .param = G_LIN_JALLOCATOR,
-            };
-    jio_res = jio_process_csv_exact(&file, ",", SCALAR_CMAP_HEADER_COUNT, SCALAR_CMAP_HEADER_ARRAY, SCALAR_CMAP_CONVERTER_FUNCTIONS, param_array, &stack_callbacks);
-    (void)jio_memory_file_destroy(&file);
+    jio_res = jio_process_csv_exact(io_ctx, file, ",", SCALAR_CMAP_HEADER_COUNT, SCALAR_CMAP_HEADER_ARRAY, SCALAR_CMAP_CONVERTER_FUNCTIONS, param_array);
+    (void)jio_memory_file_destroy(file);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not process the colormap file \"%s\", reason: %s", filename, jio_result_to_str(jio_res));

@@ -3,6 +3,7 @@
 //
 
 #include "jtaprofiles.h"
+#include <jdm.h>
 
 static const jio_string_segment PROFILE_FILE_HEADERS[] =
         {
@@ -33,7 +34,7 @@ static bool converter_profile_label_function(jio_string_segment* v, void* param)
     profile_parse_ss_data* const data = (profile_parse_ss_data*)param;
     for (uint32_t i = 0; i < data->count; ++i)
     {
-        if (jio_string_segment_equal(data->values + i, v))
+        if (strncmp(data->values[i].begin, v->begin, v->len) == 0)
         {
             JDM_ERROR("Profile label \"%.*s\" was already defined as profile %u", (int)v->len, v->begin, i);
             JDM_LEAVE_FUNCTION;
@@ -77,18 +78,11 @@ static bool (*converter_functions[])(jio_string_segment* v, void* param) =
                 converter_float_function,
         };
 
-jta_result jta_load_profiles(const jio_memory_file* mem_file, jta_profile_list* profile_list)
+jta_result jta_load_profiles(const jio_context* io_ctx, const jio_memory_file* mem_file, jta_profile_list* profile_list)
 {
     JDM_ENTER_FUNCTION;
     jta_result res;
-    uint32_t line_count = 0;
-    jio_result jio_res = jio_memory_file_count_lines(mem_file, &line_count);
-    if (jio_res != JIO_RESULT_SUCCESS)
-    {
-        JDM_ERROR("Could not count lines in profile input file, reason: %s", jio_result_to_str(jio_res));
-        res = JTA_RESULT_BAD_IO;
-        goto end;
-    }
+    uint32_t line_count = jio_memory_file_count_lines(mem_file);
     f32* area = ill_jalloc(G_JALLOCATOR, sizeof(*area) * (line_count - 1));
     if (!area)
     {
@@ -125,16 +119,7 @@ jta_result jta_load_profiles(const jio_memory_file* mem_file, jta_profile_list* 
             };
     void* param_array[] = { &parse_ss_data, parse_float_data + 0, parse_float_data + 1};
 
-    jio_stack_allocator_callbacks jio_callbacks =
-            {
-                    .param = G_LIN_JALLOCATOR,
-                    .alloc = (void* (*)(void*, uint64_t)) lin_jalloc,
-                    .free = (void (*)(void*, void*)) lin_jfree,
-                    .realloc = (void* (*)(void*, void*, uint64_t)) lin_jrealloc,
-                    .restore = (void (*)(void*, void*)) lin_jallocator_restore_current,
-                    .save = (void* (*)(void*)) lin_jallocator_save_state,
-            };
-    jio_res = jio_process_csv_exact(mem_file, ",", PROFILE_FILE_HEADER_COUNT, PROFILE_FILE_HEADERS, converter_functions, param_array, &jio_callbacks);
+    jio_result jio_res = jio_process_csv_exact(io_ctx, mem_file, ",", PROFILE_FILE_HEADER_COUNT, PROFILE_FILE_HEADERS, converter_functions, param_array);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Processing the profile input file failed, reason: %s", jio_result_to_str(jio_res));

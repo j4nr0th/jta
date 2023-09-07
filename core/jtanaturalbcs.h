@@ -21,7 +21,9 @@ struct jta_natural_boundary_condition_list_struct
 
 
 
-jta_result jta_load_natural_boundary_conditions(const jio_memory_file* mem_file, const jta_point_list* point_list, jta_natural_boundary_condition_list* bcs);
+jta_result jta_load_natural_boundary_conditions(
+        const jio_context* io_ctx, const jio_memory_file* mem_file, const jta_point_list* point_list,
+        jta_natural_boundary_condition_list* bcs);
 
 void jta_free_natural_boundary_conditions(jta_natural_boundary_condition_list* bcs);
 

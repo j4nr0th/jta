@@ -32,6 +32,7 @@ static char* get_str_from_section(const jio_cfg_section* section, const char* ke
     JDM_ENTER_FUNCTION;
     jio_cfg_value val;
     jio_result res = jio_cfg_get_value_by_key(section, key_name, &val);
+    const jio_string_segment section_name = jio_cfg_section_get_name(section);
     if (res != JIO_RESULT_SUCCESS)
     {
         if (p_found)
@@ -40,7 +41,7 @@ static char* get_str_from_section(const jio_cfg_section* section, const char* ke
         }
         if (!optional)
         {
-            JDM_ERROR("Could not get entry \"%s\" from section \"%.*s\", reason: %s", key_name, (int)section->name.len, section->name.begin, jio_result_to_str(res));
+            JDM_ERROR("Could not get entry \"%s\" from section \"%.*s\", reason: %s", key_name, (int)section_name.len, section_name.begin, jio_result_to_str(res));
         }
         JDM_LEAVE_FUNCTION;
         return NULL;
@@ -51,7 +52,7 @@ static char* get_str_from_section(const jio_cfg_section* section, const char* ke
     }
     if (val.type != JIO_CFG_TYPE_STRING)
     {
-        JDM_ERROR("Entry \"%s\" in section \"%.*s\" was not a string but %s", key_name, (int)section->name.len, section->name.begin,
+        JDM_ERROR("Entry \"%s\" in section \"%.*s\" was not a string but %s", key_name, (int)section_name.len, section_name.begin,
                   jio_cfg_type_to_str(val.type));
         JDM_LEAVE_FUNCTION;
         return NULL;
@@ -73,17 +74,18 @@ static bool get_float_array_from_section(const jio_cfg_section* section, const c
 {
     JDM_ENTER_FUNCTION;
     jio_cfg_value val;
+    const jio_string_segment section_name = jio_cfg_section_get_name(section);
     jio_result res = jio_cfg_get_value_by_key(section, key_name, &val);
     if (res != JIO_RESULT_SUCCESS)
     {
-        JDM_ERROR("Could not get entry \"%s\" from section \"%.*s\", reason: %s", key_name, (int)section->name.len, section->name.begin,
+        JDM_ERROR("Could not get entry \"%s\" from section \"%.*s\", reason: %s", key_name, (int)section_name.len, section_name.begin,
                   jio_result_to_str(res));
         JDM_LEAVE_FUNCTION;
         return false;
     }
     if (val.type != JIO_CFG_TYPE_ARRAY)
     {
-        JDM_ERROR("Entry \"%s\" in section \"%.*s\" was not an array of length %u but %s", key_name, (int)section->name.len, section->name.begin, n_out,
+        JDM_ERROR("Entry \"%s\" in section \"%.*s\" was not an array of length %u but %s", key_name, (int)section_name.len, section_name.begin, n_out,
                   jio_cfg_type_to_str(val.type));
         JDM_LEAVE_FUNCTION;
         return false;
@@ -91,7 +93,7 @@ static bool get_float_array_from_section(const jio_cfg_section* section, const c
     const jio_cfg_array* array = &val.value.value_array;
     if (array->count != n_out)
     {
-        JDM_ERROR("Entry \"%s\" in section \"%.*s\" had %u elements, but it should have had %"PRIu32" instead", key_name, (int)section->name.len, section->name.begin, array->count, n_out);
+        JDM_ERROR("Entry \"%s\" in section \"%.*s\" had %u elements, but it should have had %"PRIu32" instead", key_name, (int)section_name.len, section_name.begin, array->count, n_out);
         JDM_LEAVE_FUNCTION;
         return false;
     }
@@ -108,7 +110,7 @@ static bool get_float_array_from_section(const jio_cfg_section* section, const c
             float_value = (float)v->value.value_real;
             break;
         default:
-            JDM_ERROR("Element %u of the array \"%s\" in section \"%.*s\" was not numeric but was %s", i, key_name, (int)section->name.len, section->name.begin, jio_cfg_type_to_str(v->type));
+            JDM_ERROR("Element %u of the array \"%s\" in section \"%.*s\" was not numeric but was %s", i, key_name, (int)section_name.len, section_name.begin, jio_cfg_type_to_str(v->type));
             JDM_LEAVE_FUNCTION;
             return false;
         }
@@ -123,10 +125,11 @@ static bool get_float_from_section(const jio_cfg_section* section, const char* k
 {
     JDM_ENTER_FUNCTION;
     jio_cfg_value val;
+    const jio_string_segment section_name = jio_cfg_section_get_name(section);
     jio_result res = jio_cfg_get_value_by_key(section, key_name, &val);
     if (res != JIO_RESULT_SUCCESS)
     {
-        JDM_ERROR("Could not get entry \"%s\" from section \"%.*s\", reason: %s", key_name, (int)section->name.len, section->name.begin,
+        JDM_ERROR("Could not get entry \"%s\" from section \"%.*s\", reason: %s", key_name, (int)section_name.len, section_name.begin,
                   jio_result_to_str(res));
         JDM_LEAVE_FUNCTION;
         return false;
@@ -142,14 +145,14 @@ static bool get_float_from_section(const jio_cfg_section* section, const char* k
         float_value = (float)val.value.value_real;
         break;
     default:
-    JDM_ERROR("Entry \"%s\" in section \"%.*s\" was not numeric but was %s", key_name, (int)section->name.len, section->name.begin, jio_cfg_type_to_str(val.type));
+    JDM_ERROR("Entry \"%s\" in section \"%.*s\" was not numeric but was %s", key_name, (int)section_name.len, section_name.begin, jio_cfg_type_to_str(val.type));
         JDM_LEAVE_FUNCTION;
         return false;
     }
     assert(min < max);
     if (float_value < min || float_value > max)
     {
-        JDM_ERROR("Value of entry \"%s\" in section \"%.*s\" was outside of allowed range [%g, %g] (value was %g)", key_name, (int)section->name.len, section->name.begin, min, max, float_value);
+        JDM_ERROR("Value of entry \"%s\" in section \"%.*s\" was outside of allowed range [%g, %g] (value was %g)", key_name, (int)section_name.len, section_name.begin, min, max, float_value);
         JDM_LEAVE_FUNCTION;
         return false;
     }
@@ -162,10 +165,11 @@ static bool get_uint_from_section(const jio_cfg_section* section, const char* ke
 {
     JDM_ENTER_FUNCTION;
     jio_cfg_value val;
+    const jio_string_segment section_name = jio_cfg_section_get_name(section);
     jio_result res = jio_cfg_get_value_by_key(section, key_name, &val);
     if (res != JIO_RESULT_SUCCESS)
     {
-        JDM_ERROR("Could not get entry \"%s\" from section \"%.*s\", reason: %s", key_name, (int)section->name.len, section->name.begin,
+        JDM_ERROR("Could not get entry \"%s\" from section \"%.*s\", reason: %s", key_name, (int)section_name.len, section_name.begin,
                   jio_result_to_str(res));
         JDM_LEAVE_FUNCTION;
         return false;
@@ -174,7 +178,7 @@ static bool get_uint_from_section(const jio_cfg_section* section, const char* ke
     unsigned u_value;
     if (val.type != JIO_CFG_TYPE_INT)
     {
-        JDM_ERROR("Entry \"%s\" in section \"%.*s\" was not numeric but was %s", key_name, (int)section->name.len, section->name.begin, jio_cfg_type_to_str(val.type));
+        JDM_ERROR("Entry \"%s\" in section \"%.*s\" was not numeric but was %s", key_name, (int)section_name.len, section_name.begin, jio_cfg_type_to_str(val.type));
             JDM_LEAVE_FUNCTION;
         return false;
     }
@@ -184,7 +188,7 @@ static bool get_uint_from_section(const jio_cfg_section* section, const char* ke
     assert(min < max);
     if (u_value < min || u_value > max)
     {
-        JDM_ERROR("Value of entry \"%s\" in section \"%.*s\" was outside of allowed range [%u, %u] (value was %u)", key_name, (int)section->name.len, section->name.begin, min, max, u_value);
+        JDM_ERROR("Value of entry \"%s\" in section \"%.*s\" was outside of allowed range [%u, %u] (value was %u)", key_name, (int)section_name.len, section_name.begin, min, max, u_value);
         JDM_LEAVE_FUNCTION;
         return false;
     }
@@ -197,12 +201,13 @@ static jta_result load_problem_config(const jio_cfg_section* section, jta_config
 {
     JDM_ENTER_FUNCTION;
     //  Load the definition entries
+    const jio_string_segment section_name = jio_cfg_section_get_name(section);
     jio_cfg_section* definitions_section;
     jio_cfg_section* sim_sol_section;
     jio_result jio_res = jio_cfg_get_subsection(section, "definitions", &definitions_section);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
-        JDM_ERROR("Could not get subsection \"%s\" from section \"%.*s\", reason: %s", "definitions", (int)section->name.len, section->name.begin,
+        JDM_ERROR("Could not get subsection \"%s\" from section \"%.*s\", reason: %s", "definitions", (int)section_name.len, section_name.begin,
                   jio_result_to_str(jio_res));
         JDM_LEAVE_FUNCTION;
         return JTA_RESULT_BAD_CFG_ENTRY;
@@ -211,12 +216,13 @@ static jta_result load_problem_config(const jio_cfg_section* section, jta_config
     jio_res = jio_cfg_get_subsection(section, "simulation and solver", &sim_sol_section);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
-        JDM_ERROR("Could not get subsection \"%s\" from section \"%.*s\", reason: %s", "simulation and solver", (int)section->name.len, section->name.begin,
+        JDM_ERROR("Could not get subsection \"%s\" from section \"%.*s\", reason: %s", "simulation and solver", (int)section_name.len, section_name.begin,
                   jio_result_to_str(jio_res));
         JDM_LEAVE_FUNCTION;
         return JTA_RESULT_BAD_CFG_ENTRY;
     }
     memset(cfg, 0, sizeof(*cfg));
+    const jio_string_segment definitions_section_name = jio_cfg_section_get_name(definitions_section);
 
     if (!(cfg->definition.points_file = get_str_from_section(definitions_section, "points", false, NULL))
     ||  !(cfg->definition.materials_file = get_str_from_section(definitions_section, "material_list", false, NULL))
@@ -225,7 +231,7 @@ static jta_result load_problem_config(const jio_cfg_section* section, jta_config
     ||  !(cfg->definition.natural_bcs_file = get_str_from_section(definitions_section, "natural BCs", false, NULL))
     ||  !(cfg->definition.numerical_bcs_file = get_str_from_section(definitions_section, "numerical BCs", false, NULL)))
     {
-        JDM_ERROR("Could not get required entry from section \"%.*s\"", (int)definitions_section->name.len, definitions_section->name.begin);
+        JDM_ERROR("Could not get required entry from section \"%.*s\"", (int)definitions_section_name.len, definitions_section_name.begin);
         ill_jfree(G_JALLOCATOR, cfg->definition.points_file);
         ill_jfree(G_JALLOCATOR, cfg->definition.materials_file);
         ill_jfree(G_JALLOCATOR, cfg->definition.profiles_file);
@@ -238,7 +244,7 @@ static jta_result load_problem_config(const jio_cfg_section* section, jta_config
 
     if (!get_uint_from_section(sim_sol_section, "thread count", &cfg->sim_and_sol.thrd_count, 0, UINT32_MAX))
     {
-        JDM_WARN("Could not get optional entry \"thread count\" from section \"%.*s\", defaulting to single-threaded", (int)definitions_section->name.len, definitions_section->name.begin);
+        JDM_WARN("Could not get optional entry \"thread count\" from section \"%.*s\", defaulting to single-threaded", (int)definitions_section_name.len, definitions_section_name.begin);
         cfg->sim_and_sol.thrd_count = 0;
     }
 
@@ -247,7 +253,7 @@ static jta_result load_problem_config(const jio_cfg_section* section, jta_config
     ||  !get_uint_from_section(sim_sol_section, "maximum iterations", &cfg->sim_and_sol.max_iterations, 1, UINT32_MAX)
     ||  !get_float_from_section(sim_sol_section, "relaxation factor", &cfg->sim_and_sol.relaxation_factor, FLT_MIN, FLT_MAX))
     {
-        JDM_ERROR("Could not get required entry from section \"%.*s\"", (int)definitions_section->name.len, definitions_section->name.begin);
+        JDM_ERROR("Could not get required entry from section \"%.*s\"", (int)definitions_section_name.len, definitions_section_name.begin);
         ill_jfree(G_JALLOCATOR, cfg->definition.points_file);
         ill_jfree(G_JALLOCATOR, cfg->definition.materials_file);
         ill_jfree(G_JALLOCATOR, cfg->definition.profiles_file);
@@ -298,16 +304,17 @@ static jta_result load_display_config(const jio_cfg_section* section, jta_config
 
     float def_color[4];
     bool found;
+    const jio_string_segment section_name = jio_cfg_section_get_name(section);
     cfg->material_cmap_file = get_str_from_section(section, "material color map", true, &found);
     if (!cfg->material_cmap_file)
     {
         if (!found)
         {
-            JDM_WARN("Entry \"material color map\" was not specified in section \"%.*s\", so default value will be used", (int)section->name.len, section->name.begin);
+            JDM_WARN("Entry \"material color map\" was not specified in section \"%.*s\", so default value will be used", (int)section_name.len, section_name.begin);
         }
         else
         {
-            JDM_ERROR("Could not get entry from section \"%.*s\"", (int)section->name.len, section->name.begin);
+            JDM_ERROR("Could not get entry from section \"%.*s\"", (int)section_name.len, section_name.begin);
             goto failed;
         }
     }
@@ -317,11 +324,11 @@ static jta_result load_display_config(const jio_cfg_section* section, jta_config
     {
         if (!found)
         {
-            JDM_WARN("Entry \"stress color map\" was not specified in section \"%.*s\", so default value will be used", (int)section->name.len, section->name.begin);
+            JDM_WARN("Entry \"stress color map\" was not specified in section \"%.*s\", so default value will be used", (int)section_name.len, section_name.begin);
         }
         else
         {
-            JDM_ERROR("Could not get entry from section \"%.*s\"", (int)section->name.len, section->name.begin);
+            JDM_ERROR("Could not get entry from section \"%.*s\"", (int)section_name.len, section_name.begin);
             ill_jfree(G_JALLOCATOR, cfg->material_cmap_file);
             goto failed;
         }
@@ -336,7 +343,7 @@ static jta_result load_display_config(const jio_cfg_section* section, jta_config
     ||  !get_float_from_section(section, "radius scale", &cfg->radius_scale, 0, FLT_MAX)
     )
     {
-        JDM_ERROR("Could not get required entry from section \"%.*s\"", (int)section->name.len, section->name.begin);
+        JDM_ERROR("Could not get required entry from section \"%.*s\"", (int)section_name.len, section_name.begin);
         ill_jfree(G_JALLOCATOR, cfg->stress_cmap_file);
         ill_jfree(G_JALLOCATOR, cfg->material_cmap_file);
         goto failed;
@@ -348,20 +355,20 @@ static jta_result load_display_config(const jio_cfg_section* section, jta_config
     jio_result jio_res = jio_cfg_get_value_by_key(section, "DoF point colors", &value_color_array);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
-        JDM_ERROR("Could not get entry \"%s\" from section \"%.*s\", reason: %s", "DoF point colors", (int)section->name.len, section->name.begin,
+        JDM_ERROR("Could not get entry \"%s\" from section \"%.*s\", reason: %s", "DoF point colors", (int)section_name.len, section_name.begin,
                   jio_result_to_str(jio_res));
         goto failed;
     }
     if (value_color_array.type != JIO_CFG_TYPE_ARRAY)
     {
-        JDM_ERROR("Entry \"%s\" in section \"%.*s\" was not an array of length 4 but %s", "DoF point colors", (int)section->name.len, section->name.begin,
+        JDM_ERROR("Entry \"%s\" in section \"%.*s\" was not an array of length 4 but %s", "DoF point colors", (int)section_name.len, section_name.begin,
                   jio_cfg_type_to_str(value_color_array.type));
         goto failed;
     }
     const jio_cfg_array* main_array = &value_color_array.value.value_array;
     if (main_array->count != 4)
     {
-        JDM_ERROR("Entry \"%s\" in section \"%.*s\" had %u elements, but it should have had %"PRIu32" instead", "DoF point colors", (int)section->name.len, section->name.begin, main_array->count, 4);
+        JDM_ERROR("Entry \"%s\" in section \"%.*s\" had %u elements, but it should have had %"PRIu32" instead", "DoF point colors", (int)section_name.len, section_name.begin, main_array->count, 4);
         goto failed;
     }
 
@@ -370,14 +377,14 @@ static jta_result load_display_config(const jio_cfg_section* section, jta_config
         const jio_cfg_value* entry = main_array->values + i;
         if (entry->type != JIO_CFG_TYPE_ARRAY)
         {
-            JDM_ERROR("Element %u of entry \"%s\" in section \"%.*s\" was not an array of %u numbers, but was %s instead", i, "DoF point colors", (int)section->name.len, section->name.begin, 4,
+            JDM_ERROR("Element %u of entry \"%s\" in section \"%.*s\" was not an array of %u numbers, but was %s instead", i, "DoF point colors", (int)section_name.len, section_name.begin, 4,
                       jio_cfg_type_to_str(entry->type));
             goto failed;
         }
         const jio_cfg_array* array = &entry->value.value_array;
         if (array->count != 4)
         {
-            JDM_ERROR("Element %u of entry \"%s\" in section \"%.*s\" had %u elements, but it should have had %"PRIu32" instead", i, "DoF point colors", (int)section->name.len, section->name.begin, array->count, 4u);
+            JDM_ERROR("Element %u of entry \"%s\" in section \"%.*s\" had %u elements, but it should have had %"PRIu32" instead", i, "DoF point colors", (int)section_name.len, section_name.begin, array->count, 4u);
             goto failed;
         }
         for (uint32_t j = 0; j < 4; ++j)
@@ -393,7 +400,7 @@ static jta_result load_display_config(const jio_cfg_section* section, jta_config
                 float_value = (float)v->value.value_real;
                 break;
             default:
-            JDM_ERROR("Element %u element %u of the array \"%s\" in section \"%.*s\" was not numeric but was %s", j, i, "DoF point colors", (int)section->name.len, section->name.begin, jio_cfg_type_to_str(v->type));
+            JDM_ERROR("Element %u element %u of the array \"%s\" in section \"%.*s\" was not numeric but was %s", j, i, "DoF point colors", (int)section_name.len, section_name.begin, jio_cfg_type_to_str(v->type));
                 JDM_LEAVE_FUNCTION;
                 return false;
             }
@@ -426,6 +433,7 @@ static jta_result load_output_config(const jio_cfg_section* section, jta_config_
     JDM_ENTER_FUNCTION;
     memset(cfg, 0, sizeof(*cfg));
 
+    const jio_string_segment section_name = jio_cfg_section_get_name(section);
     static const char* const entry_names[5] =
             {
             "point output",
@@ -449,7 +457,7 @@ static jta_result load_output_config(const jio_cfg_section* section, jta_config_
         {
             if (!found)
             {
-                JDM_WARN("Entry \"%s\" in section \"%.*s\" was not specified, default value will be used", entry_names[i], (int)section->name.len, section->name.begin);
+                JDM_WARN("Entry \"%s\" in section \"%.*s\" was not specified, default value will be used", entry_names[i], (int)section_name.len, section_name.begin);
             }
             else
             {
@@ -464,14 +472,15 @@ static jta_result load_output_config(const jio_cfg_section* section, jta_config_
     return JTA_RESULT_SUCCESS;
 }
 
-jta_result jta_load_configuration(const char* filename, jta_config* p_out)
+jta_result jta_load_configuration(const jio_context* io_ctx, const char* filename, jta_config* p_out)
 {
     JDM_ENTER_FUNCTION;
     JDM_TRACE("Loading configuration from file \"%s\"", filename);
-    jta_result res = JTA_RESULT_SUCCESS;
+    jta_result res;
 
-    jio_memory_file cfg_file;
-    jio_result jio_res = jio_memory_file_create(filename, &cfg_file, 0, 0, 0);
+
+    jio_memory_file* cfg_file;
+    jio_result jio_res = jio_memory_file_create(io_ctx, filename, &cfg_file, 0, 0, 0);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not open config file \"%s\", reason: %s", filename, jio_result_to_str(jio_res));
@@ -480,19 +489,12 @@ jta_result jta_load_configuration(const char* filename, jta_config* p_out)
     }
 
     jio_cfg_section* root_cfg_section;
-    const jio_allocator_callbacks jio_allocator =
-            {
-            .alloc = jio_alloc,
-            .realloc = jio_realloc,
-            .free = jio_free,
-            .param = G_JALLOCATOR,
-            };
-    jio_res = jio_cfg_parse(&cfg_file, &root_cfg_section, &jio_allocator);
+    jio_res = jio_cfg_parse(io_ctx, cfg_file, &root_cfg_section);
 
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not parse the configuration file, reason: %s", jio_result_to_str(jio_res));
-        jio_memory_file_destroy(&cfg_file);
+        jio_memory_file_destroy(cfg_file);
         res = JTA_RESULT_BAD_IO;
         goto end;
     }
@@ -551,8 +553,8 @@ jta_result jta_load_configuration(const char* filename, jta_config* p_out)
     }
 
 end:
-    jio_cfg_section_destroy(root_cfg_section);
-    jio_memory_file_destroy(&cfg_file);
+    jio_cfg_section_destroy(io_ctx, root_cfg_section);
+    jio_memory_file_destroy(cfg_file);
     JDM_LEAVE_FUNCTION;
     return res;
 }

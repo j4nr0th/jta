@@ -17,8 +17,8 @@
 typedef struct jta_problem_setup_struct jta_problem_setup;
 struct jta_problem_setup_struct
 {
-    jio_memory_file file_points, file_materials, file_profiles,
-                    file_elements, file_nat, file_num;          //  Files from which data was loaded (used to store labels)
+    jio_memory_file *file_points, *file_materials, *file_profiles,
+                    *file_elements, *file_nat, *file_num;          //  Files from which data was loaded (used to store labels)
     jta_point_list point_list;                           //  Point list parsed from input file
     jta_element_list element_list;                       //  Element list parsed from input file
     jta_profile_list profile_list;                       //  Profile list parsed from input file
@@ -28,7 +28,7 @@ struct jta_problem_setup_struct
     vec4 gravity;                                               //  Gravitational acceleration vector set in the input file
 };
 
-jta_result jta_load_problem(const jta_config_problem* cfg, jta_problem_setup* problem);
+jta_result jta_load_problem(const jio_context* io_ctx, const jta_config_problem* cfg, jta_problem_setup* problem);
 
 void jta_free_problem(jta_problem_setup* problem);
 

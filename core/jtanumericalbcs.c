@@ -3,6 +3,7 @@
 //
 
 #include "jtanumericalbcs.h"
+#include <jdm.h>
 
 static const jio_string_segment NUMERICAL_BC_FILE_HEADERS[] =
         {
@@ -37,7 +38,7 @@ static bool converter_numerical_bc_point_label_function(jio_string_segment* v, v
     uint32_t i;
     for (i = 0; i < data->point_list->count; ++i)
     {
-        if (jio_string_segment_equal(data->point_list->label + i, v))
+        if (strncmp(data->point_list->label[i].begin, v->begin, v->len) == 0)
         {
             break;
         }
@@ -141,18 +142,12 @@ static bool (*converter_functions[])(jio_string_segment* v, void* param) =
                 converter_numerical_bc_floatz_function,
         };
 jta_result jta_load_numerical_boundary_conditions(
-        const jio_memory_file* mem_file, const jta_point_list* point_list, jta_numerical_boundary_condition_list* bcs)
+        const jio_context* io_ctx, const jio_memory_file* mem_file, const jta_point_list* point_list,
+        jta_numerical_boundary_condition_list* bcs)
 {
     JDM_ENTER_FUNCTION;
     jta_result res;
-    uint32_t line_count = 0;
-    jio_result jio_res = jio_memory_file_count_lines(mem_file, &line_count);
-    if (jio_res != JIO_RESULT_SUCCESS)
-    {
-        JDM_ERROR("Could not count lines in numerical boundary condition input file, reason: %s", jio_result_to_str(jio_res));
-        res = JTA_RESULT_BAD_IO;
-        goto end;
-    }
+    uint32_t line_count = jio_memory_file_count_lines(mem_file);
 
     f32* x = ill_jalloc(G_JALLOCATOR, sizeof(*x) * (line_count - 1));
     if (!x)
@@ -207,16 +202,7 @@ jta_result jta_load_numerical_boundary_conditions(
             };
     numerical_bc_parse_ss_data ss_data = {.values = i_pts, .point_list = point_list, .count = 0};
     void* param_array[] = { &ss_data, float_data + 0, float_data + 1, float_data + 2, };
-    jio_stack_allocator_callbacks jio_callbacks =
-            {
-                    .param = G_LIN_JALLOCATOR,
-                    .alloc = (void* (*)(void*, uint64_t)) lin_jalloc,
-                    .free = (void (*)(void*, void*)) lin_jfree,
-                    .realloc = (void* (*)(void*, void*, uint64_t)) lin_jrealloc,
-                    .restore = (void (*)(void*, void*)) lin_jallocator_restore_current,
-                    .save = (void* (*)(void*)) lin_jallocator_save_state,
-            };
-    jio_res = jio_process_csv_exact(mem_file, ",", NUMERICAL_BC_FILE_HEADER_COUNT, NUMERICAL_BC_FILE_HEADERS, converter_functions, param_array, &jio_callbacks);
+    jio_result jio_res = jio_process_csv_exact(io_ctx, mem_file, ",", NUMERICAL_BC_FILE_HEADER_COUNT, NUMERICAL_BC_FILE_HEADERS, converter_functions, param_array);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Processing the numerical boundary conditions input file failed, reason: %s", jio_result_to_str(jio_res));

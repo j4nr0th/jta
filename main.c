@@ -135,10 +135,20 @@ int main(int argc, char* argv[argc])
     JDM_TRACE("Initialization time: %g sec", dt);
 
     //  Load up the configuration
+    jio_context* io_ctx;
+    jio_context_create_info io_create_info =
+            {
+
+            };
+    jio_result jio_res = jio_context_create(&io_create_info, &io_ctx);
+    if (jio_res != JIO_RESULT_SUCCESS)
+    {
+        JDM_FATAL("Could not create IO context, reason: %s", jio_result_to_str(jio_res));
+    }
 
     jta_timer_set(&main_timer);
     jta_config master_config;
-    jta_result jta_res = jta_load_configuration(argv[1], &master_config);
+    jta_result jta_res = jta_load_configuration(io_ctx, argv[1], &master_config);
     if (jta_res != JTA_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not load program configuration, reason: %s", jta_result_to_str(jta_res));
@@ -149,7 +159,7 @@ int main(int argc, char* argv[argc])
 
     jta_problem_setup problem_setup;
     jta_timer_set(&main_timer);
-    jta_res = jta_load_problem(&master_config.problem, &problem_setup);
+    jta_res = jta_load_problem(io_ctx, &master_config.problem, &problem_setup);
     if (jta_res != JTA_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not load problem, reason: %s", jta_result_to_str(jta_res));
@@ -457,6 +467,7 @@ int main(int argc, char* argv[argc])
     }
     jta_free_problem(&problem_setup);
     jta_free_configuration(&master_config);
+    jio_context_destroy(io_ctx);
     JDM_LEAVE_FUNCTION;
     jdm_cleanup_thread();
     //  Clean up the allocators

@@ -5,6 +5,7 @@
 #include <math.h>
 #include "jtaproblem.h"
 #include <matrices/sparse_row_compressed_internal.h>
+#include <jdm.h>
 
 static inline void jta_add_to_global_entries_3x3(const mtx4* mtx, uint32_t first_row, uint32_t first_col, jmtx_matrix_crs* out)
 {
@@ -385,7 +386,7 @@ jta_reduce_system(
     return JTA_RESULT_SUCCESS;
 }
 
-jta_result jta_load_problem(const jta_config_problem* cfg, jta_problem_setup* problem)
+jta_result jta_load_problem(const jio_context* io_ctx, const jta_config_problem* cfg, jta_problem_setup* problem)
 {
     JDM_ENTER_FUNCTION;
     jio_result jio_res;
@@ -401,64 +402,64 @@ jta_result jta_load_problem(const jta_config_problem* cfg, jta_problem_setup* pr
     jio_memory_file* p_point_file = NULL, * p_material_file = NULL, * p_profile_file = NULL, * p_element_file = NULL,
                    * p_natural_file = NULL, * p_numerical_file = NULL;
 
-    jio_res = jio_memory_file_create(cfg->definition.points_file, &problem->file_points, 0, 0, 0);
+    jio_res = jio_memory_file_create(io_ctx, cfg->definition.points_file, &problem->file_points, 0, 0, 0);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not open point file \"%s\"", cfg->definition.points_file);
         res = JTA_RESULT_BAD_IO;
         goto failed;
     }
-    p_point_file = &problem->file_points;
+    p_point_file = problem->file_points;
 
 
-    jio_res = jio_memory_file_create(cfg->definition.materials_file, &problem->file_materials, 0, 0, 0);
+    jio_res = jio_memory_file_create(io_ctx, cfg->definition.materials_file, &problem->file_materials, 0, 0, 0);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not open material file \"%s\"", cfg->definition.materials_file);
         res = JTA_RESULT_BAD_IO;
         goto failed;
     }
-    p_material_file = &problem->file_materials;
+    p_material_file = problem->file_materials;
     
-    jio_res = jio_memory_file_create(cfg->definition.profiles_file, &problem->file_profiles, 0, 0, 0);
+    jio_res = jio_memory_file_create(io_ctx, cfg->definition.profiles_file, &problem->file_profiles, 0, 0, 0);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not open profile file \"%s\"", cfg->definition.profiles_file);
         res = JTA_RESULT_BAD_IO;
         goto failed;
     }
-    p_profile_file = &problem->file_profiles;
+    p_profile_file = problem->file_profiles;
 
 
-    jio_res = jio_memory_file_create(cfg->definition.elements_file, &problem->file_elements, 0, 0, 0);
+    jio_res = jio_memory_file_create(io_ctx, cfg->definition.elements_file, &problem->file_elements, 0, 0, 0);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not open element file \"%s\"", cfg->definition.elements_file);
         res = JTA_RESULT_BAD_IO;
         goto failed;
     }
-    p_element_file = &problem->file_elements;
+    p_element_file = problem->file_elements;
 
 
-    jio_res = jio_memory_file_create(cfg->definition.natural_bcs_file, &problem->file_nat, 0, 0, 0);
+    jio_res = jio_memory_file_create(io_ctx, cfg->definition.natural_bcs_file, &problem->file_nat, 0, 0, 0);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not open element file \"%s\"", cfg->definition.natural_bcs_file);
         res = JTA_RESULT_BAD_IO;
         goto failed;
     }
-    p_natural_file = &problem->file_nat;
+    p_natural_file = problem->file_nat;
 
-    jio_res = jio_memory_file_create(cfg->definition.numerical_bcs_file, &problem->file_num, 0, 0, 0);
+    jio_res = jio_memory_file_create(io_ctx, cfg->definition.numerical_bcs_file, &problem->file_num, 0, 0, 0);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not open element file \"%s\"", cfg->definition.numerical_bcs_file);
         res = JTA_RESULT_BAD_IO;
         goto failed;
     }
-    p_numerical_file = &problem->file_num;
+    p_numerical_file = problem->file_num;
 
-    res = jta_load_points(p_point_file, &point_list);
+    res = jta_load_points(io_ctx, p_point_file, &point_list);
     if (res != JTA_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not load points");
@@ -472,7 +473,7 @@ jta_result jta_load_problem(const jta_config_problem* cfg, jta_problem_setup* pr
         goto failed;
     }
 
-    res = jta_load_materials(p_material_file, &material_list);
+    res = jta_load_materials(io_ctx, p_material_file, &material_list);
     if (res != JTA_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not load material_list");
@@ -488,7 +489,7 @@ jta_result jta_load_problem(const jta_config_problem* cfg, jta_problem_setup* pr
         goto failed;
     }
 
-    res = jta_load_profiles(p_profile_file, &profile_list);
+    res = jta_load_profiles(io_ctx, p_profile_file, &profile_list);
     if (res != JTA_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not load profiles");
@@ -506,7 +507,7 @@ jta_result jta_load_problem(const jta_config_problem* cfg, jta_problem_setup* pr
         goto failed;
     }
 
-    res = jta_load_elements(p_element_file, &point_list, &material_list, &profile_list, &element_list);
+    res = jta_load_elements(io_ctx, p_element_file, &point_list, &material_list, &profile_list, &element_list);
     if (res != JTA_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not load element_list");
@@ -526,7 +527,7 @@ jta_result jta_load_problem(const jta_config_problem* cfg, jta_problem_setup* pr
         goto failed;
     }
 
-    res = jta_load_natural_boundary_conditions(p_natural_file, &point_list, &natural_boundary_conditions);
+    res = jta_load_natural_boundary_conditions(io_ctx, p_natural_file, &point_list, &natural_boundary_conditions);
     if (res != JTA_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not load natural boundary conditions");
@@ -538,7 +539,7 @@ jta_result jta_load_problem(const jta_config_problem* cfg, jta_problem_setup* pr
         goto failed;
     }
 
-    res = jta_load_numerical_boundary_conditions(p_numerical_file, &point_list, &numerical_boundary_conditions);
+    res = jta_load_numerical_boundary_conditions(io_ctx, p_numerical_file, &point_list, &numerical_boundary_conditions);
     if (res != JTA_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not load numerical boundary conditions");
@@ -601,11 +602,11 @@ void jta_free_problem(jta_problem_setup* problem)
     jta_free_elements(&problem->element_list);
     jta_free_natural_boundary_conditions(&problem->natural_bcs);
     jta_free_numerical_boundary_conditions(&problem->numerical_bcs);
-    jio_memory_file_destroy(&problem->file_num);
-    jio_memory_file_destroy(&problem->file_nat);
-    jio_memory_file_destroy(&problem->file_elements);
-    jio_memory_file_destroy(&problem->file_profiles);
-    jio_memory_file_destroy(&problem->file_materials);
-    jio_memory_file_destroy(&problem->file_points);
+    jio_memory_file_destroy(problem->file_num);
+    jio_memory_file_destroy(problem->file_nat);
+    jio_memory_file_destroy(problem->file_elements);
+    jio_memory_file_destroy(problem->file_profiles);
+    jio_memory_file_destroy(problem->file_materials);
+    jio_memory_file_destroy(problem->file_points);
     JDM_LEAVE_FUNCTION;
 }

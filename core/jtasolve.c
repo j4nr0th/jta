@@ -6,6 +6,7 @@
 #include <matrices/sparse_row_compressed.h>
 #include <solvers/jacobi_point_iteration.h>
 #include "jtasolve.h"
+#include <jdm.h>
 
 jta_result jta_solve_problem(const jta_config_problem* cfg, const jta_problem_setup* problem, jta_solution* solution)
 {

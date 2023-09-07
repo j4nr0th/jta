@@ -3,6 +3,7 @@
 //
 
 #include "jtamaterials.h"
+#include <jdm.h>
 
 static const jio_string_segment MATERIAL_FILE_HEADERS[] =
         {
@@ -35,7 +36,7 @@ static bool converter_material_label_function(jio_string_segment* v, void* param
     material_parse_ss_data* const data = (material_parse_ss_data*)param;
     for (uint32_t i = 0; i < data->count; ++i)
     {
-        if (jio_string_segment_equal(data->values + i, v))
+        if (strncmp(data->values[i].begin, v->begin, v->len) == 0)
         {
             JDM_ERROR("Material label \"%.*s\" was already defined as material %u", (int)v->len, v->begin, i);
             JDM_LEAVE_FUNCTION;
@@ -75,18 +76,13 @@ static bool (*converter_functions[])(jio_string_segment* v, void* param) =
                 converter_float_function,
         };
 
-jta_result jta_load_materials(const jio_memory_file* mem_file, jta_material_list* material_list)
+jta_result
+jta_load_materials(const jio_context* io_ctx, const jio_memory_file* mem_file, jta_material_list* material_list)
 {
     JDM_ENTER_FUNCTION;
     jta_result res;
-    uint32_t line_count = 0;
-    jio_result jio_res = jio_memory_file_count_lines(mem_file, &line_count);
-    if (jio_res != JIO_RESULT_SUCCESS)
-    {
-        JDM_ERROR("Could not count lines in material input file, reason: %s", jio_result_to_str(jio_res));
-        res = JTA_RESULT_BAD_IO;
-        goto end;
-    }
+    uint32_t line_count = jio_memory_file_count_lines(mem_file);
+
     f32* density = ill_jalloc(G_JALLOCATOR, sizeof(*density) * (line_count - 1));
     if (!density)
     {
@@ -142,16 +138,8 @@ jta_result jta_load_materials(const jio_memory_file* mem_file, jta_material_list
     material_parse_ss_data ss_parse_data = {.values = labels, .count = 0};
     void* param_array[] = { &ss_parse_data, float_parse_data + 0, float_parse_data + 1, float_parse_data + 2, float_parse_data + 3};
 
-    jio_stack_allocator_callbacks jio_callbacks =
-            {
-                    .param = G_LIN_JALLOCATOR,
-                    .alloc = (void* (*)(void*, uint64_t)) lin_jalloc,
-                    .free = (void (*)(void*, void*)) lin_jfree,
-                    .realloc = (void* (*)(void*, void*, uint64_t)) lin_jrealloc,
-                    .restore = (void (*)(void*, void*)) lin_jallocator_restore_current,
-                    .save = (void* (*)(void*)) lin_jallocator_save_state,
-            };
-    jio_res = jio_process_csv_exact(mem_file, ",", MATERIAL_FILE_HEADER_COUNT, MATERIAL_FILE_HEADERS, converter_functions, param_array, &jio_callbacks);
+
+    jio_result jio_res = jio_process_csv_exact(io_ctx, mem_file, ",", MATERIAL_FILE_HEADER_COUNT, MATERIAL_FILE_HEADERS, converter_functions, param_array);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Processing the material input file failed, reason: %s", jio_result_to_str(jio_res));

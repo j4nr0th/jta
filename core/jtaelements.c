@@ -3,6 +3,7 @@
 //
 
 #include "jtaelements.h"
+#include <jdm.h>
 
 static const jio_string_segment ELEMENT_FILE_HEADERS[] =
         {
@@ -57,7 +58,7 @@ static bool converter_element_label_function(jio_string_segment* v, void* param)
     element_ss_parse_data* const data = (element_ss_parse_data*)param;
     for (uint32_t i = 0; i < data->count; ++i)
     {
-        if (jio_string_segment_equal(data->values + i, v))
+        if (strncmp(data->values[i].begin , v->begin, v->len) == 0)
         {
             JDM_ERROR("Element label \"%.*s\" was already defined as element %u", (int)v->len, v->begin, i);
             JDM_LEAVE_FUNCTION;
@@ -75,7 +76,7 @@ static bool converter_material_label_function(jio_string_segment* v, void* param
     element_parse_mat_data* const data = (element_parse_mat_data*)param;
     for (uint32_t i = 0; i < data->materials->count; ++i)
     {
-        if (jio_string_segment_equal(data->materials->labels + i, v))
+        if (strncmp(data->materials->labels[i].begin, v->begin, v->len) == 0)
         {
             data->values[data->count++] = i;
             JDM_LEAVE_FUNCTION;
@@ -93,7 +94,7 @@ static bool converter_profile_label_function(jio_string_segment* v, void* param)
     element_pro_parse_data* const data = (element_pro_parse_data*)param;
     for (uint32_t i = 0; i < data->profiles->count; ++i)
     {
-        if (jio_string_segment_equal(data->profiles->labels + i, v))
+        if (strncmp(data->profiles->labels[i].begin, v->begin, v->len) == 0)
         {
             data->values[data->count++] = i;
             JDM_LEAVE_FUNCTION;
@@ -111,7 +112,7 @@ static bool converter_point_label_function(jio_string_segment* v, void* param)
     element_pt_parse_data* const data = (element_pt_parse_data*)param;
     for (uint32_t i = 0; i < data->points->count; ++i)
     {
-        if (jio_string_segment_equal(data->points->label + i, v))
+        if (strncmp(data->points->label[i].begin, v->begin, v->len) == 0)
         {
             data->values[data->count++] = i;
             JDM_LEAVE_FUNCTION;
@@ -133,19 +134,12 @@ static bool (*converter_functions[])(jio_string_segment* v, void* param) =
         };
 
 jta_result jta_load_elements(
-        const jio_memory_file* mem_file, const jta_point_list* points, const jta_material_list* materials,
-        const jta_profile_list* profiles, jta_element_list* element_list)
+        const jio_context* io_ctx, const jio_memory_file* mem_file, const jta_point_list* points,
+        const jta_material_list* materials, const jta_profile_list* profiles, jta_element_list* element_list)
 {
     JDM_ENTER_FUNCTION;
     jta_result res;
-    uint32_t line_count = 0;
-    jio_result jio_res = jio_memory_file_count_lines(mem_file, &line_count);
-    if (jio_res != JIO_RESULT_SUCCESS)
-    {
-        JDM_ERROR("Could not count lines in element input file, reason: %s", jio_result_to_str(jio_res));
-        res = JTA_RESULT_BAD_IO;
-        goto end;
-    }
+    uint32_t line_count = jio_memory_file_count_lines(mem_file);
     uint32_t* i_point0 = ill_jalloc(G_JALLOCATOR, sizeof(*i_point0) * (line_count - 1));
     if (!i_point0)
     {
@@ -211,16 +205,8 @@ jta_result jta_load_elements(
     element_pt_parse_data  pts_parse_data0 = {.count = 0, .labels = labels, .points = points, .values = i_point0};
     element_pt_parse_data  pts_parse_data1 = {.count = 0, .labels = labels, .points = points, .values = i_point1};
     void* param_array[] = {&label_parse_data, &mat_parse_data, &pro_parse_data, &pts_parse_data0, &pts_parse_data1};
-    jio_stack_allocator_callbacks jio_callbacks =
-            {
-                    .param = G_LIN_JALLOCATOR,
-                    .alloc = (void* (*)(void*, uint64_t)) lin_jalloc,
-                    .free = (void (*)(void*, void*)) lin_jfree,
-                    .realloc = (void* (*)(void*, void*, uint64_t)) lin_jrealloc,
-                    .restore = (void (*)(void*, void*)) lin_jallocator_restore_current,
-                    .save = (void* (*)(void*)) lin_jallocator_save_state,
-            };
-    jio_res = jio_process_csv_exact(mem_file, ",", ELEMENT_FILE_HEADER_COUNT, ELEMENT_FILE_HEADERS, converter_functions, param_array, &jio_callbacks);
+
+    jio_result jio_res = jio_process_csv_exact(io_ctx, mem_file, ",", ELEMENT_FILE_HEADER_COUNT, ELEMENT_FILE_HEADERS, converter_functions, param_array);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Processing the element input file failed, reason: %s", jio_result_to_str(jio_res));
