@@ -9,6 +9,7 @@
 #include "solvers/jacobi_point_iteration.h"
 #include "solvers/bicgstab_iteration.h"
 #include <jdm.h>
+#include <ctype.h>
 
 static void truss_mouse_button_press(const jwin_event_mouse_button_press* e, void* param)
 {
@@ -207,34 +208,41 @@ static void truss_key_press(const jwin_event_key_press* e, void* param)
     jta_draw_state* const state = param;
     jrui_context* const ui_ctx = state->ui_state.ui_context;
     static int solved = 0;
-
+    int handled_by_ui = 0;
     //  Forward keys to UI
     switch (e->keycode)
     {
-    case JWIN_KEY_DOWN:jrui_input_key_down(ui_ctx, JRUI_INPUT_DOWN); break;
-    case JWIN_KEY_UP:jrui_input_key_down(ui_ctx, JRUI_INPUT_UP); break;
-    case JWIN_KEY_LEFT:jrui_input_key_down(ui_ctx, JRUI_INPUT_LEFT); break;
-    case JWIN_KEY_RIGHT:jrui_input_key_down(ui_ctx, JRUI_INPUT_RIGHT); break;
-    case JWIN_KEY_ESC:jrui_input_key_down(ui_ctx, JRUI_INPUT_ESC); break;
+    case JWIN_KEY_DOWN:handled_by_ui = jrui_input_key_down(ui_ctx, JRUI_INPUT_DOWN); break;
+    case JWIN_KEY_UP:handled_by_ui = jrui_input_key_down(ui_ctx, JRUI_INPUT_UP); break;
+    case JWIN_KEY_LEFT:handled_by_ui = jrui_input_key_down(ui_ctx, JRUI_INPUT_LEFT); break;
+    case JWIN_KEY_RIGHT:handled_by_ui = jrui_input_key_down(ui_ctx, JRUI_INPUT_RIGHT); break;
+    case JWIN_KEY_ESC:handled_by_ui = jrui_input_key_down(ui_ctx, JRUI_INPUT_ESC); break;
     case JWIN_KEY_TAB:
         if (e->mods & JWIN_MOD_STATE_TYPE_SHIFT)
         {
-            jrui_input_key_down(ui_ctx, JRUI_INPUT_GROUP_NEXT);
+            handled_by_ui = jrui_input_key_down(ui_ctx, JRUI_INPUT_GROUP_NEXT);
         }
         else
         {
-            jrui_input_key_down(ui_ctx, JRUI_INPUT_GROUP_PREV);
+            handled_by_ui = jrui_input_key_down(ui_ctx, JRUI_INPUT_GROUP_PREV);
         }
         break;
+    case JWIN_KEY_NUM_ENTER:
     case JWIN_KEY_RETURN:
-        jrui_input_key_down(ui_ctx, JRUI_INPUT_RTRN);
+        handled_by_ui = jrui_input_key_down(ui_ctx, JRUI_INPUT_RTRN);
+        break;
+    case JWIN_KEY_DELETE:
+        handled_by_ui = jrui_input_key_down(ui_ctx, JRUI_INPUT_DEL);
+        break;
+    case JWIN_KEY_BACKSPACE:
+        handled_by_ui = jrui_input_key_down(ui_ctx, JRUI_INPUT_BKSP);
         break;
     default:break;
     }
 
-    if (e->repeated)
+    if (e->repeated || handled_by_ui)
     {
-        //  Do not acknowledge the repeated events
+        //  Do not acknowledge the repeated events and do not handle events that ui took
         JDM_LEAVE_FUNCTION;
         return;
     }
@@ -326,6 +334,47 @@ end:
     JDM_LEAVE_FUNCTION;
 }
 
+static void truss_key_release(const jwin_event_key_release* e, void* param)
+{
+    JDM_ENTER_FUNCTION;
+    jta_draw_state* const state = param;
+    jrui_context* const ui_ctx = state->ui_state.ui_context;
+    
+    //  Forward keys to UI
+    switch (e->keycode)
+    {
+    case JWIN_KEY_DOWN:jrui_input_key_up(ui_ctx, JRUI_INPUT_DOWN); break;
+    case JWIN_KEY_UP:jrui_input_key_up(ui_ctx, JRUI_INPUT_UP); break;
+    case JWIN_KEY_LEFT:jrui_input_key_up(ui_ctx, JRUI_INPUT_LEFT); break;
+    case JWIN_KEY_RIGHT:jrui_input_key_up(ui_ctx, JRUI_INPUT_RIGHT); break;
+    case JWIN_KEY_ESC:jrui_input_key_up(ui_ctx, JRUI_INPUT_ESC); break;
+    case JWIN_KEY_TAB:
+        if (e->mods & JWIN_MOD_STATE_TYPE_SHIFT)
+        {
+            jrui_input_key_up(ui_ctx, JRUI_INPUT_GROUP_NEXT);
+        }
+        else
+        {
+            jrui_input_key_up(ui_ctx, JRUI_INPUT_GROUP_PREV);
+        }
+        break;
+    case JWIN_KEY_NUM_ENTER:
+    case JWIN_KEY_RETURN:
+        jrui_input_key_up(ui_ctx, JRUI_INPUT_RTRN);
+        break;
+    case JWIN_KEY_DELETE:
+        jrui_input_key_up(ui_ctx, JRUI_INPUT_DEL);
+        break;
+    case JWIN_KEY_BACKSPACE:
+        jrui_input_key_up(ui_ctx, JRUI_INPUT_BKSP);
+        break;
+    default:break;
+    }
+
+    
+    JDM_LEAVE_FUNCTION;
+}
+
 static void truss_mouse_button_double_press(const jwin_event_mouse_button_double_press* e, void* param)
 {
     jta_draw_state* const state = param;
@@ -380,6 +429,16 @@ static void unfocus_event(const jwin_event_focus_lose* e, void* param)
     jrui_input_unfocus(state->ui_state.ui_context);
 }
 
+static void character_input_event(const jwin_event_key_char* e, void* param)
+{
+    jta_draw_state* const state = param;
+    jrui_context* ui_ctx = state->ui_state.ui_context;
+    if (isprint(*e->utf8))
+    {
+        jrui_input_character(ui_ctx, e->utf8);
+    }
+}
+
 const jta_event_handler JTA_HANDLER_ARRAY[] =
         {
                 {.type = JWIN_EVENT_TYPE_MOUSE_PRESS, .callback.mouse_button_press = truss_mouse_button_press},
@@ -387,10 +446,12 @@ const jta_event_handler JTA_HANDLER_ARRAY[] =
                 {.type = JWIN_EVENT_TYPE_MOUSE_DOUBLE_PRESS, .callback.mouse_button_double_press = truss_mouse_button_double_press},
                 {.type = JWIN_EVENT_TYPE_MOUSE_MOVE, .callback.mouse_motion = truss_mouse_motion},
                 {.type = JWIN_EVENT_TYPE_KEY_PRESS, .callback.key_press = truss_key_press},
+                {.type = JWIN_EVENT_TYPE_KEY_RELEASE, .callback.key_release = truss_key_release},
                 {.type = JWIN_EVENT_TYPE_REFRESH, .callback.refresh = refresh_event},
                 {.type = JWIN_EVENT_TYPE_CLOSE, .callback.close = close_event},
                 {.type = JWIN_EVENT_TYPE_DESTROY, .callback.destroy = destroy_event},
                 {.type = JWIN_EVENT_TYPE_FOCUS_LOSE, .callback.focus_lose = unfocus_event},
+                {.type = JWIN_EVENT_TYPE_KEY_CHARACTER, .callback.key_char = character_input_event},
         };
 
 

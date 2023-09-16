@@ -181,7 +181,8 @@ static void bnt2_callback(jrui_widget_base* widget, void* param)
     JDM_ENTER_FUNCTION;
 
 
-    jrui_widget_base* p_to_replace = jrui_get_by_label(jrui_widget_get_context(widget), "Info window");
+    jrui_context* ui_ctx = jrui_widget_get_context(widget);
+    jrui_widget_base* p_to_replace = jrui_get_by_label(ui_ctx, "Info window");
     if (!p_to_replace)
     {
         JDM_ERROR("Could not find \"Info window\" widget");
@@ -199,23 +200,29 @@ static void bnt2_callback(jrui_widget_base* widget, void* param)
     char buffer[64];
 
     snprintf(buffer, sizeof(buffer), "%g", p_cfg->problem.sim_and_sol.gravity[0]);
-    update_text_widget(jrui_widget_get_context(widget), "gravity x", buffer);
+    jrui_update_text_input_hint_by_label(ui_ctx, "gravity x", buffer);
+    jrui_update_text_input_param_by_label(ui_ctx, "gravity x", p_cfg->problem.sim_and_sol.gravity + 0);
+
     snprintf(buffer, sizeof(buffer), "%g", p_cfg->problem.sim_and_sol.gravity[1]);
-    update_text_widget(jrui_widget_get_context(widget), "gravity y", buffer);
+    jrui_update_text_input_hint_by_label(ui_ctx, "gravity y", buffer);
+    jrui_update_text_input_param_by_label(ui_ctx, "gravity y", p_cfg->problem.sim_and_sol.gravity + 1);
+
     snprintf(buffer, sizeof(buffer), "%g", p_cfg->problem.sim_and_sol.gravity[2]);
-    update_text_widget(jrui_widget_get_context(widget), "gravity z", buffer);
+    jrui_update_text_input_hint_by_label(ui_ctx, "gravity z", buffer);
+    jrui_update_text_input_param_by_label(ui_ctx, "gravity z", p_cfg->problem.sim_and_sol.gravity + 2);
+
 
     snprintf(buffer, sizeof(buffer), "%u", p_cfg->problem.sim_and_sol.max_iterations);
-    update_text_widget(jrui_widget_get_context(widget), "iteration count", buffer);
+    update_text_widget(ui_ctx, "iteration count", buffer);
 
     snprintf(buffer, sizeof(buffer), "%g", p_cfg->problem.sim_and_sol.relaxation_factor);
-    update_text_widget(jrui_widget_get_context(widget), "relax factor", buffer);
+    update_text_widget(ui_ctx, "relax factor", buffer);
 
     snprintf(buffer, sizeof(buffer), "%g", p_cfg->problem.sim_and_sol.convergence_criterion);
-    update_text_widget(jrui_widget_get_context(widget), "convergence text", buffer);
+    update_text_widget(ui_ctx, "convergence text", buffer);
 
     snprintf(buffer, sizeof(buffer), "%g", p_cfg->problem.sim_and_sol.relaxation_factor);
-    update_text_widget(jrui_widget_get_context(widget), "relax factor", buffer);
+    update_text_widget(ui_ctx, "relax factor", buffer);
 
     JDM_LEAVE_FUNCTION;
 }

@@ -300,12 +300,18 @@ int main(int argc, char* argv[argc])
 
         jrui_color_scheme color_scheme =
                 {
-                .fg = {.r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF},
-                .bg = {.r = 0x30, .g = 0x30, .b = 0x30, .a = 0xFF},
+                .text = {.r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF},
+                .background = {.r = 0x10, .g = 0x20, .b = 0x30, .a = 0xFF},
                 .drag_bg = {.r = 0x50, .g = 0x50, .b = 0x50, .a = 0xFF},
                 .button_up = {.r = 0x80, .g = 0x80, .b = 0x80, .a = 0xFF},
                 .button_down = {.r = 0xC0, .g = 0xC0, .b = 0xC0, .a = 0xFF},
                 .button_hover = {.r = 0xA0, .g = 0xA0, .b = 0xA0, .a = 0xFF},
+                .button_toggled = {.r = 0xB0, .g = 0xB0, .b = 0xB0, .a = 0xFF},
+                .border = {.r = 0xC0, .g = 0xD0, .b = 0xFF, .a = 0xFF},
+                .text_input_fg_focused = {.r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF},
+                .text_input_bg_focused = {.r = 0x00, .g = 0x00, .b = 0x00, .a = 0xFF},
+                .text_input_fg_unfocused = {.r = 0x80, .g = 0x80, .b = 0x80, .a = 0xFF},
+                .text_input_bg_unfocused = {.r = 0x40, .g = 0x40, .b = 0x40, .a = 0xFF},
                 };
         jrui_context_create_info context_create_info =
                 {
