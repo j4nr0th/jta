@@ -311,6 +311,7 @@ int main(int argc, char* argv[argc])
                 .text_input_fg_unfocused = {.r = 0x80, .g = 0x80, .b = 0x80, .a = 0xFF},
                 .text_input_bg_unfocused = {.r = 0x40, .g = 0x40, .b = 0x40, .a = 0xFF},
                 };
+        jta_ui_init(&program_state);    //  This must come before UI_ROOT is used
         jrui_context_create_info context_create_info =
                 {
                     .width = wnd_w,
