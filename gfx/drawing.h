@@ -15,7 +15,7 @@
 #include "mesh.h"
 #include "vk_resources.h"
 #include "../ui/jwin_handlers.h"
-
+#include "../jta_state.h"
 gfx_result
 jta_draw_frame(
         jta_vulkan_window_context* wnd_ctx, jta_ui_state* ui_state, mtx4 view_matrix, jta_structure_meshes* meshes,

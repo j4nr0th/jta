@@ -2,18 +2,18 @@
 // Created by jan on 21.5.2023.
 //
 
-#include <inttypes.h>
+//#include <inttypes.h>
 #include "jwin_handlers.h"
 #include "../core/jtasolve.h"
 #include "../gfx/drawing.h"
 #include "solvers/jacobi_point_iteration.h"
-#include "solvers/bicgstab_iteration.h"
+//#include "solvers/bicgstab_iteration.h"
 #include <jdm.h>
 #include <ctype.h>
 
 static void truss_mouse_button_press(const jwin_event_mouse_button_press* e, void* param)
 {
-    jta_draw_state* const state = param;
+    jta_state* const state = param;
     assert(state);
     jrui_context* const ui_ctx = state->ui_state.ui_context;
     switch (e->button)
@@ -27,8 +27,8 @@ static void truss_mouse_button_press(const jwin_event_mouse_button_press* e, voi
         if (!jrui_input_mouse_press(ui_ctx, e->x, e->y, JRUI_INPUT_RMB))
         {
             //  if UI does not take this event, I do
-            state->track_move = 1;
-            state->mv_x = e->x; state->mv_y = e->y;
+            state->draw_state.track_move = 1;
+            state->draw_state.mv_x = e->x; state->draw_state.mv_y = e->y;
         }
         break;
 
@@ -37,8 +37,8 @@ static void truss_mouse_button_press(const jwin_event_mouse_button_press* e, voi
         if (!jrui_input_mouse_press(ui_ctx, e->x, e->y, JRUI_INPUT_MMB))
         {
             //  if UI does not take this event, I do
-            state->track_turn = 1;
-            state->mv_x = e->x; state->mv_y = e->y;
+            state->draw_state.track_turn = 1;
+            state->draw_state.mv_x = e->x; state->draw_state.mv_y = e->y;
         }
         break;
 
@@ -47,9 +47,9 @@ static void truss_mouse_button_press(const jwin_event_mouse_button_press* e, voi
         if (!jrui_input_mouse_press(ui_ctx, e->x, e->y, JRUI_INPUT_SRUP))
         {
             //  if UI does not take this event, I do
-            jta_camera_zoom(&state->camera, +0.05f);
-            state->view_matrix = jta_camera_to_view_matrix(&state->camera);
-            state->needs_redraw = 1;
+            jta_camera_zoom(&state->draw_state.camera, +0.05f);
+            state->draw_state.view_matrix = jta_camera_to_view_matrix(&state->draw_state.camera);
+            state->draw_state.needs_redraw = 1;
         }
         break;
 
@@ -58,9 +58,9 @@ static void truss_mouse_button_press(const jwin_event_mouse_button_press* e, voi
         if (!jrui_input_mouse_press(ui_ctx, e->x, e->y, JRUI_INPUT_SRDN))
         {
             //  if UI does not take this event, I do
-            jta_camera_zoom(&state->camera, -0.05f);
-            state->view_matrix = jta_camera_to_view_matrix(&state->camera);
-            state->needs_redraw = 1;
+            jta_camera_zoom(&state->draw_state.camera, -0.05f);
+            state->draw_state.view_matrix = jta_camera_to_view_matrix(&state->draw_state.camera);
+            state->draw_state.needs_redraw = 1;
         }
         break;
 
@@ -70,7 +70,7 @@ static void truss_mouse_button_press(const jwin_event_mouse_button_press* e, voi
 
 static void truss_mouse_button_release(const jwin_event_mouse_button_release* e, void* param)
 {
-    jta_draw_state* const state = param;
+    jta_state* const state = param;
     jrui_context* const ui_ctx = state->ui_state.ui_context;
     switch (e->button)
     {
@@ -80,22 +80,22 @@ static void truss_mouse_button_release(const jwin_event_mouse_button_release* e,
     case JWIN_MOUSE_BUTTON_TYPE_MIDDLE:
         assert(state);
         jrui_input_mouse_release(ui_ctx, e->x, e->y, JRUI_INPUT_MMB);
-        state->track_turn = 0;
+        state->draw_state.track_turn = 0;
         break;
     case JWIN_MOUSE_BUTTON_TYPE_RIGHT:
         assert(state);
         jrui_input_mouse_release(ui_ctx, e->x, e->y, JRUI_INPUT_RMB);
-        state->track_move = 0;
+        state->draw_state.track_move = 0;
         break;
     default:break;
     }
-    state->mv_x = e->x;
-    state->mv_y = e->y;
+    state->draw_state.mv_x = e->x;
+    state->draw_state.mv_y = e->y;
 }
 
 static void truss_mouse_motion(const jwin_event_mouse_motion* e, void* param)
 {
-    jta_draw_state* const state = param;
+    jta_state* const state = param;
     assert(state);
     int x = e->x, y = e->y;
     jrui_input_mouse_move(state->ui_state.ui_context, x, y);
@@ -118,12 +118,12 @@ static void truss_mouse_motion(const jwin_event_mouse_motion* e, void* param)
     {
         y = (i32)height - 1;
     }
-    if (state->track_turn)
+    if (state->draw_state.track_turn)
     {
         const f32 w = (f32)width, h = (f32)height;
         //  Update camera
-        jta_camera_3d* const camera = &state->camera;
-        const i32 old_x = state->mv_x, old_y = state->mv_y;
+        jta_camera_3d* const camera = &state->draw_state.camera;
+        const i32 old_x = state->draw_state.mv_x, old_y = state->draw_state.mv_y;
         if (old_x == x && old_y == y)
         {
             //  No rotation
@@ -156,18 +156,18 @@ static void truss_mouse_motion(const jwin_event_mouse_motion* e, void* param)
 //        const vec4 u = vec4_unit(real_axis);
 //        printf("Axis of rotation (%g, %g, %g) by %6.2f degrees\n", u.x, u.y, u.z, 180.0 * rotation_angle);
 
-        state->mv_x = x;
-        state->mv_y = y;
+        state->draw_state.mv_x = x;
+        state->draw_state.mv_y = y;
 
-        state->view_matrix = jta_camera_to_view_matrix(camera);
-        state->needs_redraw = 1;
+        state->draw_state.view_matrix = jta_camera_to_view_matrix(camera);
+        state->draw_state.needs_redraw = 1;
     }
-    if (state->track_move)
+    if (state->draw_state.track_move)
     {
         const f32 w = (f32)width, h = (f32)height;
         //  Update camera
-        jta_camera_3d* const camera = &state->camera;
-        const i32 old_x = state->mv_x, old_y = state->mv_y;
+        jta_camera_3d* const camera = &state->draw_state.camera;
+        const i32 old_x = state->draw_state.mv_x, old_y = state->draw_state.mv_y;
         if (old_x == x && old_y == y)
         {
             //  No movement
@@ -193,19 +193,19 @@ static void truss_mouse_motion(const jwin_event_mouse_motion* e, void* param)
         real_axis = vec4_add(real_axis, vec4_mul_one(camera->uy, move.y));
         jta_camera_move(camera, vec4_mul_one(real_axis, move_mag));
 
-        state->view_matrix = jta_camera_to_view_matrix(camera);
-        state->needs_redraw = 1;
+        state->draw_state.view_matrix = jta_camera_to_view_matrix(camera);
+        state->draw_state.needs_redraw = 1;
     }
     assert(state);
-    state->mv_x = x;
-    state->mv_y = y;
+    state->draw_state.mv_x = x;
+    state->draw_state.mv_y = y;
     end:;
 }
 
 static void truss_key_press(const jwin_event_key_press* e, void* param)
 {
     JDM_ENTER_FUNCTION;
-    jta_draw_state* const state = param;
+    jta_state* const state = param;
     jrui_context* const ui_ctx = state->ui_state.ui_context;
     static int solved = 0;
     int handled_by_ui = 0;
@@ -251,7 +251,7 @@ static void truss_key_press(const jwin_event_key_press* e, void* param)
         if (!solved)
         {
             assert(state);
-            jta_result res = jta_solve_problem(&state->config->problem, state->p_problem, state->p_solution);
+            jta_result res = jta_solve_problem(&state->master_config.problem, &state->problem_setup, &state->problem_solution);
             if (res != JTA_RESULT_SUCCESS)
             {
                 JDM_ERROR("Could not solve the problem, reason: %s", jta_result_to_str(res));
@@ -266,14 +266,14 @@ static void truss_key_press(const jwin_event_key_press* e, void* param)
     {
         jta_structure_meshes new_meshes = {};
         gfx_result res;
-        res = mesh_init_sphere(&new_meshes.spheres, 4, state->wnd_ctx);
+        res = mesh_init_sphere(&new_meshes.spheres, 4, state->draw_state.wnd_ctx);
         if (res != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not initialise new sphere mesh, reason: %s", gfx_result_to_str(res));
             goto end;
         }
 
-        res = mesh_init_cone(&new_meshes.cones, 1 << 4, state->wnd_ctx);
+        res = mesh_init_cone(&new_meshes.cones, 1 << 4, state->draw_state.wnd_ctx);
         if (res != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not initialise new cone mesh, reason: %s", gfx_result_to_str(res));
@@ -281,7 +281,7 @@ static void truss_key_press(const jwin_event_key_press* e, void* param)
             goto end;
         }
 
-        res = mesh_init_truss(&new_meshes.cylinders, 1 << 4, state->wnd_ctx);
+        res = mesh_init_truss(&new_meshes.cylinders, 1 << 4, state->draw_state.wnd_ctx);
         if (res != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not initialise new cylinder mesh, reason: %s", gfx_result_to_str(res));
@@ -304,29 +304,29 @@ static void truss_key_press(const jwin_event_key_press* e, void* param)
 //                goto end;
 //            }
             res = jta_structure_meshes_generate_deformed(
-                    &new_meshes, &state->config->display, state->p_problem, state->p_solution, state->wnd_ctx);
+                    &new_meshes, &state->master_config.display, &state->problem_setup, &state->problem_solution, state->draw_state.wnd_ctx);
         }
         else
         {
             res = jta_structure_meshes_generate_undeformed(
-                    &new_meshes, &state->config->display, state->p_problem, state->wnd_ctx);
+                    &new_meshes, &state->master_config.display, &state->problem_setup, state->draw_state.wnd_ctx);
         }
 
         if (res != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not create new mesh, reason: %s", gfx_result_to_str(res));
-            mesh_destroy(state->wnd_ctx, &new_meshes.cones);
-            mesh_destroy(state->wnd_ctx, &new_meshes.spheres);
-            mesh_destroy(state->wnd_ctx, &new_meshes.cylinders);
+            mesh_destroy(state->draw_state.wnd_ctx, &new_meshes.cones);
+            mesh_destroy(state->draw_state.wnd_ctx, &new_meshes.spheres);
+            mesh_destroy(state->draw_state.wnd_ctx, &new_meshes.cylinders);
             goto end;
         }
 
-        jta_structure_meshes old_meshes = state->meshes;
-        state->meshes = new_meshes;
-        mesh_destroy(state->wnd_ctx, &old_meshes.cones);
-        mesh_destroy(state->wnd_ctx, &old_meshes.spheres);
-        mesh_destroy(state->wnd_ctx, &old_meshes.cylinders);
-        state->needs_redraw = 1;
+        jta_structure_meshes old_meshes = state->draw_state.meshes;
+        state->draw_state.meshes = new_meshes;
+        mesh_destroy(state->draw_state.wnd_ctx, &old_meshes.cones);
+        mesh_destroy(state->draw_state.wnd_ctx, &old_meshes.spheres);
+        mesh_destroy(state->draw_state.wnd_ctx, &old_meshes.cylinders);
+        state->draw_state.needs_redraw = 1;
     }
 
 
@@ -337,7 +337,7 @@ end:
 static void truss_key_release(const jwin_event_key_release* e, void* param)
 {
     JDM_ENTER_FUNCTION;
-    jta_draw_state* const state = param;
+    jta_state* const state = param;
     jrui_context* const ui_ctx = state->ui_state.ui_context;
     
     //  Forward keys to UI
@@ -377,12 +377,12 @@ static void truss_key_release(const jwin_event_key_release* e, void* param)
 
 static void truss_mouse_button_double_press(const jwin_event_mouse_button_double_press* e, void* param)
 {
-    jta_draw_state* const state = param;
+    jta_state* const state = param;
     if (e->button == JWIN_MOUSE_BUTTON_TYPE_MIDDLE)
     {
-        state->needs_redraw = 1;
-        state->camera = state->original_camera;
-        state->view_matrix = jta_camera_to_view_matrix(&state->camera);
+        state->draw_state.needs_redraw = 1;
+        state->draw_state.camera = state->draw_state.original_camera;
+        state->draw_state.view_matrix = jta_camera_to_view_matrix(&state->draw_state.camera);
     }
 }
 
@@ -390,18 +390,18 @@ static void refresh_event(const jwin_event_refresh* e, void* param)
 {
     JDM_ENTER_FUNCTION;
     (void) e;
-    jta_draw_state* const state = param;
-    state->needs_redraw = 1;
+    jta_state* const state = param;
+    state->draw_state.needs_redraw = 1;
     JDM_LEAVE_FUNCTION;
 }
 
 static void destroy_event(const jwin_event_destroy* e, void* param)
 {
     (void) e;
-    jta_draw_state* const state = param;
-    vkDeviceWaitIdle(state->wnd_ctx->device);
+    jta_state* const state = param;
+    vkDeviceWaitIdle(state->draw_state.wnd_ctx->device);
     //  Destroy allocated buffers
-    jta_structure_meshes_destroy(state->wnd_ctx, &state->meshes);
+    jta_structure_meshes_destroy(state->draw_state.wnd_ctx, &state->draw_state.meshes);
     if (state->ui_state.ui_vtx_buffer)
     {
         jvm_buffer_destroy(state->ui_state.ui_vtx_buffer);
@@ -410,9 +410,9 @@ static void destroy_event(const jwin_event_destroy* e, void* param)
     {
         jvm_buffer_destroy(state->ui_state.ui_idx_buffer);
     }
-    jta_texture_destroy(state->wnd_ctx, state->ui_state.ui_font_texture);
-    jta_vulkan_window_context_destroy(state->wnd_ctx);
-    jta_vulkan_context_destroy(state->vk_ctx);
+    jta_texture_destroy(state->draw_state.wnd_ctx, state->ui_state.ui_font_texture);
+    jta_vulkan_window_context_destroy(state->draw_state.wnd_ctx);
+    jta_vulkan_context_destroy(state->draw_state.vk_ctx);
 }
 
 static int close_event(const jwin_event_close* e, void* param)
@@ -425,13 +425,13 @@ static int close_event(const jwin_event_close* e, void* param)
 static void unfocus_event(const jwin_event_focus_lose* e, void* param)
 {
     (void) e;
-    jta_draw_state* const state = param;
+    jta_state* const state = param;
     jrui_input_unfocus(state->ui_state.ui_context);
 }
 
 static void character_input_event(const jwin_event_key_char* e, void* param)
 {
-    jta_draw_state* const state = param;
+    jta_state* const state = param;
     jrui_context* ui_ctx = state->ui_state.ui_context;
     if (isprint(*e->utf8))
     {

@@ -14,7 +14,7 @@ const char* vk_result_to_str(VkResult res);
 /**
  * @brief Purpose of this struct is to hold data which is window independent and can be created before the window
  */
-struct jta_vulkan_context_struct
+struct jta_vulkan_context_T
 {
     const VkAllocationCallbacks* allocator; //  memory allocation callbacks
     VkInstance instance;                    //  instance handle
@@ -26,21 +26,21 @@ struct jta_vulkan_context_struct
     PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT;
 #endif
 };
-typedef struct jta_vulkan_context_struct jta_vulkan_context;
+typedef struct jta_vulkan_context_T jta_vulkan_context;
 
-struct jta_vulkan_render_pass_struct
+struct jta_vulkan_render_pass_T
 {
     VkRenderPass render_pass;
     VkPipeline pipeline;
     VkFramebuffer* framebuffers;
     unsigned framebuffer_count;
 };
-typedef struct jta_vulkan_render_pass_struct jta_vulkan_render_pass;
+typedef struct jta_vulkan_render_pass_T jta_vulkan_render_pass;
 
 /**
  * @brief Purpose of this struct is to hold data related to an individual window's swapchain
  */
-struct jta_vulkan_swapchain_struct
+struct jta_vulkan_swapchain_T
 {
     VkExtent2D window_extent;           //  The extent of the window's surface
     VkSwapchainKHR swapchain;           //  Handle to the swapchin
@@ -67,22 +67,22 @@ struct jta_vulkan_swapchain_struct
 
     jta_frame_job_queue** frame_queues; //  Queues, which execute all jobs submitted during previous frame before starting again
 };
-typedef struct jta_vulkan_swapchain_struct jta_vulkan_swapchain;
+typedef struct jta_vulkan_swapchain_T jta_vulkan_swapchain;
 
-struct jta_vulkan_queue_struct
+struct jta_vulkan_queue_T
 {
     VkQueue handle;
     uint32_t index;
     VkCommandPool transient_pool;
     VkFence fence;
 };
-typedef struct jta_vulkan_queue_struct jta_vulkan_queue;
+typedef struct jta_vulkan_queue_T jta_vulkan_queue;
 
 
 /**
  * @brief Purpose of this struct is to hold data which is intrinsically linked with the window and must be created after
  */
-struct jta_vulkan_window_context_struct
+struct jta_vulkan_window_context_T
 {
     jta_vulkan_context* ctx;
     VkPhysicalDevice physical_device;       //  physical device used by the program
@@ -128,7 +128,7 @@ struct jta_vulkan_window_context_struct
     VkDescriptorPool desc_pool_ui;
     VkDescriptorSet descriptor_ui;
 };
-typedef struct jta_vulkan_window_context_struct jta_vulkan_window_context;
+typedef struct jta_vulkan_window_context_T jta_vulkan_window_context;
 
 gfx_result
 jta_vulkan_context_create(

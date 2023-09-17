@@ -9,8 +9,8 @@
 #include "../common/common.h"
 #include "jtaerr.h"
 
-typedef struct jta_profile_list_struct jta_profile_list;
-struct jta_profile_list_struct
+typedef struct jta_profile_list_T jta_profile_list;
+struct jta_profile_list_T
 {
     uint32_t count;
     jio_string_segment* labels;

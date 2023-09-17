@@ -15,8 +15,8 @@ enum jta_numerical_boundary_condition_type_enum : uint8_t
 };
 typedef enum jta_numerical_boundary_condition_type_enum jta_numerical_boundary_condition_type;
 
-typedef struct jta_numerical_boundary_condition_list_struct jta_numerical_boundary_condition_list;
-struct jta_numerical_boundary_condition_list_struct
+typedef struct jta_numerical_boundary_condition_list_T jta_numerical_boundary_condition_list;
+struct jta_numerical_boundary_condition_list_T
 {
     uint32_t count;
     uint32_t* i_point;

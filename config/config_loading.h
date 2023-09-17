@@ -10,7 +10,7 @@
 
 
 //  Parameters related to actually solving the equations
-struct jta_config_problem_struct
+struct jta_config_problem_T
 {
     //  Definition of the problem geometry
     struct
@@ -34,11 +34,11 @@ struct jta_config_problem_struct
     } sim_and_sol;
 };
 
-typedef struct jta_config_problem_struct jta_config_problem;
+typedef struct jta_config_problem_T jta_config_problem;
 
 
 //  Parameters related to graphics and display
-struct jta_config_display_struct
+struct jta_config_display_T
 {
     float radius_scale;             //  Scale by which the (equivalent) radius of elements is exaggerated
     float deformation_scale;        //  Scale by which point_displacements are exaggerated
@@ -52,11 +52,11 @@ struct jta_config_display_struct
     char* stress_cmap_file;         //  Path to the stress color map (optional)
 };
 
-typedef struct jta_config_display_struct jta_config_display;
+typedef struct jta_config_display_T jta_config_display;
 
 
 //  Parameters related to output and saving of results
-struct jta_config_output_struct
+struct jta_config_output_T
 {
     char* point_output_file;    //  Path to where point outputs are saved to (optional)
     char* element_output_file;  //  Path to where element outputs are saved to (optional)
@@ -65,17 +65,17 @@ struct jta_config_output_struct
     char* figure_output_file;   //  Path to where figures are saved to (optional)
 };
 
-typedef struct jta_config_output_struct jta_config_output;
+typedef struct jta_config_output_T jta_config_output;
 
 
-struct jta_config_struct
+struct jta_config_T
 {
     jta_config_problem  problem;    //  Parameters related to actually solving the equations
     jta_config_display  display;    //  Parameters related to graphics and display
     jta_config_output   output;     //  Parameters related to output and saving of results
 };
 
-typedef struct jta_config_struct jta_config;
+typedef struct jta_config_T jta_config;
 
 jta_result jta_load_configuration(const jio_context* io_ctx, const char* filename, jta_config* p_out);
 

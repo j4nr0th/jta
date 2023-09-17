@@ -14,31 +14,31 @@
 #include "vk_resources.h"
 
 
-typedef struct jta_vertex_struct jta_vertex;
-struct jta_vertex_struct
+typedef struct jta_vertex_T jta_vertex;
+struct jta_vertex_T
 {
     f32 x, y, z;
     f32 nx, ny, nz;
 };
 
-typedef struct jta_model_data_struct jta_model_data;
-struct jta_model_data_struct
+typedef struct jta_model_data_T jta_model_data;
+struct jta_model_data_T
 {
     f32 model_data[16];
     f32 normal_data[16];
     jta_color color;
 };
 
-typedef struct jta_model_struct jta_model;
-struct jta_model_struct
+typedef struct jta_model_T jta_model;
+struct jta_model_T
 {
     uint16_t vtx_count, idx_count;
     jta_vertex* vtx_array;
     uint16_t* idx_array;
 };
 
-typedef struct jta_mesh_struct jta_mesh;
-struct jta_mesh_struct
+typedef struct jta_mesh_T jta_mesh;
+struct jta_mesh_T
 {
     const char* name;                                               //  What the mesh is
     bool up_to_date;                                                //  When 0, instance data is not yet updated on the GPU side
@@ -56,7 +56,7 @@ static inline uint64_t mesh_polygon_count(const jta_mesh* mesh)
     return mesh->count * mesh->model.idx_count / 3;
 }
 
-struct jta_structure_meshes_struct
+struct jta_structure_meshes_T
 {
     union
     {
@@ -70,7 +70,7 @@ struct jta_structure_meshes_struct
     };
 };
 
-typedef struct jta_structure_meshes_struct jta_structure_meshes;
+typedef struct jta_structure_meshes_T jta_structure_meshes;
 
 gfx_result jta_structure_meshes_generate_undeformed(
         jta_structure_meshes* meshes, const jta_config_display* cfg, const jta_problem_setup* problem_setup,

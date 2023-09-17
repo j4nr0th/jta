@@ -7,7 +7,7 @@
 #include "jtaproblem.h"
 #include "../config/config_loading.h"
 
-struct jta_solution_struct
+struct jta_solution_T
 {
     //  Result information
     float final_residual_ratio; // measure of solution accuracy expressed as
@@ -26,7 +26,7 @@ struct jta_solution_struct
     float* element_masses;
 };
 
-typedef struct jta_solution_struct jta_solution;
+typedef struct jta_solution_T jta_solution;
 
 jta_result jta_solve_problem(const jta_config_problem* cfg, const jta_problem_setup* problem, jta_solution* solution);
 

@@ -16,15 +16,15 @@ static const jio_string_segment MATERIAL_FILE_HEADERS[] =
 
 static const size_t MATERIAL_FILE_HEADER_COUNT = sizeof(MATERIAL_FILE_HEADERS) / sizeof(*MATERIAL_FILE_HEADERS);
 
-typedef struct material_parse_float_data_struct material_parse_float_data;
-struct material_parse_float_data_struct
+typedef struct material_parse_float_data_T material_parse_float_data;
+struct material_parse_float_data_T
 {
     uint32_t count;
     f32* values;
 };
 
-typedef struct material_parse_ss_data_struct material_parse_ss_data;
-struct material_parse_ss_data_struct
+typedef struct material_parse_ss_data_T material_parse_ss_data;
+struct material_parse_ss_data_T
 {
     uint32_t count;
     jio_string_segment* values;

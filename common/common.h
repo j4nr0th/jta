@@ -41,7 +41,7 @@ typedef unsigned char c8;
 typedef uint_least16_t c16;
 typedef uint_least32_t c32;
 
-union jta_color_union
+union jta_color_T
 {
     struct
     {
@@ -50,7 +50,7 @@ union jta_color_union
     unsigned char data[4];
     uint32_t packed;
 };
-typedef union jta_color_union jta_color;
+typedef union jta_color_T jta_color;
 
 #include <jmem/jmem.h>
 
@@ -62,28 +62,28 @@ extern ill_jallocator* G_JALLOCATOR;
 
 #include "../gfx/gfx_math.h"
 
-typedef struct ubo_3d_struct ubo_3d;
-struct ubo_3d_struct
+typedef struct ubo_3d_T ubo_3d;
+struct ubo_3d_T
 {
     mtx4 view;
     mtx4 proj;
     vec4 view_direction;
 };
-typedef struct ubo_ui_vtx_struct ubo_ui_vtx;
-struct ubo_ui_vtx_struct
+typedef struct ubo_ui_vtx_T ubo_ui_vtx;
+struct ubo_ui_vtx_T
 {
     float scale_x, scale_y;
     float offset_x, offset_y;
 };
-typedef struct ubo_ui_frg_struct ubo_ui_frg;
-struct ubo_ui_frg_struct
+typedef struct ubo_ui_frg_T ubo_ui_frg;
+struct ubo_ui_frg_T
 {
     float font_w, font_h;
     float font_off_x, font_off_y;
 };
 
-typedef struct jta_timer_struct jta_timer;
-struct jta_timer_struct
+typedef struct jta_timer_T jta_timer;
+struct jta_timer_T
 {
     struct timespec ts;
 };

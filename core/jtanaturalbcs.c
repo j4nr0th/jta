@@ -15,15 +15,15 @@ static const jio_string_segment NATURAL_BC_FILE_HEADERS[] =
 
 static const size_t NATURAL_BC_FILE_HEADER_COUNT = sizeof(NATURAL_BC_FILE_HEADERS) / sizeof(*NATURAL_BC_FILE_HEADERS);
 
-typedef struct natural_bc_parse_float_data_struct natural_bc_parse_float_data;
-struct natural_bc_parse_float_data_struct
+typedef struct natural_bc_parse_float_data_T natural_bc_parse_float_data;
+struct natural_bc_parse_float_data_T
 {
     uint32_t count;
     f32* values;
 };
 
-typedef struct natural_bc_parse_ss_data_struct natural_bc_parse_ss_data;
-struct natural_bc_parse_ss_data_struct
+typedef struct natural_bc_parse_ss_data_T natural_bc_parse_ss_data;
+struct natural_bc_parse_ss_data_T
 {
     uint32_t count;
     const jta_point_list* point_list;

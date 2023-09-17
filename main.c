@@ -21,7 +21,8 @@
 #include "config/config_loading.h"
 #include "ui/ui_tree.h"
 
-jta_config* p_cfg;
+#include "jta_state.h"
+
 
 
 static i32 jdm_error_hook_callback_function(
@@ -88,6 +89,10 @@ static void jrui_error_callback(const char* msg, const char* function, const cha
 
 int main(int argc, char* argv[argc])
 {
+    jta_state program_state = {};
+#ifndef NDEBUG
+    memset(&program_state, 0xCC, sizeof(program_state));
+#endif
     jta_timer main_timer;
     jta_timer_set(&main_timer);
     //  Create allocators
@@ -147,8 +152,7 @@ int main(int argc, char* argv[argc])
     }
 
     jta_timer_set(&main_timer);
-    jta_config master_config;
-    jta_result jta_res = jta_load_configuration(io_ctx, argv[1], &master_config);
+    jta_result jta_res = jta_load_configuration(io_ctx, argv[1], &program_state.master_config);
     if (jta_res != JTA_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not load program configuration, reason: %s", jta_result_to_str(jta_res));
@@ -157,9 +161,8 @@ int main(int argc, char* argv[argc])
     JDM_TRACE("Config parsing time: %g sec", dt);
 
 
-    jta_problem_setup problem_setup;
     jta_timer_set(&main_timer);
-    jta_res = jta_load_problem(io_ctx, &master_config.problem, &problem_setup);
+    jta_res = jta_load_problem(io_ctx, &program_state.master_config.problem, &program_state.problem_setup);
     if (jta_res != JTA_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not load problem, reason: %s", jta_result_to_str(jta_res));
@@ -169,11 +172,9 @@ int main(int argc, char* argv[argc])
     //  Find the bounding box of the geometry
     vec4 geo_base;
     f32 geo_radius;
-    gfx_find_bounding_sphere(&problem_setup.point_list, &geo_base, &geo_radius);
+    gfx_find_bounding_sphere(&program_state.problem_setup.point_list, &geo_base, &geo_radius);
 
 
-    jwin_context* jctx = NULL;
-    jwin_window* jwnd = NULL;
     jta_vulkan_window_context* wnd_ctx = NULL;
     jta_vulkan_context* vk_ctx = NULL;
     jta_timer_set(&main_timer);
@@ -201,7 +202,7 @@ int main(int argc, char* argv[argc])
                         .allocator_callbacks = &allocator_callbacks,
                         .error_callbacks = &error_callbacks,
                 };
-        jwin_res = jwin_context_create(&ctx_info, &jctx);
+        jwin_res = jwin_context_create(&ctx_info, &program_state.wnd_ctx);
         if (jwin_res != JWIN_RESULT_SUCCESS)
         {
             JDM_FATAL("Could not create jwin context, reason: %s", jwin_result_msg_str(jwin_res));
@@ -213,13 +214,13 @@ int main(int argc, char* argv[argc])
                         .height = 900,
                         .title = "JANSYS - jta - 0.0.1",
                 };
-        jwin_res = jwin_window_create(jctx, &win_info, &jwnd);
+        jwin_res = jwin_window_create(program_state.wnd_ctx, &win_info, &program_state.main_wnd);
         if (jwin_res != JWIN_RESULT_SUCCESS)
         {
             JDM_FATAL("Could not create window, reason: %s", jwin_result_msg_str(jwin_res));
         }
     }
-    gfx_res = jta_vulkan_window_context_create(jwnd, vk_ctx, &wnd_ctx);
+    gfx_res = jta_vulkan_window_context_create(program_state.main_wnd, vk_ctx, &wnd_ctx);
     if (gfx_res != GFX_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not create window-dependant Vulkan resources, reason: %s", gfx_result_to_str(gfx_res));
@@ -249,7 +250,7 @@ int main(int argc, char* argv[argc])
     }
 
     gfx_res = jta_structure_meshes_generate_undeformed(
-            &undeformed_meshes, &master_config.display, &problem_setup, wnd_ctx);
+            &undeformed_meshes, &program_state.master_config.display, &program_state.problem_setup, wnd_ctx);
     if (gfx_res != GFX_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not generate undeformed mesh, reason: %s", gfx_result_to_str(gfx_res));
@@ -276,11 +277,9 @@ int main(int argc, char* argv[argc])
                   );
 
     //  Initialize JRUI context
-    jrui_context* ui_ctx;
-    jta_texture* fnt_tex;
     {
         unsigned wnd_w, wnd_h;
-        jwin_window_get_size(jwnd, &wnd_w, &wnd_h);
+        jwin_window_get_size(program_state.main_wnd, &wnd_w, &wnd_h);
         const jrui_allocator_callbacks allocator_callbacks =
                 {
                 .state = G_JALLOCATOR,
@@ -296,7 +295,6 @@ int main(int argc, char* argv[argc])
 
 
 
-        p_cfg = &master_config;
 
         jrui_color_scheme color_scheme =
                 {
@@ -325,49 +323,45 @@ int main(int argc, char* argv[argc])
                     .root = UI_ROOT,
                 };
 
-        jrui_result jrui_res = jrui_context_create(context_create_info, &ui_ctx);
+        jrui_result jrui_res = jrui_context_create(context_create_info, &program_state.ui_state.ui_context);
         if (jrui_res != JRUI_RESULT_SUCCESS)
         {
             JDM_FATAL("Could not initialize UI, reason: %s (%s)", jrui_result_to_str(jrui_res), jrui_result_message(jrui_res));
         }
         unsigned fnt_w, fnt_h;
         const unsigned char* p_tex;
-        jrui_context_font_info(ui_ctx, &fnt_w, &fnt_h, &p_tex);
+        jrui_context_font_info(program_state.ui_state.ui_context, &fnt_w, &fnt_h, &p_tex);
         jta_texture_create_info tex_info =
                 {
                     .format = VK_FORMAT_R8_UNORM,
                     .samples = VK_SAMPLE_COUNT_1_BIT,
                     .tiling = VK_IMAGE_TILING_OPTIMAL,
                 };
-        gfx_res = jta_texture_load(fnt_w, fnt_h, p_tex, wnd_ctx, tex_info, &fnt_tex);
+        gfx_res = jta_texture_load(fnt_w, fnt_h, p_tex, wnd_ctx, tex_info, &program_state.ui_state.ui_font_texture);
         if (gfx_res != GFX_RESULT_SUCCESS)
         {
             JDM_FATAL("Could not load UI font texture, reason: %s", gfx_result_to_str(gfx_res));
         }
-        jta_ui_bind_font_texture(wnd_ctx, fnt_tex);
+        jta_ui_bind_font_texture(wnd_ctx, program_state.ui_state.ui_font_texture);
+        jrui_context_set_user_param(program_state.ui_state.ui_context, &program_state);
     }
 
 
-    jta_solution solution = {};
-    jta_draw_state draw_state =
+    program_state.draw_state = (jta_draw_state)
             {
                     .vk_ctx = vk_ctx,
                     .wnd_ctx = wnd_ctx,
                     .camera = camera,
                     .original_camera = camera,
-                    .p_problem = &problem_setup,
-                    .p_solution = &solution,
-                    .config = &master_config,
                     .meshes = undeformed_meshes,
                     .needs_redraw = 1,
-                    .ui_state = { .ui_context = ui_ctx, .ui_font_texture = fnt_tex },
             };
 
-    jwin_window_show(jwnd);
+    jwin_window_show(program_state.main_wnd);
     for (unsigned i = 0; i < JTA_HANDLER_COUNT; ++i)
     {
         jwin_res = jwin_window_set_event_handler(
-                jwnd, JTA_HANDLER_ARRAY[i].type, JTA_HANDLER_ARRAY[i].callback, &draw_state);
+                program_state.main_wnd, JTA_HANDLER_ARRAY[i].type, JTA_HANDLER_ARRAY[i].callback, &program_state);
         if (jwin_res != JWIN_RESULT_SUCCESS)
         {
             JDM_FATAL("Failed setting the event handler %u, reason: %s (%s)", i,
@@ -378,17 +372,21 @@ int main(int argc, char* argv[argc])
 
 
 
-    draw_state.view_matrix = jta_camera_to_view_matrix(&camera);
+    program_state.draw_state.view_matrix = jta_camera_to_view_matrix(&camera);
+    program_state.ui_state.ui_vtx_buffer = 0;
+    program_state.ui_state.ui_idx_buffer = 0;
+    program_state.problem_solution = (jta_solution){};
+
 //    while ((jwin_res = jwin_context_wait_for_events(jctx)) == JWIN_RESULT_SUCCESS)
     for (;;)
     {
-        jwin_res = jwin_context_wait_for_events(jctx);
+        jwin_res = jwin_context_wait_for_events(program_state.wnd_ctx);
         if (jwin_res != JWIN_RESULT_SUCCESS)
         {
             JDM_FATAL("jwin_context_wait_for_events returned: %s (%s)", jwin_result_to_str(jwin_res),
                       jwin_result_msg_str(jwin_res));
         }
-        jwin_res = jwin_context_handle_events(jctx);
+        jwin_res = jwin_context_handle_events(program_state.wnd_ctx);
         if (jwin_res == JWIN_RESULT_SHOULD_CLOSE)
         {
             break;
@@ -399,21 +397,21 @@ int main(int argc, char* argv[argc])
                       jwin_result_msg_str(jwin_res));
         }
         int ui_redraw = 0;
-        (void) jrui_context_build(ui_ctx, &ui_redraw);
+        (void) jrui_context_build(program_state.ui_state.ui_context, &ui_redraw);
         if (ui_redraw)
         {
             jrui_vertex* vertices;
             uint16_t* indices;
             size_t vtx_count, idx_count;
-            jrui_receive_vertex_data(ui_ctx, &vtx_count, &vertices);
-            jrui_receive_index_data(ui_ctx, &idx_count, &indices);
+            jrui_receive_vertex_data(program_state.ui_state.ui_context, &vtx_count, &vertices);
+            jrui_receive_index_data(program_state.ui_state.ui_context, &idx_count, &indices);
             //  Must make sure that drawing commands have finished before touching these
-            if (draw_state.ui_state.ui_vtx_buffer && jvm_buffer_allocation_get_size(draw_state.ui_state.ui_vtx_buffer) < sizeof(*vertices) * vtx_count)
+            if (program_state.ui_state.ui_vtx_buffer && jvm_buffer_allocation_get_size(program_state.ui_state.ui_vtx_buffer) < sizeof(*vertices) * vtx_count)
             {
-                jta_vulkan_context_enqueue_destroy_buffer(wnd_ctx, draw_state.ui_state.ui_vtx_buffer);
-                draw_state.ui_state.ui_vtx_buffer = NULL;
+                jta_vulkan_context_enqueue_destroy_buffer(wnd_ctx, program_state.ui_state.ui_vtx_buffer);
+                program_state.ui_state.ui_vtx_buffer = NULL;
             }
-            if (!draw_state.ui_state.ui_vtx_buffer)
+            if (!program_state.ui_state.ui_vtx_buffer)
             {
                 VkBufferCreateInfo vtx_create_info =
                         {
@@ -425,18 +423,18 @@ int main(int argc, char* argv[argc])
 
                 VkResult vk_res = jvm_buffer_create(
                         wnd_ctx->vulkan_allocator, &vtx_create_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0, 0,
-                        &draw_state.ui_state.ui_vtx_buffer);
+                        &program_state.ui_state.ui_vtx_buffer);
                 if (vk_res != VK_SUCCESS)
                 {
                     JDM_FATAL("Could not create a new UI VTX buffer, reason: %s (%d)", vk_result_to_str(vk_res), vk_res);
                 }
             }
-            if (draw_state.ui_state.ui_idx_buffer && jvm_buffer_allocation_get_size(draw_state.ui_state.ui_idx_buffer) < sizeof(*indices) * idx_count)
+            if (program_state.ui_state.ui_idx_buffer && jvm_buffer_allocation_get_size(program_state.ui_state.ui_idx_buffer) < sizeof(*indices) * idx_count)
             {
-                jta_vulkan_context_enqueue_destroy_buffer(wnd_ctx, draw_state.ui_state.ui_idx_buffer);
-                draw_state.ui_state.ui_idx_buffer = NULL;
+                jta_vulkan_context_enqueue_destroy_buffer(wnd_ctx, program_state.ui_state.ui_idx_buffer);
+                program_state.ui_state.ui_idx_buffer = NULL;
             }
-            if (!draw_state.ui_state.ui_idx_buffer)
+            if (!program_state.ui_state.ui_idx_buffer)
             {
                 VkBufferCreateInfo idx_create_info =
                         {
@@ -445,34 +443,32 @@ int main(int argc, char* argv[argc])
                                 .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT|VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                 .size = sizeof(*indices) * idx_count
                         };
-                VkResult vk_res = jvm_buffer_create(wnd_ctx->vulkan_allocator, &idx_create_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0, 0, &draw_state.ui_state.ui_idx_buffer);
+                VkResult vk_res = jvm_buffer_create(wnd_ctx->vulkan_allocator, &idx_create_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0, 0, &program_state.ui_state.ui_idx_buffer);
                 if (vk_res != VK_SUCCESS)
                 {
                     JDM_FATAL("Could not create a new UI IDX buffer, reason: %s (%d)", vk_result_to_str(vk_res), vk_res);
                 }
             }
             
-            jta_vulkan_memory_to_buffer(wnd_ctx, 0, sizeof(*vertices) * vtx_count, vertices, 0, draw_state.ui_state.ui_vtx_buffer);
-            jta_vulkan_memory_to_buffer(wnd_ctx, 0, sizeof(*indices) * idx_count, indices, 0, draw_state.ui_state.ui_idx_buffer);
+            jta_vulkan_memory_to_buffer(wnd_ctx, 0, sizeof(*vertices) * vtx_count, vertices, 0, program_state.ui_state.ui_vtx_buffer);
+            jta_vulkan_memory_to_buffer(wnd_ctx, 0, sizeof(*indices) * idx_count, indices, 0, program_state.ui_state.ui_idx_buffer);
         }
-        if (draw_state.needs_redraw || ui_redraw)
+        if (program_state.draw_state.needs_redraw || ui_redraw)
         {
-            jta_draw_frame(wnd_ctx, &draw_state.ui_state, draw_state.view_matrix, &draw_state.meshes, &draw_state.camera);
-            draw_state.needs_redraw = 0;
+            jta_draw_frame(wnd_ctx, &program_state.ui_state, program_state.draw_state.view_matrix, &program_state.draw_state.meshes, &program_state.draw_state.camera);
+            program_state.draw_state.needs_redraw = 0;
         }
     }
 
-    jwnd = NULL;
 
-    jrui_context_destroy(ui_ctx);
-    jta_solution_free(&solution);
-    if (jctx)
+    jrui_context_destroy(program_state.ui_state.ui_context);
+    jta_solution_free(&program_state.problem_solution);
+    if (program_state.wnd_ctx)
     {
-        jwin_context_destroy(jctx);
-        jctx = NULL;
+        jwin_context_destroy(program_state.wnd_ctx);
     }
-    jta_free_problem(&problem_setup);
-    jta_free_configuration(&master_config);
+    jta_free_problem(&program_state.problem_setup);
+    jta_free_configuration(&program_state.master_config);
     jio_context_destroy(io_ctx);
     JDM_LEAVE_FUNCTION;
     jdm_cleanup_thread();

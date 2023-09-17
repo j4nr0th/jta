@@ -6,8 +6,8 @@
 #define JTA_CAMERA_H
 #include "../common/common.h"
 
-typedef struct jta_camera_3d_state_struct jta_camera_3d;
-struct jta_camera_3d_state_struct
+typedef struct jta_camera_3d_state_T jta_camera_3d;
+struct jta_camera_3d_state_T
 {
     vec4 target;            //  Position of camera target in global coordinate system
     vec4 position;          //  Position of camera's origin in global coordinate system

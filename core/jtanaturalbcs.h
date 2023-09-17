@@ -7,8 +7,8 @@
 #include "jtaerr.h"
 #include "jtapoints.h"
 
-typedef struct jta_natural_boundary_condition_list_struct jta_natural_boundary_condition_list;
-struct jta_natural_boundary_condition_list_struct
+typedef struct jta_natural_boundary_condition_list_T jta_natural_boundary_condition_list;
+struct jta_natural_boundary_condition_list_T
 {
     uint32_t count;
     uint32_t* i_point;

@@ -6,6 +6,7 @@
 #include "jdm.h"
 #include <stdio.h>
 #include "ui_sim_and_sol.h"
+#include "../jta_state.h"
 
 static const jrui_widget_create_info config_display_window_text =
         {
@@ -109,6 +110,10 @@ static const jrui_widget_create_info config_display_window_base =
 static void bnt1_callback(jrui_widget_base* widget, void* param)
 {
     JDM_ENTER_FUNCTION;
+    (void) param;
+
+    jta_state* const p_state = jrui_context_get_user_param(jrui_widget_get_context(widget));
+    jta_config* const p_cfg = &p_state->master_config;
 
     char buffer0[128] = {0};
     snprintf(buffer0, sizeof(buffer0), "%s", p_cfg->problem.definition.elements_file);
@@ -179,7 +184,9 @@ void update_text_widget(jrui_context* ctx, const char* widget_label, const char*
 static void bnt2_callback(jrui_widget_base* widget, void* param)
 {
     JDM_ENTER_FUNCTION;
-
+    (void) param;
+    jta_state* const p_state = jrui_context_get_user_param(jrui_widget_get_context(widget));
+    jta_config* const p_cfg = &p_state->master_config;
 
     jrui_context* ui_ctx = jrui_widget_get_context(widget);
     jrui_widget_base* p_to_replace = jrui_get_by_label(ui_ctx, "Info window");
@@ -229,13 +236,13 @@ static void bnt2_callback(jrui_widget_base* widget, void* param)
 
 static const jrui_widget_create_info left_stack_children[2] =
         {
-            [0] = {.button = {.base_info.type = JRUI_WIDGET_TYPE_BUTTON, .btn_param = NULL, .btn_callback = bnt1_callback}},
+            [0] = {.button = {.base_info.type = JRUI_WIDGET_TYPE_BUTTON, .base_info.label = "cfg info button", .btn_param = NULL, .btn_callback = bnt1_callback}},
             [1] = {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = "Show config info"}}
         };
 
 static const jrui_widget_create_info right_stack_children[2] =
         {
-                [0] = { .button = { .base_info.type = JRUI_WIDGET_TYPE_BUTTON, .btn_param = NULL, .btn_callback = bnt2_callback }},
+                [0] = { .button = { .base_info.type = JRUI_WIDGET_TYPE_BUTTON, .base_info.label = "button 2", .btn_param = NULL, .btn_callback = bnt2_callback }},
                 [1] = {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = "Button 2"}}
         };
 

@@ -9,8 +9,8 @@
 #include "../common/common.h"
 #include "jtaerr.h"
 
-typedef struct jta_material_list_struct jta_material_list;
-struct jta_material_list_struct
+typedef struct jta_material_list_T jta_material_list;
+struct jta_material_list_T
 {
     u32 count;
     f32* elastic_modulus;

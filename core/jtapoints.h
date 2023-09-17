@@ -9,8 +9,8 @@
 #include "../common/common.h"
 #include "jtaerr.h"
 
-typedef struct jta_point_list_struct jta_point_list;
-struct jta_point_list_struct
+typedef struct jta_point_list_T jta_point_list;
+struct jta_point_list_T
 {
     uint32_t count;
     f32* p_x;

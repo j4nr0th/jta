@@ -15,16 +15,16 @@ static const jio_string_segment NUMERICAL_BC_FILE_HEADERS[] =
 
 static const size_t NUMERICAL_BC_FILE_HEADER_COUNT = sizeof(NUMERICAL_BC_FILE_HEADERS) / sizeof(*NUMERICAL_BC_FILE_HEADERS);
 
-typedef struct numerical_bc_parse_float_data_struct numerical_bc_parse_float_data;
-struct numerical_bc_parse_float_data_struct
+typedef struct numerical_bc_parse_float_data_T numerical_bc_parse_float_data;
+struct numerical_bc_parse_float_data_T
 {
     uint32_t count;
     jta_numerical_boundary_condition_type* type;
     f32* values;
 };
 
-typedef struct numerical_bc_parse_ss_data_struct numerical_bc_parse_ss_data;
-struct numerical_bc_parse_ss_data_struct
+typedef struct numerical_bc_parse_ss_data_T numerical_bc_parse_ss_data;
+struct numerical_bc_parse_ss_data_T
 {
     uint32_t count;
     const jta_point_list* point_list;

@@ -332,8 +332,8 @@ static gfx_result generate_sphere_model(jta_model* const p_out, const u16 order)
     }
 
 
-    typedef struct triangle_struct triangle;
-    struct triangle_struct
+    typedef struct triangle_T triangle;
+    struct triangle_T
     {
         vec4 p1, p2, p3;
     };

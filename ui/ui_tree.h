@@ -11,8 +11,6 @@
 
 extern jrui_widget_create_info UI_ROOT;
 
-extern jta_config* p_cfg;
-
 gfx_result jta_ui_bind_font_texture(const jta_vulkan_window_context* ctx, jta_texture* texture);
 
 void update_text_widget(jrui_context* ctx, const char* widget_label, const char* new_text);

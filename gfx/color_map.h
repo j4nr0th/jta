@@ -8,14 +8,14 @@
 #include "../core/jtaerr.h"
 
 
-struct jta_scalar_cmap_struct
+struct jta_scalar_cmap_T
 {
     uint32_t count;         //  Number of value-color pairs
     float* values;          //  Values corresponding to colors. values[0] = 0.0f and values[count - 1] = 1.0f
     vec4* colors; //  Color corresponding to values in the colormap
 };
 
-typedef struct jta_scalar_cmap_struct jta_scalar_cmap;
+typedef struct jta_scalar_cmap_T jta_scalar_cmap;
 
 jta_result jta_scalar_cmap_from_csv(const jio_context* io_ctx, const char* filename, jta_scalar_cmap* out_cmap);
 

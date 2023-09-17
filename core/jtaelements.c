@@ -16,15 +16,15 @@ static const jio_string_segment ELEMENT_FILE_HEADERS[] =
 
 static const size_t ELEMENT_FILE_HEADER_COUNT = sizeof(ELEMENT_FILE_HEADERS) / sizeof(*ELEMENT_FILE_HEADERS);
 
-typedef struct element_parse_ss_data_struct element_ss_parse_data;
-struct element_parse_ss_data_struct
+typedef struct element_parse_ss_data_T element_ss_parse_data;
+struct element_parse_ss_data_T
 {
     uint32_t count;
     jio_string_segment* values;
 };
 
-typedef struct element_parse_pt_data_struct element_pt_parse_data;
-struct element_parse_pt_data_struct
+typedef struct element_parse_pt_data_T element_pt_parse_data;
+struct element_parse_pt_data_T
 {
     uint32_t count;
     jio_string_segment* labels;
@@ -32,8 +32,8 @@ struct element_parse_pt_data_struct
     uint32_t* values;
 };
 
-typedef struct element_parse_pro_data_struct element_pro_parse_data;
-struct element_parse_pro_data_struct
+typedef struct element_parse_pro_data_T element_pro_parse_data;
+struct element_parse_pro_data_T
 {
     uint32_t count;
     jio_string_segment* labels;
@@ -41,8 +41,8 @@ struct element_parse_pro_data_struct
     uint32_t* values;
 };
 
-typedef struct element_parse_mat_data_struct element_parse_mat_data;
-struct element_parse_mat_data_struct
+typedef struct element_parse_mat_data_T element_parse_mat_data;
+struct element_parse_mat_data_T
 {
     uint32_t count;
     jio_string_segment* labels;

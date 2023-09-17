@@ -6,6 +6,7 @@
 #include <ctype.h>
 #include "ui_sim_and_sol.h"
 #include "ui_tree.h"
+#include "../jta_state.h"
 
 //static jrui_widget_create_info GRAVITY_ROW[] =
 //        {
@@ -23,7 +24,6 @@ static void text_input_gravity_button(jrui_widget_base* const widget, const char
     const double v = strtod(text, &end);
     if (end != text)
     {
-        int found_nonspace = 0;
         while (*end && end != text)
         {
             if (!isspace(*end))
@@ -56,12 +56,16 @@ static jrui_widget_create_info GRAVITY_ROW[] =
 static void drag_convergence_callback(jrui_widget_base* drag, float f, void* param)
 {
     JDM_ENTER_FUNCTION;
+    (void) param;
     jrui_widget_base* converge_text = jrui_get_by_label(jrui_widget_get_context(drag), "convergence text");
     if (!converge_text)
     {
         JDM_ERROR("Could not get the widget with label \"convergence text\"");
         goto end;
     }
+
+    jta_state* p_state = jrui_context_get_user_param(jrui_widget_get_context(drag));
+    jta_config* const p_cfg = &p_state->master_config;
 
     const float converge_v = exp10f(6.0f * (f - 1.0f));
     if (1e-7f < converge_v && 1.0f >= converge_v)
@@ -90,6 +94,7 @@ end:
 static void drag_relax_callback(jrui_widget_base* drag, float f, void* param)
 {
     JDM_ENTER_FUNCTION;
+    (void) param;
 
     char buffer[64];
     snprintf(buffer, sizeof(buffer), "%f", f);

@@ -16,14 +16,14 @@ static const jio_string_segment POINT_FILE_HEADERS[] =
 
 static const size_t POINT_FILE_HEADER_COUNT = sizeof(POINT_FILE_HEADERS) / sizeof(*POINT_FILE_HEADERS);
 
-typedef struct point_parse_data_float_struct point_parse_data_float;
-struct point_parse_data_float_struct
+typedef struct point_parse_data_float_T point_parse_data_float;
+struct point_parse_data_float_T
 {
     uint32_t count;
     f32* values;
 };
-typedef struct point_parse_data_ss_struct point_parse_data_ss;
-struct point_parse_data_ss_struct
+typedef struct point_parse_data_ss_T point_parse_data_ss;
+struct point_parse_data_ss_T
 {
     uint32_t count;
     jio_string_segment * values;

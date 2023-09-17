@@ -14,8 +14,8 @@
 #include <matrices/dense_col_major.h>
 #include <matrices/sparse_row_compressed.h>
 
-typedef struct jta_problem_setup_struct jta_problem_setup;
-struct jta_problem_setup_struct
+typedef struct jta_problem_setup_T jta_problem_setup;
+struct jta_problem_setup_T
 {
     jio_memory_file *file_points, *file_materials, *file_profiles,
                     *file_elements, *file_nat, *file_num;          //  Files from which data was loaded (used to store labels)

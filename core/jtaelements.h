@@ -13,8 +13,8 @@
 #include "jtaprofiles.h"
 
 
-typedef struct jta_element_list_struct jta_element_list;
-struct jta_element_list_struct
+typedef struct jta_element_list_T jta_element_list;
+struct jta_element_list_T
 {
     uint32_t count;
     uint32_t* i_point0;

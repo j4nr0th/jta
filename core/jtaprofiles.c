@@ -14,15 +14,15 @@ static const jio_string_segment PROFILE_FILE_HEADERS[] =
 
 static const size_t PROFILE_FILE_HEADER_COUNT = sizeof(PROFILE_FILE_HEADERS) / sizeof(*PROFILE_FILE_HEADERS);
 
-typedef struct profile_parse_float_data_struct profile_parse_float_data;
-struct profile_parse_float_data_struct
+typedef struct profile_parse_float_data_T profile_parse_float_data;
+struct profile_parse_float_data_T
 {
     uint32_t count;
     f32* values;
 };
 
-typedef struct profile_parse_ss_data_struct profile_parse_ss_data;
-struct profile_parse_ss_data_struct
+typedef struct profile_parse_ss_data_T profile_parse_ss_data;
+struct profile_parse_ss_data_T
 {
     uint32_t count;
     jio_string_segment* values;

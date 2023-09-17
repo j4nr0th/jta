@@ -8,14 +8,14 @@
 #include "../core/jtapoints.h"
 
 //  Very simple Cartesian bounding box struct. Purpose is to quickly find near-far planes which work well.
-struct jta_bounding_box_struct
+struct jta_bounding_box_T
 {
     float min_x, max_x;
     float min_y, max_y;
     float min_z, max_z;
 };
 
-typedef struct jta_bounding_box_struct jta_bounding_box;
+typedef struct jta_bounding_box_T jta_bounding_box;
 
 
 void jta_bounding_box_add_point(jta_bounding_box* bbox, vec4 pos, float r);

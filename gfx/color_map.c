@@ -90,13 +90,13 @@ static const jio_string_segment SCALAR_CMAP_HEADER_ARRAY[5] =
 
 static const uint64_t SCALAR_CMAP_HEADER_COUNT = sizeof(SCALAR_CMAP_HEADER_ARRAY) / sizeof(*SCALAR_CMAP_HEADER_ARRAY);
 
-struct converter_value_struct
+struct converter_value_T
 {
     uint32_t count;
     float* values;
 };
 
-typedef struct converter_value_struct converter_value;
+typedef struct converter_value_T converter_value;
 
 static bool convert_ss_to_value(jio_string_segment* segment, void* param)
 {
@@ -118,14 +118,14 @@ static bool convert_ss_to_value(jio_string_segment* segment, void* param)
     return true;
 }
 
-struct converter_color_component_struct
+struct converter_color_component_T
 {
     uint32_t count;
     const uint32_t component;
     vec4* values;
 };
 
-typedef struct converter_color_component_struct converter_color_component;
+typedef struct converter_color_component_T converter_color_component;
 
 static bool convert_ss_to_color_component(jio_string_segment* segment, void* param)
 {
