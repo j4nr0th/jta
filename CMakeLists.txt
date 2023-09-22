@@ -39,7 +39,9 @@ add_executable(jta main.c
         ui/ui_sim_and_sol.h
         jta_state.h
         ui/top_menu.c
-        ui/top_menu.h)
+        ui/top_menu.h
+        core/jtaload.c
+        core/jtaload.h)
 
 add_compile_definitions(JALLOC_TRAP_COUNT=128)
 add_compile_definitions(JALLOC_TRACKING=1)

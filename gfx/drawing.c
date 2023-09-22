@@ -226,9 +226,9 @@ gfx_result jta_draw_frame(
                 VkRect2D scissor =
                         {
                         .offset = {(int32_t)e->clip_region.x0, (int32_t)e->clip_region.y0},
-                        .extent = {(uint32_t)(e->clip_region.x1 - e->clip_region.x0), (uint32_t)(e->clip_region.y1 - e->clip_region.y0)}
+                        .extent = {(uint32_t)(e->clip_region.x1 - e->clip_region.x0) + 1, (uint32_t)(e->clip_region.y1 - e->clip_region.y0) + 1}
                         };
-//                vkCmdSetScissor(cmd_buffer, 0, 1, &scissor);
+                vkCmdSetScissor(cmd_buffer, 0, 1, &scissor);
                 vkCmdDrawIndexed(cmd_buffer, e->count_idx, 1, e->first_idx, 0, 0);
             }
         }

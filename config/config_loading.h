@@ -50,6 +50,7 @@ struct jta_config_display_T
     float force_head_ratio;         //  Ratio between the force arrows' head and tail
     float force_length_ratio;       //  Length of the largest force arrow as a fraction of the length of the longest element
     char* stress_cmap_file;         //  Path to the stress color map (optional)
+    jta_color background_color;
 };
 
 typedef struct jta_config_display_T jta_config_display;
@@ -63,6 +64,7 @@ struct jta_config_output_T
     char* general_output_file;  //  Path to where general outputs are saved to (optional)
     char* matrix_output_file;   //  Path to where matrices are saved to (optional)
     char* figure_output_file;   //  Path to where figures are saved to (optional)
+    char* configuration_file;   //  Path to where the configuration is stored
 };
 
 typedef struct jta_config_output_T jta_config_output;

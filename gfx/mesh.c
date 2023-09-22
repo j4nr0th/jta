@@ -906,7 +906,7 @@ gfx_result jta_structure_meshes_generate_deformed(
         const vec4 pt0 = positions[i_pt0];
         const vec4 pt1 = positions[i_pt1];
 
-        const jta_color c = {{ .r = 0xFF, .g = 0x00, .b = 0x00, .a = 0x80 }};   //  Here a colormap lookup could be done
+        const jta_color c = cfg->deformed_color;   //  Here a colormap lookup could be done
 
         const float radius = problem_setup->profile_list.equivalent_radius[i_pro] * cfg->radius_scale;
 

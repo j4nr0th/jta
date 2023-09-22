@@ -10,6 +10,21 @@
 #include "ui/jwin_handlers.h"
 #include <jrui.h>
 
+typedef enum jta_display_state_T jta_display_state;
+enum jta_display_state_T
+{
+    JTA_DISPLAY_NONE = 0,
+    JTA_DISPLAY_UNDEFORMED = 1 << 0,
+    JTA_DISPLAY_DEFORMED = 1 << 1,
+};
+
+typedef enum jta_problem_state_T jta_problem_state;
+enum jta_problem_state_T
+{
+    JTA_PROBLEM_STATE_PROBLEM_LOADED = 1 << 0,  //  Set when an undeformed mesh is available for display
+    JTA_PROBLEM_STATE_HAS_SOLUTION = 1 << 1,    //  Set when the problem was solved
+};
+
 typedef struct jta_ui_state_T jta_ui_state;
 struct jta_ui_state_T
 {
@@ -28,6 +43,9 @@ struct jta_state_T
     jwin_window* main_wnd;
     jta_problem_setup problem_setup;
     jta_solution problem_solution;
+    jta_display_state display_state;
+    jta_problem_state problem_state;
+    jio_context* io_ctx;
 };
 typedef struct jta_state_T jta_state;
 

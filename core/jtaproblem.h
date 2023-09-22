@@ -14,9 +14,21 @@
 #include <matrices/dense_col_major.h>
 #include <matrices/sparse_row_compressed.h>
 
+typedef enum jta_problem_load_state_T jta_problem_load_state;
+enum jta_problem_load_state_T
+{
+    JTA_PROBLEM_LOAD_STATE_HAS_POINTS = 1 << 0,
+    JTA_PROBLEM_LOAD_STATE_HAS_MATERIALS = 1 << 1,
+    JTA_PROBLEM_LOAD_STATE_HAS_PROFILES = 1 << 2,
+    JTA_PROBLEM_LOAD_STATE_HAS_NATBC = 1 << 3,
+    JTA_PROBLEM_LOAD_STATE_HAS_NUMBC = 1 << 4,
+    JTA_PROBLEM_LOAD_STATE_HAS_ELEMENTS = 1 << 5,
+};
+
 typedef struct jta_problem_setup_T jta_problem_setup;
 struct jta_problem_setup_T
 {
+    jta_problem_load_state load_state;
     jio_memory_file *file_points, *file_materials, *file_profiles,
                     *file_elements, *file_nat, *file_num;          //  Files from which data was loaded (used to store labels)
     jta_point_list point_list;                           //  Point list parsed from input file
@@ -25,7 +37,7 @@ struct jta_problem_setup_T
     jta_material_list material_list;                         //  Material list parsed from input file
     jta_natural_boundary_condition_list natural_bcs;     //  Natural BC list parsed from input file
     jta_numerical_boundary_condition_list numerical_bcs; //  Numerical BC list parsed from input file
-    vec4 gravity;                                               //  Gravitational acceleration vector set in the input file
+    vec4 gravity;//  Gravitational acceleration vector set in the input file
 };
 
 jta_result jta_load_problem(const jio_context* io_ctx, const jta_config_problem* cfg, jta_problem_setup* problem);

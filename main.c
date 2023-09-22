@@ -93,6 +93,8 @@ int main(int argc, char* argv[argc])
 #ifndef NDEBUG
     memset(&program_state, 0xCC, sizeof(program_state));
 #endif
+    program_state.problem_state = 0;
+    program_state.display_state = JTA_DISPLAY_NONE;
     jta_timer main_timer;
     jta_timer_set(&main_timer);
     //  Create allocators
@@ -111,6 +113,7 @@ int main(int argc, char* argv[argc])
     }
     ill_jallocator_set_bad_alloc_callback(G_JALLOCATOR, invalid_alloc, NULL);
     ill_jallocator_set_double_free_callback(G_JALLOCATOR, double_free_hook, NULL);
+//    ill_jallocator_set_debug_trap(G_JALLOCATOR, 20, jmem_trap, NULL);
     {
         jdm_allocator_callbacks jdm_callbacks =
                 {
@@ -140,19 +143,18 @@ int main(int argc, char* argv[argc])
     JDM_TRACE("Initialization time: %g sec", dt);
 
     //  Load up the configuration
-    jio_context* io_ctx;
     jio_context_create_info io_create_info =
             {
 
             };
-    jio_result jio_res = jio_context_create(&io_create_info, &io_ctx);
+    jio_result jio_res = jio_context_create(&io_create_info, &program_state.io_ctx);
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not create IO context, reason: %s", jio_result_to_str(jio_res));
     }
 
     jta_timer_set(&main_timer);
-    jta_result jta_res = jta_load_configuration(io_ctx, argv[1], &program_state.master_config);
+    jta_result jta_res = jta_load_configuration(program_state.io_ctx, argv[1], &program_state.master_config);
     if (jta_res != JTA_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not load program configuration, reason: %s", jta_result_to_str(jta_res));
@@ -162,7 +164,7 @@ int main(int argc, char* argv[argc])
 
 
     jta_timer_set(&main_timer);
-    jta_res = jta_load_problem(io_ctx, &program_state.master_config.problem, &program_state.problem_setup);
+    jta_res = jta_load_problem(program_state.io_ctx, &program_state.master_config.problem, &program_state.problem_setup);
     if (jta_res != JTA_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not load problem, reason: %s", jta_result_to_str(jta_res));
@@ -231,13 +233,13 @@ int main(int argc, char* argv[argc])
     JDM_TRACE("Vulkan init time: %g sec", dt);
 
     jta_timer_set(&main_timer);
-    gfx_res = mesh_init_truss(&undeformed_meshes.cylinders, 1 << 12, wnd_ctx);
+    gfx_res = mesh_init_truss(&undeformed_meshes.cylinders, 1 << 4, wnd_ctx);
     if (gfx_res != GFX_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
     }
 
-    gfx_res = mesh_init_sphere(&undeformed_meshes.spheres, 7, wnd_ctx);
+    gfx_res = mesh_init_sphere(&undeformed_meshes.spheres, 3, wnd_ctx);
     if (gfx_res != GFX_RESULT_SUCCESS)
     {
         JDM_FATAL("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
@@ -299,17 +301,17 @@ int main(int argc, char* argv[argc])
         jrui_color_scheme color_scheme =
                 {
                 .text = {.r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF},
-                .background = {.r = 0x10, .g = 0x20, .b = 0x30, .a = 0xFF},
-                .drag_bg = {.r = 0x50, .g = 0x50, .b = 0x50, .a = 0xFF},
-                .button_up = {.r = 0x80, .g = 0x80, .b = 0x80, .a = 0xFF},
-                .button_down = {.r = 0xC0, .g = 0xC0, .b = 0xC0, .a = 0xFF},
-                .button_hover = {.r = 0xA0, .g = 0xA0, .b = 0xA0, .a = 0xFF},
-                .button_toggled = {.r = 0xB0, .g = 0xB0, .b = 0xB0, .a = 0xFF},
+                .background = {.r = 0x33, .g = 0x33, .b = 0x33, .a = 0xFF},
+                .drag_bg = {.r = 0x33, .g = 0x33, .b = 0x83, .a = 0xFF},
+                .button_up = {.r = 0x0A, .g = 0x00, .b = 0x50, .a = 0xFF},
+                .button_down = {.r = 0x28, .g = 0x00, .b = 0xFF, .a = 0xFF},
+                .button_hover = {.r = 0x14, .g = 0x00, .b = 0xBC, .a = 0xFF},
+                .button_toggled = {.r = 0x28, .g = 0x00, .b = 0xFF, .a = 0xFF},
                 .border = {.r = 0xC0, .g = 0xD0, .b = 0xFF, .a = 0xFF},
                 .text_input_fg_focused = {.r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF},
-                .text_input_bg_focused = {.r = 0x00, .g = 0x00, .b = 0x00, .a = 0xFF},
-                .text_input_fg_unfocused = {.r = 0x80, .g = 0x80, .b = 0x80, .a = 0xFF},
-                .text_input_bg_unfocused = {.r = 0x40, .g = 0x40, .b = 0x40, .a = 0xFF},
+                .text_input_bg_focused = {.r = 0x60, .g = 0x60, .b = 0x60, .a = 0xFF},
+                .text_input_fg_unfocused = {.r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF},
+                .text_input_bg_unfocused = {.r = 0x42, .g = 0x42, .b = 0x42, .a = 0xFF},
                 };
         jta_ui_init(&program_state);    //  This must come before UI_ROOT is used
         jrui_context_create_info context_create_info =
@@ -345,6 +347,7 @@ int main(int argc, char* argv[argc])
         }
         jta_ui_bind_font_texture(wnd_ctx, program_state.ui_state.ui_font_texture);
         jrui_context_set_user_param(program_state.ui_state.ui_context, &program_state);
+        jrui_update_toggle_button_state_by_label(program_state.ui_state.ui_context, "top menu:mesh", 1);
     }
 
 
@@ -470,7 +473,7 @@ int main(int argc, char* argv[argc])
     }
     jta_free_problem(&program_state.problem_setup);
     jta_free_configuration(&program_state.master_config);
-    jio_context_destroy(io_ctx);
+    jio_context_destroy(program_state.io_ctx);
     JDM_LEAVE_FUNCTION;
     jdm_cleanup_thread();
     //  Clean up the allocators
