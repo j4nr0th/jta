@@ -44,6 +44,30 @@ static int file_exists(const char* filename)
 #endif
 }
 
+static void mark_solution_invalid(jta_state* p_state)
+{
+    p_state->problem_state &= ~JTA_PROBLEM_STATE_HAS_SOLUTION;
+}
+
+static void check_for_complete_problem(jta_state* p_state)
+{
+    static const jta_problem_load_state complete_load_state =
+            JTA_PROBLEM_LOAD_STATE_HAS_POINTS|
+            JTA_PROBLEM_LOAD_STATE_HAS_MATERIALS|
+            JTA_PROBLEM_LOAD_STATE_HAS_PROFILES|
+            JTA_PROBLEM_LOAD_STATE_HAS_NUMBC|
+            JTA_PROBLEM_LOAD_STATE_HAS_NATBC|
+            JTA_PROBLEM_LOAD_STATE_HAS_ELEMENTS;
+    if ((p_state->problem_setup.load_state & complete_load_state) == complete_load_state)
+    {
+        p_state->problem_state |= JTA_PROBLEM_STATE_PROBLEM_LOADED;
+    }
+    else
+    {
+        p_state->problem_state &= ~JTA_PROBLEM_STATE_PROBLEM_LOADED;
+    }
+}
+
 static void
 change_config_input_file(const char* string, jrui_widget_base* widget, const char* status_widget_label, char** p_dest)
 {
@@ -282,6 +306,8 @@ static void load_points_wrapper(jrui_widget_base* widget, void* param)
     else
     {
         jrui_update_text_h_by_label(ctx, "problem:point status", "Loaded", JRUI_ALIGN_RIGHT, JRUI_ALIGN_CENTER);
+        mark_solution_invalid(state);
+        check_for_complete_problem(state);
     }
 }
 
@@ -294,12 +320,14 @@ static void load_materials_wrapper(jrui_widget_base* widget, void* param)
     if (res != JTA_RESULT_SUCCESS)
     {
         char err_buffer[64] = { 0 };
-        (void)snprintf(err_buffer, sizeof(err_buffer), "Failed: %s", jta_result_to_str(res));
+        (void) snprintf(err_buffer, sizeof(err_buffer), "Failed: %s", jta_result_to_str(res));
         jrui_update_text_h_by_label(ctx, "problem:material status", err_buffer, JRUI_ALIGN_RIGHT, JRUI_ALIGN_CENTER);
     }
     else
     {
         jrui_update_text_h_by_label(ctx, "problem:material status", "Loaded", JRUI_ALIGN_RIGHT, JRUI_ALIGN_CENTER);
+        mark_solution_invalid(state);
+        check_for_complete_problem(state);
     }
 }
 
@@ -318,6 +346,8 @@ static void load_profiles_wrapper(jrui_widget_base* widget, void* param)
     else
     {
         jrui_update_text_h_by_label(ctx, "problem:profile status", "Loaded", JRUI_ALIGN_RIGHT, JRUI_ALIGN_CENTER);
+        mark_solution_invalid(state);
+        check_for_complete_problem(state);
     }
 }
 
@@ -336,6 +366,8 @@ static void load_natbc_wrapper(jrui_widget_base* widget, void* param)
     else
     {
         jrui_update_text_h_by_label(ctx, "problem:natural BC status", "Loaded", JRUI_ALIGN_RIGHT, JRUI_ALIGN_CENTER);
+        mark_solution_invalid(state);
+        check_for_complete_problem(state);
     }
 }
 
@@ -354,6 +386,8 @@ static void load_numbc_wrapper(jrui_widget_base* widget, void* param)
     else
     {
         jrui_update_text_h_by_label(ctx, "problem:numerical BC status", "Loaded", JRUI_ALIGN_RIGHT, JRUI_ALIGN_CENTER);
+        mark_solution_invalid(state);
+        check_for_complete_problem(state);
     }
 }
 
@@ -372,6 +406,8 @@ static void load_elements_wrapper(jrui_widget_base* widget, void* param)
     else
     {
         jrui_update_text_h_by_label(ctx, "problem:element status", "Loaded", JRUI_ALIGN_RIGHT, JRUI_ALIGN_CENTER);
+        mark_solution_invalid(state);
+        check_for_complete_problem(state);
     }
 }
 
@@ -389,6 +425,7 @@ static void load_all_problem(jrui_widget_base* widget, void* param)
     else
     {
         jrui_update_text_h_by_label(ctx, "problem:point status", "Loaded", JRUI_ALIGN_RIGHT, JRUI_ALIGN_CENTER);
+        mark_solution_invalid(state);
     }
     res = jta_load_materials_from_file(
             state->io_ctx, &state->problem_setup, state->master_config.problem.definition.materials_file);
@@ -401,6 +438,7 @@ static void load_all_problem(jrui_widget_base* widget, void* param)
     else
     {
         jrui_update_text_h_by_label(ctx, "problem:material status", "Loaded", JRUI_ALIGN_RIGHT, JRUI_ALIGN_CENTER);
+        mark_solution_invalid(state);
     }
     res = jta_load_profiles_from_file(
             state->io_ctx, &state->problem_setup, state->master_config.problem.definition.profiles_file);
@@ -413,6 +451,7 @@ static void load_all_problem(jrui_widget_base* widget, void* param)
     else
     {
         jrui_update_text_h_by_label(ctx, "problem:profile status", "Loaded", JRUI_ALIGN_RIGHT, JRUI_ALIGN_CENTER);
+        mark_solution_invalid(state);
     }
     res = jta_load_natbc_from_file(
             state->io_ctx, &state->problem_setup, state->master_config.problem.definition.natural_bcs_file);
@@ -425,6 +464,7 @@ static void load_all_problem(jrui_widget_base* widget, void* param)
     else
     {
         jrui_update_text_h_by_label(ctx, "problem:natural BC status", "Loaded", JRUI_ALIGN_RIGHT, JRUI_ALIGN_CENTER);
+        mark_solution_invalid(state);
     }
     res = jta_load_numbc_from_file(
             state->io_ctx, &state->problem_setup, state->master_config.problem.definition.numerical_bcs_file);
@@ -437,7 +477,22 @@ static void load_all_problem(jrui_widget_base* widget, void* param)
     else
     {
         jrui_update_text_h_by_label(ctx, "problem:numerical BC status", "Loaded", JRUI_ALIGN_RIGHT, JRUI_ALIGN_CENTER);
+        mark_solution_invalid(state);
     }
+    res = jta_load_elements_from_file(
+            state->io_ctx, &state->problem_setup, state->master_config.problem.definition.elements_file);
+    if (res != JTA_RESULT_SUCCESS)
+    {
+        char err_buffer[64] = { 0 };
+        (void)snprintf(err_buffer, sizeof(err_buffer), "Failed: %s", jta_result_to_str(res));
+        jrui_update_text_h_by_label(ctx, "problem:numerical BC status", err_buffer, JRUI_ALIGN_RIGHT, JRUI_ALIGN_CENTER);
+    }
+    else
+    {
+        jrui_update_text_h_by_label(ctx, "problem:numerical BC status", "Loaded", JRUI_ALIGN_RIGHT, JRUI_ALIGN_CENTER);
+        mark_solution_invalid(state);
+    }
+    check_for_complete_problem(state);
 }
 
 static jrui_result top_menu_problem_replace(jta_config_problem* cfg, jrui_widget_base* body)
@@ -1387,6 +1442,10 @@ static void submit_gravity(jrui_widget_base* widget, const char* string, void* p
     if (idx < sizeof(p_state->master_config.problem.sim_and_sol.gravity) / sizeof(*p_state->master_config.problem.sim_and_sol.gravity))
     {
         convert_to_float_value(widget, string, -INFINITY, INFINITY, p_state->master_config.problem.sim_and_sol.gravity + idx);
+        p_state->problem_setup.gravity.x = p_state->master_config.problem.sim_and_sol.gravity[0];
+        p_state->problem_setup.gravity.y = p_state->master_config.problem.sim_and_sol.gravity[1];
+        p_state->problem_setup.gravity.z = p_state->master_config.problem.sim_and_sol.gravity[2];
+        mark_solution_invalid(p_state);
     }
 }
 
@@ -1405,6 +1464,7 @@ static void submit_convergence(jrui_widget_base* widget, const char* string, voi
     if (convert_to_float_value(widget, string, 1e-6f, 1.0f, &p_state->master_config.problem.sim_and_sol.convergence_criterion))
     {
         jrui_widget_base* drag = jrui_get_by_label(ctx, "solve:drag convergence");
+        mark_solution_invalid(p_state);
         if (drag)
         {
             //  Reverse the transformation
@@ -1425,6 +1485,10 @@ static void submit_convergence_drag(jrui_widget_base* widget, float v, void* par
     const float residual_value = powf(10.0f, exponent);
     char buffer[32] = { 0 };
     snprintf(buffer, sizeof(buffer), "%g", residual_value);
+    if (residual_value < state->master_config.problem.sim_and_sol.convergence_criterion)
+    {
+        mark_solution_invalid(state);
+    }
     state->master_config.problem.sim_and_sol.convergence_criterion = residual_value;
     jrui_widget_base* text = jrui_get_by_label(ctx, "solve:convergence");
     if (text)
@@ -1440,7 +1504,12 @@ static void submit_iterations(jrui_widget_base* widget, const char* string, void
 {
     (void) param;
     jta_state* const p_state = jrui_context_get_user_param(jrui_widget_get_context(widget));
-    convert_to_unsigned_value(widget, string, 1, ~0u, &p_state->master_config.problem.sim_and_sol.thrd_count);
+    const unsigned old_value = p_state->master_config.problem.sim_and_sol.thrd_count;
+    convert_to_unsigned_value(widget, string, 1, ~0u, &p_state->master_config.problem.sim_and_sol.max_iterations);
+    if (old_value < p_state->master_config.problem.sim_and_sol.max_iterations)
+    {
+        mark_solution_invalid(p_state);
+    }
 }
 
 static void submit_relaxation(jrui_widget_base* widget, const char* string, void* param)
@@ -1477,6 +1546,39 @@ static void submit_relaxation_drag(jrui_widget_base* widget, float v, void* para
         jrui_update_text_input_text(text, buffer);
     }
 
+    JDM_LEAVE_FUNCTION;
+}
+
+static void submit_the_problem_to_solve(jrui_widget_base* widget, void* param)
+{
+    JDM_ENTER_FUNCTION;
+    jrui_context* ctx = jrui_widget_get_context(widget);
+    jta_state* const p_state = jrui_context_get_user_param(ctx);
+    if ((p_state->problem_state & JTA_PROBLEM_STATE_HAS_SOLUTION) != 0)
+    {
+        JDM_LEAVE_FUNCTION;
+        return;
+    }
+    if ((p_state->problem_setup.load_state & JTA_PROBLEM_LOAD_STATE_HAS_ELEMENTS) &&
+        (p_state->problem_setup.load_state & JTA_PROBLEM_LOAD_STATE_HAS_NATBC) &&
+        (p_state->problem_setup.load_state & JTA_PROBLEM_LOAD_STATE_HAS_NUMBC))
+    {
+        jta_solution_free(&p_state->problem_solution);
+        jta_result res = jta_solve_problem(
+                &p_state->master_config.problem, &p_state->problem_setup, &p_state->problem_solution);
+        if (res != JTA_RESULT_SUCCESS)
+        {
+            JDM_ERROR("Could not solve problem, reason: %s", jta_result_to_str(res));
+        }
+        else
+        {
+            p_state->problem_state |= JTA_PROBLEM_STATE_HAS_SOLUTION;
+        }
+    }
+    else
+    {
+        JDM_ERROR("Problem does not have defined elements, natural BCs, and/or numerical BCs");
+    }
     JDM_LEAVE_FUNCTION;
 }
 
@@ -1616,8 +1718,8 @@ static jrui_result top_menu_solve_replace(jta_config_problem* cfg, jrui_widget_b
     //  the doomsday button
     jrui_widget_create_info submit_stack_elements[2] =
             {
-                    {.button = {.base_info.type = JRUI_WIDGET_TYPE_BUTTON, .btn_callback = NULL}},  //  TODO: this should start solving the problem
-                    {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_CENTER, .text = "Submit"}},
+                    {.button = {.base_info.type = JRUI_WIDGET_TYPE_BUTTON, .btn_callback = submit_the_problem_to_solve}},
+                    {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_CENTER, .text = "Solve"}},
             };
     jrui_widget_create_info submit_stack = {.stack = {.base_info.type = JRUI_WIDGET_TYPE_STACK, .child_count = sizeof(submit_stack_elements) / sizeof(*submit_stack_elements), .children = submit_stack_elements}};
     jrui_widget_create_info submit_container = {.containerf = {.base_info.type = JRUI_WIDGET_TYPE_CONTAINERF, .height = 1.0f, .width = 0.2f, .align_vertical = JRUI_ALIGN_CENTER, .align_horizontal = JRUI_ALIGN_CENTER, .child = &submit_stack}};

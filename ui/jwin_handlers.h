@@ -26,7 +26,8 @@ struct jta_draw_state_T
     i32 track_move;
     i32 mv_x, mv_y;
     int screenshot;
-    jta_structure_meshes meshes;
+    jta_structure_meshes* undeformed_mesh;
+    jta_structure_meshes* deformed_mesh;
     mtx4 view_matrix;
     int needs_redraw;
 };

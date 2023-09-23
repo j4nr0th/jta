@@ -73,11 +73,11 @@ struct jta_structure_meshes_T
 typedef struct jta_structure_meshes_T jta_structure_meshes;
 
 gfx_result jta_structure_meshes_generate_undeformed(
-        jta_structure_meshes* meshes, const jta_config_display* cfg, const jta_problem_setup* problem_setup,
+        jta_structure_meshes** meshes, const jta_config_display* cfg, const jta_problem_setup* problem_setup,
         jta_vulkan_window_context* ctx);
 
 gfx_result jta_structure_meshes_generate_deformed(
-        jta_structure_meshes* meshes, const jta_config_display* cfg, const jta_problem_setup* problem_setup,
+        jta_structure_meshes** meshes, const jta_config_display* cfg, const jta_problem_setup* problem_setup,
         const jta_solution* solution, jta_vulkan_window_context* ctx);
 
 void jta_structure_meshes_destroy(jta_vulkan_window_context* ctx, jta_structure_meshes* meshes);

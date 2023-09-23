@@ -10,22 +10,40 @@
 #include <jdm.h>
 
 gfx_result jta_draw_frame(
-        jta_vulkan_window_context* wnd_ctx, jta_ui_state* ui_state, mtx4 view_matrix, jta_structure_meshes* meshes,
+        jta_vulkan_window_context* wnd_ctx, jta_ui_state* ui_state, mtx4 view_matrix, jta_structure_meshes* undeformed_meshes, jta_structure_meshes* deformed_meshes,
         const jta_camera_3d* camera)
 {
     jta_timer timer_render;
     jta_timer_set(&timer_render);
     JDM_ENTER_FUNCTION;
-    assert(meshes);
-    for (u32 i = 0; i < 3; ++i)
+    if (deformed_meshes)
     {
-        jta_mesh* mesh = meshes->mesh_array + i;
-        if (mesh->up_to_date == 0)
+        for (u32 i = 0; i < 3; ++i)
         {
-            gfx_result res = jta_mesh_update_instance(mesh, wnd_ctx);
-            if (res != GFX_RESULT_SUCCESS)
+            jta_mesh* mesh = deformed_meshes->mesh_array + i;
+            if (mesh->up_to_date == 0)
             {
-                JDM_ERROR("Could not update mesh %"PRIu32" instance data, reason: %s", i, gfx_result_to_str(res));
+                gfx_result res = jta_mesh_update_instance(mesh, wnd_ctx);
+                if (res != GFX_RESULT_SUCCESS)
+                {
+                    JDM_ERROR("Could not update mesh %"PRIu32" instance data, reason: %s", i, gfx_result_to_str(res));
+                }
+            }
+        }
+    }
+
+    if (undeformed_meshes)
+    {
+        for (u32 i = 0; i < 3; ++i)
+        {
+            jta_mesh* mesh = undeformed_meshes->mesh_array + i;
+            if (mesh->up_to_date == 0)
+            {
+                gfx_result res = jta_mesh_update_instance(mesh, wnd_ctx);
+                if (res != GFX_RESULT_SUCCESS)
+                {
+                    JDM_ERROR("Could not update mesh %"PRIu32" instance data, reason: %s", i, gfx_result_to_str(res));
+                }
             }
         }
     }
@@ -72,40 +90,82 @@ gfx_result jta_draw_frame(
     vkCmdSetViewport(cmd_buffer, 0, 1, &wnd_ctx->viewport);
     vkCmdSetScissor(cmd_buffer, 0, 1, &wnd_ctx->scissor);
     //  Update uniforms
+    if (deformed_meshes || undeformed_meshes)
     {
         float n = INFINITY, f = FLT_EPSILON;
-        for (uint32_t i = 0; i < 3; ++i)
+        if (undeformed_meshes)
         {
-            const jta_mesh* const mesh = meshes->mesh_array + i;
-            if (mesh->count == 0)
+            for (uint32_t i = 0; i < 3; ++i)
             {
-                continue;
-            }
-            const jta_bounding_box* const bb = &mesh->bounding_box;
-            vec4 positions[8] =
-                    {
-                            VEC4(bb->min_x, bb->min_y, bb->min_z),
-                            VEC4(bb->max_x, bb->min_y, bb->min_z),
-
-                            VEC4(bb->min_x, bb->max_y, bb->min_z),
-                            VEC4(bb->max_x, bb->max_y, bb->min_z),
-
-                            VEC4(bb->min_x, bb->min_y, bb->max_z),
-                            VEC4(bb->max_x, bb->min_y, bb->max_z),
-
-                            VEC4(bb->min_x, bb->max_y, bb->max_z),
-                            VEC4(bb->max_x, bb->max_y, bb->max_z),
-                    };
-            for (uint32_t j = 0; j < 8; ++j)
-            {
-                float d = vec4_distance_between_in_direction(positions[j], camera->position, camera->uz);
-                if (d < n)
+                const jta_mesh* const mesh = undeformed_meshes->mesh_array + i;
+                if (mesh->count == 0)
                 {
-                    n = d;
+                    continue;
                 }
-                if (d > f)
+                const jta_bounding_box* const bb = &mesh->bounding_box;
+                vec4 positions[8] =
+                        {
+                                VEC4(bb->min_x, bb->min_y, bb->min_z),
+                                VEC4(bb->max_x, bb->min_y, bb->min_z),
+
+                                VEC4(bb->min_x, bb->max_y, bb->min_z),
+                                VEC4(bb->max_x, bb->max_y, bb->min_z),
+
+                                VEC4(bb->min_x, bb->min_y, bb->max_z),
+                                VEC4(bb->max_x, bb->min_y, bb->max_z),
+
+                                VEC4(bb->min_x, bb->max_y, bb->max_z),
+                                VEC4(bb->max_x, bb->max_y, bb->max_z),
+                        };
+                for (uint32_t j = 0; j < 8; ++j)
                 {
-                    f = d;
+                    float d = vec4_distance_between_in_direction(positions[j], camera->position, camera->uz);
+                    if (d < n)
+                    {
+                        n = d;
+                    }
+                    if (d > f)
+                    {
+                        f = d;
+                    }
+                }
+            }
+        }
+        if (deformed_meshes)
+        {
+            for (uint32_t i = 0; i < 3; ++i)
+            {
+                const jta_mesh* const mesh = deformed_meshes->mesh_array + i;
+                if (mesh->count == 0)
+                {
+                    continue;
+                }
+                const jta_bounding_box* const bb = &mesh->bounding_box;
+                vec4 positions[8] =
+                        {
+                                VEC4(bb->min_x, bb->min_y, bb->min_z),
+                                VEC4(bb->max_x, bb->min_y, bb->min_z),
+
+                                VEC4(bb->min_x, bb->max_y, bb->min_z),
+                                VEC4(bb->max_x, bb->max_y, bb->min_z),
+
+                                VEC4(bb->min_x, bb->min_y, bb->max_z),
+                                VEC4(bb->max_x, bb->min_y, bb->max_z),
+
+                                VEC4(bb->min_x, bb->max_y, bb->max_z),
+                                VEC4(bb->max_x, bb->max_y, bb->max_z),
+                        };
+                for (uint32_t j = 0; j < 8; ++j)
+                {
+                    float d = vec4_distance_between_in_direction(positions[j], camera->position, camera->uz);
+                    if (d < n)
+                    {
+                        n = d;
+                    }
+                    if (d > f)
+                    {
+                        f = d;
+                    }
                 }
             }
         }
@@ -130,18 +190,37 @@ gfx_result jta_draw_frame(
         vkCmdPushConstants(cmd_buffer, wnd_ctx->layout_mesh, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ubo), &ubo);
     }
     vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, wnd_ctx->pipeline_mesh);
-    for (u32 i = 0; i < 3; ++i)
+    if (undeformed_meshes)
     {
-        const jta_mesh* mesh = meshes->mesh_array + i;
-        if (mesh->count == 0) continue;
-        VkBuffer buffers[2] = { jvm_buffer_allocation_get_buffer(mesh->common_geometry_vtx), jvm_buffer_allocation_get_buffer(mesh->instance_memory) };
-        VkDeviceSize offsets[2] = { 0, 0 };
-        vkCmdBindVertexBuffers(cmd_buffer, 0, 2, buffers, offsets);
-        vkCmdBindIndexBuffer(
-                cmd_buffer, jvm_buffer_allocation_get_buffer(mesh->common_geometry_idx), 0,
-                VK_INDEX_TYPE_UINT16);
-        vkCmdDrawIndexed(cmd_buffer, mesh->model.idx_count, mesh->count, 0, 0, 0);
+        for (u32 i = 0; i < 3; ++i)
+        {
+            const jta_mesh* mesh = undeformed_meshes->mesh_array + i;
+            if (mesh->count == 0) continue;
+            VkBuffer buffers[2] = { jvm_buffer_allocation_get_buffer(mesh->common_geometry_vtx), jvm_buffer_allocation_get_buffer(mesh->instance_memory) };
+            VkDeviceSize offsets[2] = { 0, 0 };
+            vkCmdBindVertexBuffers(cmd_buffer, 0, 2, buffers, offsets);
+            vkCmdBindIndexBuffer(
+                    cmd_buffer, jvm_buffer_allocation_get_buffer(mesh->common_geometry_idx), 0,
+                    VK_INDEX_TYPE_UINT16);
+            vkCmdDrawIndexed(cmd_buffer, mesh->model.idx_count, mesh->count, 0, 0, 0);
+        }
     }
+    if (deformed_meshes)
+    {
+        for (u32 i = 0; i < 3; ++i)
+        {
+            const jta_mesh* mesh = deformed_meshes->mesh_array + i;
+            if (mesh->count == 0) continue;
+            VkBuffer buffers[2] = { jvm_buffer_allocation_get_buffer(mesh->common_geometry_vtx), jvm_buffer_allocation_get_buffer(mesh->instance_memory) };
+            VkDeviceSize offsets[2] = { 0, 0 };
+            vkCmdBindVertexBuffers(cmd_buffer, 0, 2, buffers, offsets);
+            vkCmdBindIndexBuffer(
+                    cmd_buffer, jvm_buffer_allocation_get_buffer(mesh->common_geometry_idx), 0,
+                    VK_INDEX_TYPE_UINT16);
+            vkCmdDrawIndexed(cmd_buffer, mesh->model.idx_count, mesh->count, 0, 0, 0);
+        }
+    }
+
 
     vkCmdEndRenderPass(cmd_buffer);
     //  Drawing the coordinate frame

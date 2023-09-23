@@ -246,91 +246,7 @@ static void truss_key_press(const jwin_event_key_press* e, void* param)
         JDM_LEAVE_FUNCTION;
         return;
     }
-    if (e->keycode == JWIN_KEY_SPACE)
-    {
-        if (!solved)
-        {
-            assert(state);
-            jta_result res = jta_solve_problem(&state->master_config.problem, &state->problem_setup, &state->problem_solution);
-            if (res != JTA_RESULT_SUCCESS)
-            {
-                JDM_ERROR("Could not solve the problem, reason: %s", jta_result_to_str(res));
-            }
-            else
-            {
-                solved = 1;
-            }
-        }
-    }
-    else if (e->keycode == JWIN_KEY_R)
-    {
-        jta_structure_meshes new_meshes = {};
-        gfx_result res;
-        res = mesh_init_sphere(&new_meshes.spheres, 4, state->draw_state.wnd_ctx);
-        if (res != GFX_RESULT_SUCCESS)
-        {
-            JDM_ERROR("Could not initialise new sphere mesh, reason: %s", gfx_result_to_str(res));
-            goto end;
-        }
 
-        res = mesh_init_cone(&new_meshes.cones, 1 << 4, state->draw_state.wnd_ctx);
-        if (res != GFX_RESULT_SUCCESS)
-        {
-            JDM_ERROR("Could not initialise new cone mesh, reason: %s", gfx_result_to_str(res));
-            mesh_destroy(NULL, &new_meshes.spheres);
-            goto end;
-        }
-
-        res = mesh_init_truss(&new_meshes.cylinders, 1 << 4, state->draw_state.wnd_ctx);
-        if (res != GFX_RESULT_SUCCESS)
-        {
-            JDM_ERROR("Could not initialise new cylinder mesh, reason: %s", gfx_result_to_str(res));
-            mesh_destroy(NULL, &new_meshes.cones);
-            mesh_destroy(NULL, &new_meshes.spheres);
-            goto end;
-        }
-
-
-        if (solved)
-        {
-//            res = jta_structure_meshes_generate_undeformed(
-//                    &new_meshes, &state->config->display, state->p_problem, state->vulkan_state);
-//            if (res != GFX_RESULT_SUCCESS)
-//            {
-//                JDM_ERROR("Could not create new mesh, reason: %s", gfx_result_to_str(res));
-//                mesh_destroy(&new_meshes.cones);
-//                mesh_destroy(&new_meshes.spheres);
-//                mesh_destroy(&new_meshes.cylinders);
-//                goto end;
-//            }
-            res = jta_structure_meshes_generate_deformed(
-                    &new_meshes, &state->master_config.display, &state->problem_setup, &state->problem_solution, state->draw_state.wnd_ctx);
-        }
-        else
-        {
-            res = jta_structure_meshes_generate_undeformed(
-                    &new_meshes, &state->master_config.display, &state->problem_setup, state->draw_state.wnd_ctx);
-        }
-
-        if (res != GFX_RESULT_SUCCESS)
-        {
-            JDM_ERROR("Could not create new mesh, reason: %s", gfx_result_to_str(res));
-            mesh_destroy(state->draw_state.wnd_ctx, &new_meshes.cones);
-            mesh_destroy(state->draw_state.wnd_ctx, &new_meshes.spheres);
-            mesh_destroy(state->draw_state.wnd_ctx, &new_meshes.cylinders);
-            goto end;
-        }
-
-        jta_structure_meshes old_meshes = state->draw_state.meshes;
-        state->draw_state.meshes = new_meshes;
-        mesh_destroy(state->draw_state.wnd_ctx, &old_meshes.cones);
-        mesh_destroy(state->draw_state.wnd_ctx, &old_meshes.spheres);
-        mesh_destroy(state->draw_state.wnd_ctx, &old_meshes.cylinders);
-        state->draw_state.needs_redraw = 1;
-    }
-
-
-end:
     JDM_LEAVE_FUNCTION;
 }
 
@@ -401,7 +317,8 @@ static void destroy_event(const jwin_event_destroy* e, void* param)
     jta_state* const state = param;
     vkDeviceWaitIdle(state->draw_state.wnd_ctx->device);
     //  Destroy allocated buffers
-    jta_structure_meshes_destroy(state->draw_state.wnd_ctx, &state->draw_state.meshes);
+    jta_structure_meshes_destroy(state->draw_state.wnd_ctx, state->draw_state.undeformed_mesh);
+    jta_structure_meshes_destroy(state->draw_state.wnd_ctx, state->draw_state.deformed_mesh);
     if (state->ui_state.ui_vtx_buffer)
     {
         jvm_buffer_destroy(state->ui_state.ui_vtx_buffer);

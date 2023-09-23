@@ -172,6 +172,10 @@ int main(int argc, char* argv[argc])
     dt = jta_timer_get(&main_timer);
     JDM_TRACE("Data loading time: %g sec", dt);
     //  Find the bounding box of the geometry
+    program_state.problem_state = JTA_PROBLEM_STATE_PROBLEM_LOADED;
+    program_state.problem_setup.load_state = JTA_PROBLEM_LOAD_STATE_HAS_ELEMENTS|JTA_PROBLEM_LOAD_STATE_HAS_NUMBC|
+            JTA_PROBLEM_LOAD_STATE_HAS_NATBC|JTA_PROBLEM_LOAD_STATE_HAS_POINTS|JTA_PROBLEM_LOAD_STATE_HAS_PROFILES|
+            JTA_PROBLEM_LOAD_STATE_HAS_MATERIALS;
     vec4 geo_base;
     f32 geo_radius;
     gfx_find_bounding_sphere(&program_state.problem_setup.point_list, &geo_base, &geo_radius);
@@ -228,28 +232,9 @@ int main(int argc, char* argv[argc])
         JDM_FATAL("Could not create window-dependant Vulkan resources, reason: %s", gfx_result_to_str(gfx_res));
     }
 
-    jta_structure_meshes undeformed_meshes = {};
+    jta_structure_meshes* undeformed_meshes;
     dt = jta_timer_get(&main_timer);
     JDM_TRACE("Vulkan init time: %g sec", dt);
-
-    jta_timer_set(&main_timer);
-    gfx_res = mesh_init_truss(&undeformed_meshes.cylinders, 1 << 4, wnd_ctx);
-    if (gfx_res != GFX_RESULT_SUCCESS)
-    {
-        JDM_FATAL("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
-    }
-
-    gfx_res = mesh_init_sphere(&undeformed_meshes.spheres, 3, wnd_ctx);
-    if (gfx_res != GFX_RESULT_SUCCESS)
-    {
-        JDM_FATAL("Could not create truss mesh: %s", gfx_result_to_str(gfx_res));
-    }
-
-    gfx_res = mesh_init_cone(&undeformed_meshes.cones, 1 << 4, wnd_ctx);
-    if (gfx_res != GFX_RESULT_SUCCESS)
-    {
-        JDM_FATAL("Could not create cone mesh: %s", gfx_result_to_str(gfx_res));
-    }
 
     gfx_res = jta_structure_meshes_generate_undeformed(
             &undeformed_meshes, &program_state.master_config.display, &program_state.problem_setup, wnd_ctx);
@@ -264,8 +249,8 @@ int main(int argc, char* argv[argc])
 
 
     JDM_TRACE("Total of %"PRIu64" triangles in the mesh\n",
-              mesh_polygon_count(&undeformed_meshes.cylinders) + mesh_polygon_count(&undeformed_meshes.spheres) +
-              mesh_polygon_count(&undeformed_meshes.cones));
+              mesh_polygon_count(&undeformed_meshes->cylinders) + mesh_polygon_count(&undeformed_meshes->spheres) +
+              mesh_polygon_count(&undeformed_meshes->cones));
     jta_camera_3d camera;
     jta_camera_set(
             &camera,                                    //  Camera
@@ -357,7 +342,7 @@ int main(int argc, char* argv[argc])
                     .wnd_ctx = wnd_ctx,
                     .camera = camera,
                     .original_camera = camera,
-                    .meshes = undeformed_meshes,
+                    .undeformed_mesh = undeformed_meshes,
                     .needs_redraw = 1,
             };
 
@@ -459,7 +444,7 @@ int main(int argc, char* argv[argc])
         }
         if (program_state.draw_state.needs_redraw || ui_redraw)
         {
-            jta_draw_frame(wnd_ctx, &program_state.ui_state, program_state.draw_state.view_matrix, &program_state.draw_state.meshes, &program_state.draw_state.camera);
+            jta_draw_frame(wnd_ctx, &program_state.ui_state, program_state.draw_state.view_matrix, (program_state.display_state & JTA_DISPLAY_UNDEFORMED) ? program_state.draw_state.undeformed_mesh : NULL, (program_state.display_state & JTA_DISPLAY_DEFORMED) ? program_state.draw_state.deformed_mesh : NULL, &program_state.draw_state.camera);
             program_state.draw_state.needs_redraw = 0;
         }
     }

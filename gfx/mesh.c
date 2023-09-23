@@ -738,13 +738,46 @@ static inline vec4 point_position(const jta_point_list* list, const uint32_t idx
 }
 
 gfx_result jta_structure_meshes_generate_undeformed(
-        jta_structure_meshes* meshes, const jta_config_display* cfg, const jta_problem_setup* problem_setup,
+        jta_structure_meshes** meshes, const jta_config_display* cfg, const jta_problem_setup* problem_setup,
         jta_vulkan_window_context* ctx)
 {
     JDM_ENTER_FUNCTION;
 
     gfx_result res = GFX_RESULT_SUCCESS;
     void* const base = lin_jallocator_save_state(G_LIN_JALLOCATOR);
+
+    jta_structure_meshes* this = ill_jalloc(G_JALLOCATOR, sizeof(*this));
+    if (!this)
+    {
+        JDM_ERROR("Could not allocate memory for mesh");
+        res = GFX_RESULT_BAD_ALLOC;
+        goto end;
+    }
+    memset(this, 0x00, sizeof(*this));
+    res = mesh_init_cone(&this->cones, 1 << 4, ctx);
+    if (res != GFX_RESULT_SUCCESS)
+    {
+        JDM_ERROR("Could not initialize cone mesh, reason: %s", gfx_result_to_str(res));
+        ill_jfree(G_JALLOCATOR, this);
+        goto end;
+    }
+    res = mesh_init_sphere(&this->spheres, 4, ctx);
+    if (res != GFX_RESULT_SUCCESS)
+    {
+        JDM_ERROR("Could not initialize sphere mesh, reason: %s", gfx_result_to_str(res));
+        mesh_destroy(ctx, &this->cones);
+        ill_jfree(G_JALLOCATOR, this);
+        goto end;
+    }
+    res = mesh_init_truss(&this->cylinders, 1 << 4, ctx);
+    if (res != GFX_RESULT_SUCCESS)
+    {
+        JDM_ERROR("Could not initialize truss mesh, reason: %s", gfx_result_to_str(res));
+        mesh_destroy(ctx, &this->spheres);
+        mesh_destroy(ctx, &this->cones);
+        ill_jfree(G_JALLOCATOR, this);
+        goto end;
+    }
 
     //  Preprocess point positions
     const jta_point_list* point_list = &problem_setup->point_list;
@@ -753,6 +786,10 @@ gfx_result jta_structure_meshes_generate_undeformed(
     {
         JDM_ERROR("Could not allocate array to store preprocessed point positions in");
         res = GFX_RESULT_BAD_ALLOC;
+        mesh_destroy(ctx, &this->cylinders);
+        mesh_destroy(ctx, &this->spheres);
+        mesh_destroy(ctx, &this->cones);
+        ill_jfree(G_JALLOCATOR, this);
         goto end;
     }
     for (uint32_t i_pt = 0; i_pt < point_list->count; ++i_pt)
@@ -778,12 +815,16 @@ gfx_result jta_structure_meshes_generate_undeformed(
 
         const float radius = problem_setup->profile_list.equivalent_radius[i_pro] * cfg->radius_scale;
 
-        if ((res = truss_mesh_add_between_pts(&meshes->cylinders, c, radius, pt0, pt1, 0, ctx)) !=
+        if ((res = truss_mesh_add_between_pts(&this->cylinders, c, radius, pt0, pt1, 0, ctx)) !=
             GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not add truss element number %u between \"%.*s\" and \"%.*s\", reason: %s", i_element + 1,
                       (int) point_list->label[i_pt0].len, point_list->label[i_pt0].begin,
                       (int) point_list->label[i_pt1].len, point_list->label[i_pt1].begin, gfx_result_to_str(res));
+            mesh_destroy(ctx, &this->cylinders);
+            mesh_destroy(ctx, &this->spheres);
+            mesh_destroy(ctx, &this->cones);
+            ill_jfree(G_JALLOCATOR, this);
             goto end;
         }
     }
@@ -793,6 +834,10 @@ gfx_result jta_structure_meshes_generate_undeformed(
     {
         JDM_ERROR("Could not allocate buffer for counting point DoFs");
         res = GFX_RESULT_BAD_ALLOC;
+        mesh_destroy(ctx, &this->cylinders);
+        mesh_destroy(ctx, &this->spheres);
+        mesh_destroy(ctx, &this->cones);
+        ill_jfree(G_JALLOCATOR, this);
         goto end;
     }
 
@@ -811,6 +856,10 @@ gfx_result jta_structure_meshes_generate_undeformed(
             JDM_ERROR("Point \"%.*s\" has too %u constraints", (int) point_list->label[i_pt].len,
                       point_list->label[i_pt].begin, bcs_per_point[i_pt]);
             res = GFX_RESULT_BAD_ARG;
+            mesh_destroy(ctx, &this->cylinders);
+            mesh_destroy(ctx, &this->spheres);
+            mesh_destroy(ctx, &this->cones);
+            ill_jfree(G_JALLOCATOR, this);
             goto end;
         }
     }
@@ -822,11 +871,15 @@ gfx_result jta_structure_meshes_generate_undeformed(
         float r = cfg->dof_point_scales[bcs_per_point[i_pt]] * point_list->max_radius[i_pt] * cfg->radius_scale;
         vec4 pos = positions[i_pt];
 
-        if ((res = sphere_mesh_add(&meshes->spheres, c, r, pos, ctx)) != GFX_RESULT_SUCCESS)
+        if ((res = sphere_mesh_add(&this->spheres, c, r, pos, ctx)) != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not add point \"%.*s\", reason: %s", (int) point_list->label[i_pt].len,
                       point_list->label[i_pt].begin,
                       gfx_result_to_str(res));
+            mesh_destroy(ctx, &this->cylinders);
+            mesh_destroy(ctx, &this->spheres);
+            mesh_destroy(ctx, &this->cones);
+            ill_jfree(G_JALLOCATOR, this);
             goto end;
         }
     }
@@ -851,24 +904,29 @@ gfx_result jta_structure_meshes_generate_undeformed(
 
         jta_color c = {{ .r = 0x00, .g = 0x00, .b = 0xD0, .a = 0xFF }};   //  This could be a config option
 
-        if ((res = add_force_arrow(meshes, pos, unit_dir, length, radius, ctx, c, cfg->force_head_ratio)) !=
+        if ((res = add_force_arrow(this, pos, unit_dir, length, radius, ctx, c, cfg->force_head_ratio)) !=
             GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not add the force %u at point \"%.*s\", reason: %s", i_bc + 1,
                       (int) point_list->label[i_pt].len, point_list->label[i_pt].begin, gfx_result_to_str(res));
+            mesh_destroy(ctx, &this->cylinders);
+            mesh_destroy(ctx, &this->spheres);
+            mesh_destroy(ctx, &this->cones);
+            ill_jfree(G_JALLOCATOR, this);
             goto end;
         }
     }
 
     lin_jfree(G_LIN_JALLOCATOR, positions);
-    end:
+end:
     lin_jallocator_restore_current(G_LIN_JALLOCATOR, base);
+    *meshes = this;
     JDM_LEAVE_FUNCTION;
     return res;
 }
 
 gfx_result jta_structure_meshes_generate_deformed(
-        jta_structure_meshes* meshes, const jta_config_display* cfg, const jta_problem_setup* problem_setup,
+        jta_structure_meshes** meshes, const jta_config_display* cfg, const jta_problem_setup* problem_setup,
         const jta_solution* solution, jta_vulkan_window_context* ctx)
 {
     JDM_ENTER_FUNCTION;
@@ -876,6 +934,38 @@ gfx_result jta_structure_meshes_generate_deformed(
     gfx_result res = GFX_RESULT_SUCCESS;
     void* const base = lin_jallocator_save_state(G_LIN_JALLOCATOR);
 
+    jta_structure_meshes* this = ill_jalloc(G_JALLOCATOR, sizeof(*this));
+    if (!this)
+    {
+        JDM_ERROR("Could not allocate memory for mesh");
+        res = GFX_RESULT_BAD_ALLOC;
+        goto end;
+    }
+    memset(this, 0, sizeof(*this));
+    res = mesh_init_cone(&this->cones, 1 << 4, ctx);
+    if (res != GFX_RESULT_SUCCESS)
+    {
+        JDM_ERROR("Could not initialize cone mesh, reason: %s", gfx_result_to_str(res));
+        ill_jfree(G_JALLOCATOR, this);
+        goto end;
+    }
+    res = mesh_init_sphere(&this->spheres, 4, ctx);
+    if (res != GFX_RESULT_SUCCESS)
+    {
+        JDM_ERROR("Could not initialize sphere mesh, reason: %s", gfx_result_to_str(res));
+        mesh_destroy(ctx, &this->cones);
+        ill_jfree(G_JALLOCATOR, this);
+        goto end;
+    }
+    res = mesh_init_truss(&this->cylinders, 1 << 4, ctx);
+    if (res != GFX_RESULT_SUCCESS)
+    {
+        JDM_ERROR("Could not initialize truss mesh, reason: %s", gfx_result_to_str(res));
+        mesh_destroy(ctx, &this->spheres);
+        mesh_destroy(ctx, &this->cones);
+        ill_jfree(G_JALLOCATOR, this);
+        goto end;
+    }
     //  Preprocess point positions
     const jta_point_list* point_list = &problem_setup->point_list;
     vec4* const positions = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*positions) * point_list->count);
@@ -883,6 +973,10 @@ gfx_result jta_structure_meshes_generate_deformed(
     {
         JDM_ERROR("Could not allocate array to store preprocessed point positions in");
         res = GFX_RESULT_BAD_ALLOC;
+        mesh_destroy(ctx, &this->cylinders);
+        mesh_destroy(ctx, &this->spheres);
+        mesh_destroy(ctx, &this->cones);
+        ill_jfree(G_JALLOCATOR, this);
         goto end;
     }
     for (uint32_t i_pt = 0; i_pt < point_list->count; ++i_pt)
@@ -910,12 +1004,16 @@ gfx_result jta_structure_meshes_generate_deformed(
 
         const float radius = problem_setup->profile_list.equivalent_radius[i_pro] * cfg->radius_scale;
 
-        if ((res = truss_mesh_add_between_pts(&meshes->cylinders, c, radius, pt0, pt1, 0, ctx)) !=
+        if ((res = truss_mesh_add_between_pts(&this->cylinders, c, radius, pt0, pt1, 0, ctx)) !=
             GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not add truss element number %u between \"%.*s\" and \"%.*s\", reason: %s", i_element + 1,
                       (int) point_list->label[i_pt0].len, point_list->label[i_pt0].begin,
                       (int) point_list->label[i_pt1].len, point_list->label[i_pt1].begin, gfx_result_to_str(res));
+            mesh_destroy(ctx, &this->cylinders);
+            mesh_destroy(ctx, &this->spheres);
+            mesh_destroy(ctx, &this->cones);
+            ill_jfree(G_JALLOCATOR, this);
             goto end;
         }
     }
@@ -926,6 +1024,10 @@ gfx_result jta_structure_meshes_generate_deformed(
     {
         JDM_ERROR("Could not allocate buffer for counting point DoFs");
         res = GFX_RESULT_BAD_ALLOC;
+        mesh_destroy(ctx, &this->cylinders);
+        mesh_destroy(ctx, &this->spheres);
+        mesh_destroy(ctx, &this->cones);
+        ill_jfree(G_JALLOCATOR, this);
         goto end;
     }
 
@@ -941,6 +1043,10 @@ gfx_result jta_structure_meshes_generate_deformed(
             JDM_ERROR("Point \"%.*s\" has two constraints for it's X position", (int) point_list->label[i_pt].len,
                       point_list->label[i_pt].begin);
             res = GFX_RESULT_BAD_ARG;
+            mesh_destroy(ctx, &this->cylinders);
+            mesh_destroy(ctx, &this->spheres);
+            mesh_destroy(ctx, &this->cones);
+            ill_jfree(G_JALLOCATOR, this);
             goto end;
         }
         bcs_per_point[i_pt] += (type & JTA_NUMERICAL_BC_TYPE_X);
@@ -950,6 +1056,10 @@ gfx_result jta_structure_meshes_generate_deformed(
             JDM_ERROR("Point \"%.*s\" has two constraints for it's Y position", (int) point_list->label[i_pt].len,
                       point_list->label[i_pt].begin);
             res = GFX_RESULT_BAD_ARG;
+            mesh_destroy(ctx, &this->cylinders);
+            mesh_destroy(ctx, &this->spheres);
+            mesh_destroy(ctx, &this->cones);
+            ill_jfree(G_JALLOCATOR, this);
             goto end;
         }
         bcs_per_point[i_pt] += (type & JTA_NUMERICAL_BC_TYPE_Y);
@@ -958,6 +1068,10 @@ gfx_result jta_structure_meshes_generate_deformed(
             JDM_ERROR("Point \"%.*s\" has two constraints for it's X position", (int) point_list->label[i_pt].len,
                       point_list->label[i_pt].begin);
             res = GFX_RESULT_BAD_ARG;
+            mesh_destroy(ctx, &this->cylinders);
+            mesh_destroy(ctx, &this->spheres);
+            mesh_destroy(ctx, &this->cones);
+            ill_jfree(G_JALLOCATOR, this);
             goto end;
         }
         bcs_per_point[i_pt] += (type & JTA_NUMERICAL_BC_TYPE_Z);
@@ -973,11 +1087,15 @@ gfx_result jta_structure_meshes_generate_deformed(
         float r = cfg->dof_point_scales[dof_count] * point_list->max_radius[i_pt] * cfg->radius_scale;
         vec4 pos = positions[i_pt];
 
-        if ((res = sphere_mesh_add(&meshes->spheres, c, r, pos, ctx)) != GFX_RESULT_SUCCESS)
+        if ((res = sphere_mesh_add(&this->spheres, c, r, pos, ctx)) != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not add point \"%.*s\", reason: %s", (int) point_list->label[i_pt].len,
                       point_list->label[i_pt].begin,
                       gfx_result_to_str(res));
+            mesh_destroy(ctx, &this->cylinders);
+            mesh_destroy(ctx, &this->spheres);
+            mesh_destroy(ctx, &this->cones);
+            ill_jfree(G_JALLOCATOR, this);
             goto end;
         }
     }
@@ -990,6 +1108,10 @@ gfx_result jta_structure_meshes_generate_deformed(
     {
         JDM_ERROR("Could not allocate memory for reaction forces");
         res = GFX_RESULT_BAD_ALLOC;
+        mesh_destroy(ctx, &this->cylinders);
+        mesh_destroy(ctx, &this->spheres);
+        mesh_destroy(ctx, &this->cones);
+        ill_jfree(G_JALLOCATOR, this);
         goto end;
     }
 
@@ -1038,11 +1160,15 @@ gfx_result jta_structure_meshes_generate_deformed(
 
         jta_color c = {{ .r = 0x00, .g = 0xFF, .b = 0x00, .a = 0xFF }};   //  This could be a config option
 
-        if ((res = add_force_arrow(meshes, pos, unit_dir, length, radius, ctx, c, cfg->force_head_ratio)) !=
+        if ((res = add_force_arrow(this, pos, unit_dir, length, radius, ctx, c, cfg->force_head_ratio)) !=
             GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not add the reaction force at point \"%.*s\", reason: %s",
                       (int) point_list->label[i_pt].len, point_list->label[i_pt].begin, gfx_result_to_str(res));
+            mesh_destroy(ctx, &this->cylinders);
+            mesh_destroy(ctx, &this->spheres);
+            mesh_destroy(ctx, &this->cones);
+            ill_jfree(G_JALLOCATOR, this);
             goto end;
         }
     }
@@ -1052,6 +1178,7 @@ gfx_result jta_structure_meshes_generate_deformed(
     lin_jfree(G_LIN_JALLOCATOR, positions);
     end:
     lin_jallocator_restore_current(G_LIN_JALLOCATOR, base);
+    *meshes = this;
     JDM_LEAVE_FUNCTION;
     return res;
 }
@@ -1059,10 +1186,13 @@ gfx_result jta_structure_meshes_generate_deformed(
 void jta_structure_meshes_destroy(jta_vulkan_window_context* ctx, jta_structure_meshes* meshes)
 {
     JDM_ENTER_FUNCTION;
-
-    mesh_destroy(ctx, &meshes->cylinders);
-    mesh_destroy(ctx, &meshes->cones);
-    mesh_destroy(ctx, &meshes->spheres);
+    if (meshes)
+    {
+        mesh_destroy(ctx, &meshes->cylinders);
+        mesh_destroy(ctx, &meshes->cones);
+        mesh_destroy(ctx, &meshes->spheres);
+        ill_jfree(G_JALLOCATOR, meshes);
+    }
 
     JDM_LEAVE_FUNCTION;
 }
