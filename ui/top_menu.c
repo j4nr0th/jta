@@ -8,6 +8,7 @@
 #include "../core/jtaload.h"
 #include <stdlib.h>
 #include <jdm.h>
+#include "../core/jtaexport.h"
 
 #ifdef __GNUC__
 //  Platform header
@@ -28,6 +29,7 @@ enum top_menu_button_T
 };
 typedef enum top_menu_button_T top_menu_button;
 
+
 static const char* const TOP_MENU_LABELS[TOP_MENU_COUNT] =
         {
                 [TOP_MENU_PROBLEM] = "top menu:problem",
@@ -44,9 +46,97 @@ static int file_exists(const char* filename)
 #endif
 }
 
+typedef struct delete_mesh_job_data_T delete_mesh_job_data;
+struct delete_mesh_job_data_T
+{
+    jta_structure_meshes* p_mesh;
+    jta_vulkan_window_context* ctx;
+};
+
+static void delete_mesh_job(void* param)
+{
+    delete_mesh_job_data* const data = param;
+    jta_structure_meshes_destroy(data->ctx, data->p_mesh);
+    ill_jfree(G_JALLOCATOR, data);
+}
+
+static void regenerate_meshes(jta_state* p_state, int skip_undeformed, int skip_deformed)
+{
+    JDM_ENTER_FUNCTION;
+    JDM_TRACE("Regenerating meshes (skip undeformed: %d, skip deformed: %d)", skip_undeformed, skip_deformed);
+    if (!skip_undeformed && (p_state->problem_state & JTA_PROBLEM_STATE_PROBLEM_LOADED))
+    {
+        jta_structure_meshes* const old_mesh = p_state->draw_state.undeformed_mesh;
+        jta_structure_meshes* new_mesh;
+        const gfx_result res = jta_structure_meshes_generate_undeformed(&new_mesh, &p_state->master_config.display, &p_state->problem_setup, p_state->draw_state.wnd_ctx);
+        if (res != JTA_RESULT_SUCCESS)
+        {
+            JDM_ERROR("Could not regenerate undeformed mesh, reason: %s", gfx_result_to_str(res));
+        }
+        else
+        {
+            if (old_mesh)
+            {
+                delete_mesh_job_data* const data = ill_jalloc(G_JALLOCATOR, sizeof(delete_mesh_job_data));
+                if (data)
+                {
+                    JDM_TRACE("Replacing undeformed mesh");
+                    p_state->draw_state.undeformed_mesh = new_mesh;
+                    data->p_mesh = old_mesh;
+                    data->ctx = p_state->draw_state.wnd_ctx;
+                    jta_vulkan_context_enqueue_frame_job(p_state->draw_state.wnd_ctx, delete_mesh_job, data);
+                }
+            }
+            else
+            {
+                JDM_TRACE("Replacing undeformed mesh");
+                p_state->draw_state.undeformed_mesh = new_mesh;
+            }
+        }
+    }
+    if (!skip_deformed && (p_state->problem_state & JTA_PROBLEM_STATE_HAS_SOLUTION))
+    {
+        jta_structure_meshes* const old_mesh = p_state->draw_state.deformed_mesh;
+        jta_structure_meshes* new_mesh;
+        const gfx_result res = jta_structure_meshes_generate_deformed(&new_mesh, &p_state->master_config.display, &p_state->problem_setup, &p_state->problem_solution, p_state->draw_state.wnd_ctx);
+        if (res != JTA_RESULT_SUCCESS)
+        {
+            JDM_ERROR("Could not regenerate deformed mesh, reason: %s", gfx_result_to_str(res));
+        }
+        else
+        {
+            if (old_mesh)
+            {
+                delete_mesh_job_data* const data = ill_jalloc(G_JALLOCATOR, sizeof(delete_mesh_job_data));
+                if (data)
+                {
+                    JDM_TRACE("Replacing deformed mesh");
+                    p_state->draw_state.deformed_mesh = new_mesh;
+                    data->p_mesh = old_mesh;
+                    data->ctx = p_state->draw_state.wnd_ctx;
+                    jta_vulkan_context_enqueue_frame_job(p_state->draw_state.wnd_ctx, delete_mesh_job, data);
+                }
+            }
+            else
+            {
+                JDM_TRACE("Replacing deformed mesh");
+                p_state->draw_state.deformed_mesh = new_mesh;
+            }
+        }
+    }
+    JDM_LEAVE_FUNCTION;
+}
+
 static void mark_solution_invalid(jta_state* p_state)
 {
     p_state->problem_state &= ~JTA_PROBLEM_STATE_HAS_SOLUTION;
+    p_state->display_state &= ~JTA_DISPLAY_DEFORMED;
+    jrui_widget_base* const toggle_button = jrui_get_by_label(p_state->ui_state.ui_context, "display:mode deformed");
+    //  Button may not exist, so it can be NULL
+    if (toggle_button)
+    {
+        jrui_update_toggle_button_state(toggle_button, 0);
+    }
 }
 
 static void check_for_complete_problem(jta_state* p_state)
@@ -61,10 +151,18 @@ static void check_for_complete_problem(jta_state* p_state)
     if ((p_state->problem_setup.load_state & complete_load_state) == complete_load_state)
     {
         p_state->problem_state |= JTA_PROBLEM_STATE_PROBLEM_LOADED;
+        regenerate_meshes(p_state, 0, 1);
     }
     else
     {
         p_state->problem_state &= ~JTA_PROBLEM_STATE_PROBLEM_LOADED;
+        p_state->display_state &= ~JTA_DISPLAY_UNDEFORMED;
+        jrui_widget_base* const toggle_button = jrui_get_by_label(p_state->ui_state.ui_context, "display:mode undeformed");
+        if (toggle_button)
+        {
+            //  Button may not exist yet, so it can be NULL
+            jrui_update_toggle_button_state(toggle_button, 0);
+        }
     }
 }
 
@@ -685,44 +783,95 @@ static void submit_radius_scale(jrui_widget_base* widget, const char* string, vo
 {
     (void) param;
     jta_state* const p_state = jrui_context_get_user_param(jrui_widget_get_context(widget));
-    convert_to_float_value(widget, string, 0.0f, INFINITY, &p_state->master_config.display.radius_scale);
+    if (convert_to_float_value(widget, string, 0.0f, INFINITY, &p_state->master_config.display.radius_scale))
+    {
+        regenerate_meshes(p_state, 0, 0);
+    }
+}
+
+static void submit_force_radius_scale(jrui_widget_base* widget, const char* string, void* param)
+{
+    (void) param;
+    jta_state* const p_state = jrui_context_get_user_param(jrui_widget_get_context(widget));
+    if (convert_to_float_value(widget, string, 0.0f, INFINITY, &p_state->master_config.display.force_radius_ratio))
+    {
+        regenerate_meshes(p_state, 0, 0);
+    }
+}
+
+static void submit_force_head_scale(jrui_widget_base* widget, const char* string, void* param)
+{
+    (void) param;
+    jta_state* const p_state = jrui_context_get_user_param(jrui_widget_get_context(widget));
+    if (convert_to_float_value(widget, string, 0.0f, INFINITY, &p_state->master_config.display.force_head_ratio))
+    {
+        regenerate_meshes(p_state, 0, 0);
+    }
+}
+
+static void submit_force_length_scale(jrui_widget_base* widget, const char* string, void* param)
+{
+    (void) param;
+    jta_state* const p_state = jrui_context_get_user_param(jrui_widget_get_context(widget));
+    if (convert_to_float_value(widget, string, 0.0f, INFINITY, &p_state->master_config.display.force_length_ratio))
+    {
+        regenerate_meshes(p_state, 0, 0);
+    }
 }
 
 static void submit_deformation_scale(jrui_widget_base* widget, const char* string, void* param)
 {
     (void) param;
     jta_state* const p_state = jrui_context_get_user_param(jrui_widget_get_context(widget));
-    convert_to_float_value(widget, string, 0.0f, INFINITY, &p_state->master_config.display.deformation_scale);
+    if (convert_to_float_value(widget, string, 0.0f, INFINITY, &p_state->master_config.display.deformation_scale))
+    {
+        regenerate_meshes(p_state, 1, 0);
+    }
 }
 
 static void submit_deformation_color(jrui_widget_base* widget, const char* string, void* param)
 {
     jta_state* const p_state = jrui_context_get_user_param(jrui_widget_get_context(widget));
-   update_color_component(widget, string, (unsigned)(uintptr_t)param, &p_state->master_config.display.deformed_color);
+    if (update_color_component(widget, string, (unsigned)(uintptr_t)param, &p_state->master_config.display.deformed_color))
+    {
+        regenerate_meshes(p_state, 0, 0);
+    }
 }
 
 static void submit_DoF_color_0(jrui_widget_base* widget, const char* string, void* param)
 {
     jta_state* const p_state = jrui_context_get_user_param(jrui_widget_get_context(widget));
-    update_color_component(widget, string, (unsigned)(uintptr_t)param, p_state->master_config.display.dof_point_colors + 0);
+    if (update_color_component(widget, string, (unsigned)(uintptr_t)param, p_state->master_config.display.dof_point_colors + 0))
+    {
+        regenerate_meshes(p_state, 0, 0);
+    }
 }
 
 static void submit_DoF_color_1(jrui_widget_base* widget, const char* string, void* param)
 {
     jta_state* const p_state = jrui_context_get_user_param(jrui_widget_get_context(widget));
-    update_color_component(widget, string, (unsigned)(uintptr_t)param, p_state->master_config.display.dof_point_colors + 1);
+    if (update_color_component(widget, string, (unsigned)(uintptr_t)param, p_state->master_config.display.dof_point_colors + 1))
+    {
+        regenerate_meshes(p_state, 0, 0);
+    }
 }
 
 static void submit_DoF_color_2(jrui_widget_base* widget, const char* string, void* param)
 {
     jta_state* const p_state = jrui_context_get_user_param(jrui_widget_get_context(widget));
-    update_color_component(widget, string, (unsigned)(uintptr_t)param, p_state->master_config.display.dof_point_colors + 2);
+    if (update_color_component(widget, string, (unsigned)(uintptr_t)param, p_state->master_config.display.dof_point_colors + 2))
+    {
+        regenerate_meshes(p_state, 0, 0);
+    }
 }
 
 static void submit_DoF_color_3(jrui_widget_base* widget, const char* string, void* param)
 {
     jta_state* const p_state = jrui_context_get_user_param(jrui_widget_get_context(widget));
-    update_color_component(widget, string, (unsigned)(uintptr_t)param, p_state->master_config.display.dof_point_colors + 3);
+    if (update_color_component(widget, string, (unsigned)(uintptr_t)param, p_state->master_config.display.dof_point_colors + 3))
+    {
+        regenerate_meshes(p_state, 0, 0);
+    }
 }
 
 static void submit_DoF_scale(jrui_widget_base* widget, const char* string, void* param)
@@ -731,7 +880,11 @@ static void submit_DoF_scale(jrui_widget_base* widget, const char* string, void*
     uintptr_t idx = (uintptr_t) param;
     if (idx < sizeof(p_state->master_config.display.dof_point_scales) / sizeof(*p_state->master_config.display.dof_point_scales))
     {
-        convert_to_float_value(widget, string, 0.0f, INFINITY, p_state->master_config.display.dof_point_scales + idx);
+        if (convert_to_float_value(
+                widget, string, 0.0f, INFINITY, p_state->master_config.display.dof_point_scales + idx))
+        {
+            regenerate_meshes(p_state, 0, 0);
+        }
     }
 }
 
@@ -771,7 +924,7 @@ static void toggle_display_mode(jrui_widget_base* widget, int pressed, void* par
     }
 }
 
-static jrui_result top_menu_display_replace(jta_config_display* cfg, jrui_widget_base* body)
+static jrui_result top_menu_display_replace(int show_undeformed, int show_deformed, jta_config_display* cfg, jrui_widget_base* body)
 {
     char radius_buffer[16] = { 0 };
     snprintf(radius_buffer, sizeof(radius_buffer), "%g", cfg->radius_scale);
@@ -1039,7 +1192,7 @@ static jrui_result top_menu_display_replace(jta_config_display* cfg, jrui_widget
     jrui_widget_create_info force_radius_elements[2] =
             {
                     {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = "Force radius scale", .text_alignment_horizontal = JRUI_ALIGN_LEFT, .text_alignment_vertical = JRUI_ALIGN_CENTER}},
-                    {.text_input = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_INPUT, .align_h_text = JRUI_ALIGN_RIGHT, .align_v_text = JRUI_ALIGN_CENTER, .align_v_hint = JRUI_ALIGN_CENTER, .align_h_hint = JRUI_ALIGN_LEFT, .base_info.label = "display:force radius", .submit_callback = submit_radius_scale, .current_text = buffer_fr}},
+                    {.text_input = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_INPUT, .align_h_text = JRUI_ALIGN_RIGHT, .align_v_text = JRUI_ALIGN_CENTER, .align_v_hint = JRUI_ALIGN_CENTER, .align_h_hint = JRUI_ALIGN_LEFT, .base_info.label = "display:force radius", .submit_callback = submit_force_radius_scale, .current_text = buffer_fr}},
             };
     jrui_widget_create_info force_radius_row =
             {
@@ -1057,7 +1210,7 @@ static jrui_result top_menu_display_replace(jta_config_display* cfg, jrui_widget
     jrui_widget_create_info force_head_elements[2] =
             {
                     {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = "Force head scale", .text_alignment_horizontal = JRUI_ALIGN_LEFT, .text_alignment_vertical = JRUI_ALIGN_CENTER}},
-                    {.text_input = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_INPUT, .align_h_text = JRUI_ALIGN_RIGHT, .align_v_text = JRUI_ALIGN_CENTER, .align_v_hint = JRUI_ALIGN_CENTER, .align_h_hint = JRUI_ALIGN_LEFT, .base_info.label = "display:force head", .submit_callback = submit_radius_scale, .current_text = buffer_fh}},
+                    {.text_input = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_INPUT, .align_h_text = JRUI_ALIGN_RIGHT, .align_v_text = JRUI_ALIGN_CENTER, .align_v_hint = JRUI_ALIGN_CENTER, .align_h_hint = JRUI_ALIGN_LEFT, .base_info.label = "display:force head", .submit_callback = submit_force_head_scale, .current_text = buffer_fh}},
             };
     jrui_widget_create_info force_head_row =
             {
@@ -1075,7 +1228,7 @@ static jrui_result top_menu_display_replace(jta_config_display* cfg, jrui_widget
     jrui_widget_create_info force_length_elements[2] =
             {
                     {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = "Force length scale", .text_alignment_horizontal = JRUI_ALIGN_LEFT, .text_alignment_vertical = JRUI_ALIGN_CENTER}},
-                    {.text_input = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_INPUT, .align_h_text = JRUI_ALIGN_RIGHT, .align_v_text = JRUI_ALIGN_CENTER, .align_v_hint = JRUI_ALIGN_CENTER, .align_h_hint = JRUI_ALIGN_LEFT, .base_info.label = "display:force length", .submit_callback = submit_radius_scale, .current_text = buffer_lr}},
+                    {.text_input = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_INPUT, .align_h_text = JRUI_ALIGN_RIGHT, .align_v_text = JRUI_ALIGN_CENTER, .align_v_hint = JRUI_ALIGN_CENTER, .align_h_hint = JRUI_ALIGN_LEFT, .base_info.label = "display:force length", .submit_callback = submit_force_length_scale, .current_text = buffer_lr}},
             };
     jrui_widget_create_info force_length_row =
             {
@@ -1128,13 +1281,13 @@ static jrui_result top_menu_display_replace(jta_config_display* cfg, jrui_widget
     //  Display mode button
     jrui_widget_create_info display_mode_undeformed_elements[2] =
             {
-                    {.toggle_button = {.base_info.type = JRUI_WIDGET_TYPE_TOGGLE_BUTTON, .base_info.label = "display:mode undeformed", .toggle_callback = toggle_display_mode, .toggle_param = (void*)JTA_DISPLAY_UNDEFORMED}},
+                    {.toggle_button = {.base_info.type = JRUI_WIDGET_TYPE_TOGGLE_BUTTON, .base_info.label = "display:mode undeformed", .toggle_callback = toggle_display_mode, .toggle_param = (void*)JTA_DISPLAY_UNDEFORMED, .initial_state = show_undeformed}},
                     {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text_alignment_horizontal = JRUI_ALIGN_CENTER, .text_alignment_vertical = JRUI_ALIGN_CENTER, .text = "Show Undeformed"}},
             };
 
     jrui_widget_create_info display_mode_deformed_elements[2] =
             {
-                    {.toggle_button = {.base_info.type = JRUI_WIDGET_TYPE_TOGGLE_BUTTON, .base_info.label = "display:mode deformed", .toggle_callback = toggle_display_mode, .toggle_param = (void*)JTA_DISPLAY_DEFORMED}},
+                    {.toggle_button = {.base_info.type = JRUI_WIDGET_TYPE_TOGGLE_BUTTON, .base_info.label = "display:mode deformed", .toggle_callback = toggle_display_mode, .toggle_param = (void*)JTA_DISPLAY_DEFORMED, .initial_state = show_deformed}},
                     {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text_alignment_horizontal = JRUI_ALIGN_CENTER, .text_alignment_vertical = JRUI_ALIGN_CENTER, .text = "Show Deformed"}},
             };
 
@@ -1259,6 +1412,44 @@ static void submit_config_output(jrui_widget_base* widget, const char* string, v
     update_file_option(widget, string, &p_state->master_config.output.configuration_file);
 }
 
+static void save_point_outputs(jrui_widget_base* widget, void* param)
+{
+    (void) param;
+    jrui_context* ctx = jrui_widget_get_context(widget);
+    jta_state* const p_state = jrui_context_get_user_param(ctx);
+    if ((p_state->problem_state & JTA_PROBLEM_STATE_HAS_SOLUTION) && p_state->master_config.output.point_output_file)
+    {
+        const jta_result res = jta_save_point_solution(p_state->master_config.output.point_output_file, &p_state->problem_setup.point_list, &p_state->problem_solution);
+        if (res != JTA_RESULT_SUCCESS)
+        {
+            JDM_ERROR("Could not save the point solution to file");
+        }
+    }
+    else
+    {
+        JDM_INFO("Can not save results with no solution and/or no output file");
+    }
+}
+
+static void save_element_outputs(jrui_widget_base* widget, void* param)
+{
+    (void) param;
+    jrui_context* ctx = jrui_widget_get_context(widget);
+    jta_state* const p_state = jrui_context_get_user_param(ctx);
+    if ((p_state->problem_state & JTA_PROBLEM_STATE_HAS_SOLUTION) && p_state->master_config.output.element_output_file)
+    {
+        const jta_result res = jta_save_element_solution(p_state->master_config.output.element_output_file, &p_state->problem_setup.element_list, &p_state->problem_setup.point_list, &p_state->problem_solution);
+        if (res != JTA_RESULT_SUCCESS)
+        {
+            JDM_ERROR("Could not save the element solution to file");
+        }
+    }
+    else
+    {
+        JDM_INFO("Can not save results with no solution and/or no output file");
+    }
+}
+
 static jrui_result top_menu_output_replace(jta_config_output* cfg, jrui_widget_base* body)
 {
     const float row_ratios[2] = {1.0f, 3.0f};
@@ -1361,11 +1552,11 @@ static jrui_result top_menu_output_replace(jta_config_output* cfg, jrui_widget_b
     jrui_widget_create_info stack_contents_elements[] =
             {
             //  Point outputs
-                    {.button = {.base_info.type = JRUI_WIDGET_TYPE_BUTTON}},
+                    {.button = {.base_info.type = JRUI_WIDGET_TYPE_BUTTON, .btn_callback = save_point_outputs}},
                     {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text_alignment_horizontal = JRUI_ALIGN_CENTER, .text_alignment_vertical = JRUI_ALIGN_CENTER, .text = "Save point"}},
 
             //  Element outputs
-                    {.button = {.base_info.type = JRUI_WIDGET_TYPE_BUTTON}},
+                    {.button = {.base_info.type = JRUI_WIDGET_TYPE_BUTTON, .btn_callback = save_element_outputs}},
                     {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text_alignment_horizontal = JRUI_ALIGN_CENTER, .text_alignment_vertical = JRUI_ALIGN_CENTER, .text = "Save element"}},
 
             //  General outputs
@@ -1397,19 +1588,19 @@ static jrui_result top_menu_output_replace(jta_config_output* cfg, jrui_widget_b
                     {.stack = {.base_info.type = JRUI_WIDGET_TYPE_STACK, .child_count = 2, .children = stack_contents_elements + 2}},
 
                     //  General outputs
-                    {.stack = {.base_info.type = JRUI_WIDGET_TYPE_STACK, .child_count = 2, .children = stack_contents_elements + 4}},
-
-                    //  Matrix outputs
-                    {.stack = {.base_info.type = JRUI_WIDGET_TYPE_STACK, .child_count = 2, .children = stack_contents_elements + 6}},
-
-                    //  Figure outputs
-                    {.stack = {.base_info.type = JRUI_WIDGET_TYPE_STACK, .child_count = 2, .children = stack_contents_elements + 8}},
-
-                    //  Config save
-                    {.stack = {.base_info.type = JRUI_WIDGET_TYPE_STACK, .child_count = 2, .children = stack_contents_elements + 10}},
-
-                    //  Config load
-                    {.stack = {.base_info.type = JRUI_WIDGET_TYPE_STACK, .child_count = 2, .children = stack_contents_elements + 12}},
+//                    {.stack = {.base_info.type = JRUI_WIDGET_TYPE_STACK, .child_count = 2, .children = stack_contents_elements + 4}},
+//
+//                    //  Matrix outputs
+//                    {.stack = {.base_info.type = JRUI_WIDGET_TYPE_STACK, .child_count = 2, .children = stack_contents_elements + 6}},
+//
+//                    //  Figure outputs
+//                    {.stack = {.base_info.type = JRUI_WIDGET_TYPE_STACK, .child_count = 2, .children = stack_contents_elements + 8}},
+//
+//                    //  Config save
+//                    {.stack = {.base_info.type = JRUI_WIDGET_TYPE_STACK, .child_count = 2, .children = stack_contents_elements + 10}},
+//
+//                    //  Config load
+//                    {.stack = {.base_info.type = JRUI_WIDGET_TYPE_STACK, .child_count = 2, .children = stack_contents_elements + 12}},
             };
     jrui_widget_create_info button_row =
             {.row = {.base_info.type = JRUI_WIDGET_TYPE_ROW, .child_count = sizeof(button_stacks) / sizeof(*button_stacks), .children = button_stacks}};
@@ -1573,6 +1764,12 @@ static void submit_the_problem_to_solve(jrui_widget_base* widget, void* param)
         else
         {
             p_state->problem_state |= JTA_PROBLEM_STATE_HAS_SOLUTION;
+            regenerate_meshes(p_state, 1, 0);
+            res = jta_postprocess(&p_state->problem_setup, &p_state->problem_solution);
+            if (res != JTA_RESULT_SUCCESS)
+            {
+                JDM_ERROR("Could not post-process the solution, reason: %s", jta_result_to_str(res));
+            }
         }
     }
     else
@@ -1783,7 +1980,7 @@ static void top_menu_toggle_on_callback(jrui_widget_base* widget, int pressed, v
         replace_res = top_menu_problem_replace(&state->master_config.problem, body);
         break;
     case TOP_MENU_DISPLAY:
-        replace_res = top_menu_display_replace(&state->master_config.display, body);
+        replace_res = top_menu_display_replace((int)(state->display_state & JTA_DISPLAY_UNDEFORMED), (int)(state->display_state & JTA_DISPLAY_DEFORMED), &state->master_config.display, body);
         break;
     case TOP_MENU_OUTPUT:
         replace_res = top_menu_output_replace(&state->master_config.output, body);

@@ -41,7 +41,9 @@ add_executable(jta main.c
         ui/top_menu.c
         ui/top_menu.h
         core/jtaload.c
-        core/jtaload.h)
+        core/jtaload.h
+        core/jtaexport.c
+        core/jtaexport.h)
 
 add_compile_definitions(JALLOC_TRAP_COUNT=128)
 add_compile_definitions(JALLOC_TRACKING=1)

@@ -274,3 +274,81 @@ void jta_solution_free(jta_solution* solution)
 
     JDM_LEAVE_FUNCTION;
 }
+
+jta_result jta_postprocess(const jta_problem_setup* problem, jta_solution* solution)
+{
+    JDM_ENTER_FUNCTION;
+    const jta_point_list* const points = &problem->point_list;
+    const jta_element_list* const elements = &problem->element_list;
+
+    float* const stresses = ill_jalloc(G_JALLOCATOR, sizeof(*stresses) * elements->count);
+    if (!stresses)
+    {
+        JDM_ERROR("Could not allocate memory for element stresses");
+        JDM_LEAVE_FUNCTION;
+        return JTA_RESULT_BAD_ALLOC;
+    }
+    float* const forces = ill_jalloc(G_JALLOCATOR, sizeof(*forces) * elements->count);
+    if (!forces)
+    {
+        JDM_ERROR("Could not allocate memory for element forces");
+        ill_jfree(G_JALLOCATOR, stresses);
+        JDM_LEAVE_FUNCTION;
+        return JTA_RESULT_BAD_ALLOC;
+    }
+    float* const masses = ill_jalloc(G_JALLOCATOR, sizeof(*masses) * elements->count);
+    if (!masses)
+    {
+        JDM_ERROR("Could not allocate memory for element masses");
+        ill_jfree(G_JALLOCATOR, masses);
+        ill_jfree(G_JALLOCATOR, stresses);
+        JDM_LEAVE_FUNCTION;
+        return JTA_RESULT_BAD_ALLOC;
+    }
+
+    for (unsigned i_element = 0; i_element < elements->count; ++i_element)
+    {
+        const unsigned i_pt0 = elements->i_point0[i_element];
+        const unsigned i_pt1 = elements->i_point1[i_element];
+        const unsigned i_mat = elements->i_material[i_element];
+        const unsigned i_pro = elements->i_profile[i_element];
+
+        const vec4 original_direction = VEC4(
+                points->p_x[i_pt1] - points->p_x[i_pt0],
+                points->p_y[i_pt1] - points->p_y[i_pt0],
+                points->p_z[i_pt1] - points->p_z[i_pt0]);
+        const vec4 deformation = VEC4(
+                solution->point_displacements[3lu * i_pt1 + 0] - solution->point_displacements[3lu * i_pt0 + 0],
+                solution->point_displacements[3lu * i_pt1 + 1] - solution->point_displacements[3lu * i_pt0 + 1],
+                solution->point_displacements[3lu * i_pt1 + 2] - solution->point_displacements[3lu * i_pt0 + 2]);
+        const float original_len2 = vec4_dot(original_direction, original_direction);
+        const float strain = vec4_dot(deformation, original_direction) / original_len2;
+        const float stress = strain * problem->material_list.elastic_modulus[i_mat];
+        stresses[i_element] = stress;
+        const float area = problem->profile_list.area[i_pro];
+        const float force = stress * area;
+        forces[i_element] = force;
+        const float mass = problem->material_list.density[i_mat] * area * sqrtf(original_len2);
+        masses[i_element] = mass;
+    }
+
+
+
+    if (solution->element_count)
+    {
+        solution->element_count = 0;
+        ill_jfree(G_JALLOCATOR, solution->element_masses);
+        solution->element_masses = NULL;
+        ill_jfree(G_JALLOCATOR, solution->element_forces);
+        solution->element_forces = NULL;
+        ill_jfree(G_JALLOCATOR, solution->element_stresses);
+        solution->element_stresses = NULL;
+    }
+    solution->element_count = elements->count;
+    solution->element_stresses = stresses;
+    solution->element_forces = forces;
+    solution->element_masses = masses;
+
+    JDM_LEAVE_FUNCTION;
+    return JTA_RESULT_SUCCESS;
+}

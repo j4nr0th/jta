@@ -366,7 +366,6 @@ int main(int argc, char* argv[argc])
     program_state.ui_state.ui_idx_buffer = 0;
     program_state.problem_solution = (jta_solution){};
 
-//    while ((jwin_res = jwin_context_wait_for_events(jctx)) == JWIN_RESULT_SUCCESS)
     for (;;)
     {
         jwin_res = jwin_context_wait_for_events(program_state.wnd_ctx);
