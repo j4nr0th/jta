@@ -113,7 +113,7 @@ int main(int argc, char* argv[argc])
     }
     ill_jallocator_set_bad_alloc_callback(G_JALLOCATOR, invalid_alloc, NULL);
     ill_jallocator_set_double_free_callback(G_JALLOCATOR, double_free_hook, NULL);
-//    ill_jallocator_set_debug_trap(G_JALLOCATOR, 20, jmem_trap, NULL);
+//    ill_jallocator_set_debug_trap(G_JALLOCATOR, 194, jmem_trap, NULL);
     {
         jdm_allocator_callbacks jdm_callbacks =
                 {
@@ -134,9 +134,9 @@ int main(int argc, char* argv[argc])
     }
     JDM_ENTER_FUNCTION;
     jdm_set_hook(jdm_error_hook_callback_function, NULL);
-    if (argc == 1)
+    if (argc > 2)
     {
-        printf("usage:\n    %s CFG_FILE\n", argv[0]);
+        printf("usage:\n    %s [CFG_FILE]\n", argv[0]);
         exit(EXIT_SUCCESS);
     }
     f64 dt = jta_timer_get(&main_timer);
@@ -152,33 +152,38 @@ int main(int argc, char* argv[argc])
     {
         JDM_FATAL("Could not create IO context, reason: %s", jio_result_to_str(jio_res));
     }
-
-    jta_timer_set(&main_timer);
-    jta_result jta_res = jta_load_configuration(program_state.io_ctx, argv[1], &program_state.master_config);
-    if (jta_res != JTA_RESULT_SUCCESS)
+    jta_result jta_res;
+    if (argc == 2)
     {
-        JDM_FATAL("Could not load program configuration, reason: %s", jta_result_to_str(jta_res));
+        jta_timer_set(&main_timer);
+        jta_res = jta_load_configuration(program_state.io_ctx, argv[1], &program_state.master_config);
+        if (jta_res != JTA_RESULT_SUCCESS)
+        {
+            JDM_FATAL("Could not load program configuration, reason: %s", jta_result_to_str(jta_res));
+        }
+        dt = jta_timer_get(&main_timer);
+        JDM_TRACE("Config parsing time: %g sec", dt);
+
+
+        jta_timer_set(&main_timer);
+        jta_res = jta_load_problem(program_state.io_ctx, &program_state.master_config.problem, &program_state.problem_setup);
+        if (jta_res != JTA_RESULT_SUCCESS)
+        {
+            JDM_FATAL("Could not load problem, reason: %s", jta_result_to_str(jta_res));
+        }
+        dt = jta_timer_get(&main_timer);
+        JDM_TRACE("Data loading time: %g sec", dt);
+        //  Find the bounding box of the geometry
+        program_state.problem_state = JTA_PROBLEM_STATE_PROBLEM_LOADED;
+        program_state.problem_setup.load_state = JTA_PROBLEM_LOAD_STATE_HAS_ELEMENTS|JTA_PROBLEM_LOAD_STATE_HAS_NUMBC|
+                JTA_PROBLEM_LOAD_STATE_HAS_NATBC|JTA_PROBLEM_LOAD_STATE_HAS_POINTS|JTA_PROBLEM_LOAD_STATE_HAS_PROFILES|
+                JTA_PROBLEM_LOAD_STATE_HAS_MATERIALS;
+
     }
-    dt = jta_timer_get(&main_timer);
-    JDM_TRACE("Config parsing time: %g sec", dt);
-
-
-    jta_timer_set(&main_timer);
-    jta_res = jta_load_problem(program_state.io_ctx, &program_state.master_config.problem, &program_state.problem_setup);
-    if (jta_res != JTA_RESULT_SUCCESS)
+    else
     {
-        JDM_FATAL("Could not load problem, reason: %s", jta_result_to_str(jta_res));
+        memset(&program_state.master_config, 0, sizeof(program_state.master_config));
     }
-    dt = jta_timer_get(&main_timer);
-    JDM_TRACE("Data loading time: %g sec", dt);
-    //  Find the bounding box of the geometry
-    program_state.problem_state = JTA_PROBLEM_STATE_PROBLEM_LOADED;
-    program_state.problem_setup.load_state = JTA_PROBLEM_LOAD_STATE_HAS_ELEMENTS|JTA_PROBLEM_LOAD_STATE_HAS_NUMBC|
-            JTA_PROBLEM_LOAD_STATE_HAS_NATBC|JTA_PROBLEM_LOAD_STATE_HAS_POINTS|JTA_PROBLEM_LOAD_STATE_HAS_PROFILES|
-            JTA_PROBLEM_LOAD_STATE_HAS_MATERIALS;
-    vec4 geo_base;
-    f32 geo_radius;
-    gfx_find_bounding_sphere(&program_state.problem_setup.point_list, &geo_base, &geo_radius);
 
 
     jta_vulkan_window_context* wnd_ctx = NULL;
@@ -232,36 +237,26 @@ int main(int argc, char* argv[argc])
         JDM_FATAL("Could not create window-dependant Vulkan resources, reason: %s", gfx_result_to_str(gfx_res));
     }
 
-    jta_structure_meshes* undeformed_meshes;
+
     dt = jta_timer_get(&main_timer);
     JDM_TRACE("Vulkan init time: %g sec", dt);
 
-    gfx_res = jta_structure_meshes_generate_undeformed(
-            &undeformed_meshes, &program_state.master_config.display, &program_state.problem_setup, wnd_ctx);
-    if (gfx_res != GFX_RESULT_SUCCESS)
-    {
-        JDM_FATAL("Could not generate undeformed mesh, reason: %s", gfx_result_to_str(gfx_res));
-    }
+//    gfx_res = jta_structure_meshes_generate_undeformed(
+//            &undeformed_meshes, &program_state.master_config.display, &program_state.problem_setup, wnd_ctx);
+//    if (gfx_res != GFX_RESULT_SUCCESS)
+//    {
+//        JDM_FATAL("Could not generate undeformed mesh, reason: %s", gfx_result_to_str(gfx_res));
+//    }
 
 
-    dt = jta_timer_get(&main_timer);
-    JDM_TRACE("Mesh generation time: %g sec", dt);
+//    dt = jta_timer_get(&main_timer);
+//    JDM_TRACE("Mesh generation time: %g sec", dt);
 
 
-    JDM_TRACE("Total of %"PRIu64" triangles in the mesh\n",
-              mesh_polygon_count(&undeformed_meshes->cylinders) + mesh_polygon_count(&undeformed_meshes->spheres) +
-              mesh_polygon_count(&undeformed_meshes->cones));
-    jta_camera_3d camera;
-    jta_camera_set(
-            &camera,                                    //  Camera
-            geo_base,                                   //  View target
-            geo_base,                                   //  Geometry center
-            geo_radius,                                 //  Geometry radius
-            vec4_add(geo_base, vec4_mul_one(VEC4(1, 1, 1), geo_radius)), //  Camera position
-            VEC4(0, 0, -1),                             //  Down
-            4.0f,                                       //  Turn sensitivity
-            1.0f                                        //  Move sensitivity
-                  );
+//    JDM_TRACE("Total of %"PRIu64" triangles in the mesh\n",
+//              mesh_polygon_count(&undeformed_meshes->cylinders) + mesh_polygon_count(&undeformed_meshes->spheres) +
+//              mesh_polygon_count(&undeformed_meshes->cones));
+
 
     //  Initialize JRUI context
     {
@@ -340,9 +335,6 @@ int main(int argc, char* argv[argc])
             {
                     .vk_ctx = vk_ctx,
                     .wnd_ctx = wnd_ctx,
-                    .camera = camera,
-                    .original_camera = camera,
-                    .undeformed_mesh = undeformed_meshes,
                     .needs_redraw = 1,
             };
 
@@ -361,7 +353,7 @@ int main(int argc, char* argv[argc])
 
 
 
-    program_state.draw_state.view_matrix = jta_camera_to_view_matrix(&camera);
+//    program_state.draw_state.view_matrix = jta_camera_to_view_matrix(&camera);
     program_state.ui_state.ui_vtx_buffer = 0;
     program_state.ui_state.ui_idx_buffer = 0;
     program_state.problem_solution = (jta_solution){};
@@ -443,7 +435,13 @@ int main(int argc, char* argv[argc])
         }
         if (program_state.draw_state.needs_redraw || ui_redraw)
         {
-            jta_draw_frame(wnd_ctx, &program_state.ui_state, program_state.draw_state.view_matrix, (program_state.display_state & JTA_DISPLAY_UNDEFORMED) ? program_state.draw_state.undeformed_mesh : NULL, (program_state.display_state & JTA_DISPLAY_DEFORMED) ? program_state.draw_state.deformed_mesh : NULL, &program_state.draw_state.camera);
+            jta_draw_frame(
+                    wnd_ctx, &program_state.ui_state,
+                    (program_state.display_state & JTA_DISPLAY_UNDEFORMED)
+                    ? program_state.draw_state.undeformed_mesh : NULL,
+                    (program_state.display_state & JTA_DISPLAY_DEFORMED) ? program_state.draw_state.deformed_mesh
+                                                                         : NULL,
+                    &program_state.draw_state.camera, program_state.master_config.display.background_color);
             program_state.draw_state.needs_redraw = 0;
         }
     }

@@ -18,8 +18,8 @@
 #include "../jta_state.h"
 gfx_result
 jta_draw_frame(
-        jta_vulkan_window_context* wnd_ctx, jta_ui_state* ui_state, mtx4 view_matrix, jta_structure_meshes* deformed_meshes, jta_structure_meshes* undeformed_meshes,
-        const jta_camera_3d* camera);
+        jta_vulkan_window_context* wnd_ctx, jta_ui_state* ui_state, jta_structure_meshes* deformed_meshes,
+        jta_structure_meshes* undeformed_meshes, const jta_camera_3d* camera, const jta_color background_color);
 ;
 
 #endif //JTA_DRAWING_H

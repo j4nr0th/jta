@@ -292,8 +292,8 @@ static jta_color jta_color_from_floats(const float array[4])
 
 static void free_display_config(jta_config_display* cfg)
 {
-    ill_jfree(G_JALLOCATOR, cfg->material_cmap_file);
-    ill_jfree(G_JALLOCATOR, cfg->stress_cmap_file);
+//    ill_jfree(G_JALLOCATOR, cfg->material_cmap_file);
+//    ill_jfree(G_JALLOCATOR, cfg->stress_cmap_file);
     memset(cfg, 0, sizeof(*cfg));
 }
 
@@ -305,34 +305,34 @@ static jta_result load_display_config(const jio_cfg_section* section, jta_config
     float def_color[4];
     bool found;
     const jio_string_segment section_name = jio_cfg_section_get_name(section);
-    cfg->material_cmap_file = get_str_from_section(section, "material color map", true, &found);
-    if (!cfg->material_cmap_file)
-    {
-        if (!found)
-        {
-            JDM_WARN("Entry \"material color map\" was not specified in section \"%.*s\", so default value will be used", (int)section_name.len, section_name.begin);
-        }
-        else
-        {
-            JDM_ERROR("Could not get entry from section \"%.*s\"", (int)section_name.len, section_name.begin);
-            goto failed;
-        }
-    }
+//    cfg->material_cmap_file = get_str_from_section(section, "material color map", true, &found);
+//    if (!cfg->material_cmap_file)
+//    {
+//        if (!found)
+//        {
+//            JDM_WARN("Entry \"material color map\" was not specified in section \"%.*s\", so default value will be used", (int)section_name.len, section_name.begin);
+//        }
+//        else
+//        {
+//            JDM_ERROR("Could not get entry from section \"%.*s\"", (int)section_name.len, section_name.begin);
+//            goto failed;
+//        }
+//    }
 
-    cfg->stress_cmap_file = get_str_from_section(section, "stress color map", true, &found);
-    if (!cfg->stress_cmap_file)
-    {
-        if (!found)
-        {
-            JDM_WARN("Entry \"stress color map\" was not specified in section \"%.*s\", so default value will be used", (int)section_name.len, section_name.begin);
-        }
-        else
-        {
-            JDM_ERROR("Could not get entry from section \"%.*s\"", (int)section_name.len, section_name.begin);
-            ill_jfree(G_JALLOCATOR, cfg->material_cmap_file);
-            goto failed;
-        }
-    }
+//    cfg->stress_cmap_file = get_str_from_section(section, "stress color map", true, &found);
+//    if (!cfg->stress_cmap_file)
+//    {
+//        if (!found)
+//        {
+//            JDM_WARN("Entry \"stress color map\" was not specified in section \"%.*s\", so default value will be used", (int)section_name.len, section_name.begin);
+//        }
+//        else
+//        {
+//            JDM_ERROR("Could not get entry from section \"%.*s\"", (int)section_name.len, section_name.begin);
+//            ill_jfree(G_JALLOCATOR, cfg->material_cmap_file);
+//            goto failed;
+//        }
+//    }
 
     if (!get_float_from_section(section, "deformation scale", &cfg->deformation_scale, 0, FLT_MAX)
     ||  !get_float_array_from_section(section, "deformed color", 4, def_color)
@@ -344,8 +344,8 @@ static jta_result load_display_config(const jio_cfg_section* section, jta_config
     )
     {
         JDM_ERROR("Could not get required entry from section \"%.*s\"", (int)section_name.len, section_name.begin);
-        ill_jfree(G_JALLOCATOR, cfg->stress_cmap_file);
-        ill_jfree(G_JALLOCATOR, cfg->material_cmap_file);
+//        ill_jfree(G_JALLOCATOR, cfg->stress_cmap_file);
+//        ill_jfree(G_JALLOCATOR, cfg->material_cmap_file);
         goto failed;
     }
 
@@ -412,8 +412,8 @@ static jta_result load_display_config(const jio_cfg_section* section, jta_config
     JDM_LEAVE_FUNCTION;
     return JTA_RESULT_SUCCESS;
 failed:
-    ill_jfree(G_JALLOCATOR, cfg->stress_cmap_file);
-    ill_jfree(G_JALLOCATOR, cfg->material_cmap_file);
+//    ill_jfree(G_JALLOCATOR, cfg->stress_cmap_file);
+//    ill_jfree(G_JALLOCATOR, cfg->material_cmap_file);
     JDM_LEAVE_FUNCTION;
     return JTA_RESULT_BAD_CFG_ENTRY;
 }
@@ -423,33 +423,46 @@ static void free_output_configuration(jta_config_output* cfg)
 {
     ill_jfree(G_JALLOCATOR, cfg->point_output_file);
     ill_jfree(G_JALLOCATOR, cfg->element_output_file);
-    ill_jfree(G_JALLOCATOR, cfg->general_output_file);
-    ill_jfree(G_JALLOCATOR, cfg->matrix_output_file);
-    ill_jfree(G_JALLOCATOR, cfg->figure_output_file);
+//    ill_jfree(G_JALLOCATOR, cfg->general_output_file);
+//    ill_jfree(G_JALLOCATOR, cfg->matrix_output_file);
+//    ill_jfree(G_JALLOCATOR, cfg->figure_output_file);
+    ill_jfree(G_JALLOCATOR, cfg->configuration_file);
 }
 
-static jta_result load_output_config(const jio_cfg_section* section, jta_config_output* cfg)
+static jta_result load_output_config(const char* filename, const jio_cfg_section* section, jta_config_output* cfg)
 {
     JDM_ENTER_FUNCTION;
     memset(cfg, 0, sizeof(*cfg));
+    const size_t filename_len = strlen(filename);
+    assert(filename_len != 0);
+    char* const filename_copy = ill_jalloc(G_JALLOCATOR, sizeof(*filename_copy) * (filename_len + 1));
+    if (!filename_copy)
+    {
+        JDM_ERROR("Could not allocate memory for filename");
+        JDM_LEAVE_FUNCTION;
+        return JTA_RESULT_BAD_ALLOC;
+    }
+    memcpy(filename_copy, filename, sizeof(*filename) * (filename_len + 1));
+    cfg->configuration_file = filename_copy;
 
     const jio_string_segment section_name = jio_cfg_section_get_name(section);
-    static const char* const entry_names[5] =
+    static const char* const entry_names[] =
             {
             "point output",
             "element output",
-            "general output",
-            "matrix output",
-            "figure output"
+//            "general output",
+//            "matrix output",
+//            "figure output"
             };
-    char** const output_ptrs[5] =
+    char** const output_ptrs[] =
             {
                     &cfg->point_output_file,
                     &cfg->element_output_file,
-                    &cfg->general_output_file,
-                    &cfg->matrix_output_file,
-                    &cfg->figure_output_file,
+//                    &cfg->general_output_file,
+//                    &cfg->matrix_output_file,
+//                    &cfg->figure_output_file,
             };
+    static_assert(sizeof(entry_names) / sizeof(*entry_names) == sizeof(output_ptrs) / sizeof(*output_ptrs));
     for (uint32_t i = 0; i < sizeof(entry_names) / sizeof(*entry_names); ++i)
     {
         bool found;
@@ -461,6 +474,7 @@ static jta_result load_output_config(const jio_cfg_section* section, jta_config_
             }
             else
             {
+                ill_jfree(G_JALLOCATOR, filename_copy);
                 free_output_configuration(cfg);
                 JDM_LEAVE_FUNCTION;
                 return JTA_RESULT_BAD_CFG_ENTRY;
@@ -543,7 +557,7 @@ jta_result jta_load_configuration(const jio_context* io_ctx, const char* filenam
         goto end;
     }
 
-    res = load_output_config(display_section, &p_out->output);
+    res = load_output_config(filename, display_section, &p_out->output);
     if (res != JTA_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not load output config");
@@ -553,7 +567,7 @@ jta_result jta_load_configuration(const jio_context* io_ctx, const char* filenam
     }
 
 end:
-    jio_cfg_section_destroy(io_ctx, root_cfg_section);
+    jio_cfg_section_destroy(io_ctx, root_cfg_section, 1);
     jio_memory_file_destroy(cfg_file);
     JDM_LEAVE_FUNCTION;
     return res;
@@ -567,4 +581,336 @@ jta_result jta_free_configuration(jta_config* cfg)
     free_problem_config(&cfg->problem);
     JDM_LEAVE_FUNCTION;
     return JTA_RESULT_SUCCESS;
+}
+
+jta_result jta_store_configuration(const jio_context* io_ctx, const char* filename, const jta_config* config)
+{
+    JDM_ENTER_FUNCTION;
+
+    jio_cfg_section* root_section = NULL;
+    jio_result res = jio_cfg_section_create(io_ctx, (jio_string_segment) { 0 }, &root_section);
+    if (res != JIO_RESULT_SUCCESS)
+    {
+        JDM_ERROR("Could not create root cfg section, reason: %s", jio_result_to_str(res));
+        JDM_LEAVE_FUNCTION;
+        return JTA_RESULT_BAD_IO;
+    }
+
+    //  The problem section
+    jio_cfg_section* problem_section;
+    const jio_string_segment name_problem = {.begin = "problem", .len = sizeof("problem") - 1};
+    res = jio_cfg_section_create(io_ctx, name_problem, &problem_section);
+    if (res != JIO_RESULT_SUCCESS)
+    {
+        jio_cfg_section_destroy(io_ctx, problem_section, 1);
+        JDM_ERROR("Could not create problem section");
+        goto failed;
+    }
+
+    //      The definitions subsection
+    jio_cfg_section* definitions;
+    const jio_string_segment name_defs = {.begin = "definitions", .len = sizeof("definitions") - 1};
+    res = jio_cfg_section_create(io_ctx, name_defs, &definitions);
+    if (res != JIO_RESULT_SUCCESS)
+    {
+        jio_cfg_section_destroy(io_ctx, definitions, 1);
+        jio_cfg_section_destroy(io_ctx, problem_section, 1);
+        JDM_ERROR("Could not create definitions section");
+        goto failed;
+    }
+    static const char* definition_key_strings[] =
+            {
+                "points",
+                "material_list",
+                "profiles",
+                "elements",
+                "natural BCs",
+                "numerical BCs",
+            };
+    const jio_cfg_value definition_values[] =
+            {
+                    {.type = JIO_CFG_TYPE_STRING, .value.value_string.begin = config->problem.definition.points_file},
+                    {.type = JIO_CFG_TYPE_STRING, .value.value_string.begin = config->problem.definition.materials_file},
+                    {.type = JIO_CFG_TYPE_STRING, .value.value_string.begin = config->problem.definition.profiles_file},
+                    {.type = JIO_CFG_TYPE_STRING, .value.value_string.begin = config->problem.definition.elements_file},
+                    {.type = JIO_CFG_TYPE_STRING, .value.value_string.begin = config->problem.definition.natural_bcs_file},
+                    {.type = JIO_CFG_TYPE_STRING, .value.value_string.begin = config->problem.definition.numerical_bcs_file},
+            };
+    static_assert(sizeof(definition_key_strings) / sizeof(*definition_key_strings) == sizeof(definition_values) / sizeof(*definition_values));
+    const unsigned def_entries = sizeof(definition_key_strings) / sizeof(*definition_key_strings);
+    for (unsigned i = 0; i < def_entries; ++i)
+    {
+        jio_cfg_value v = definition_values[i];
+        if (v.type == JIO_CFG_TYPE_STRING && v.value.value_string.begin)
+        {
+            v.value.value_string.len = strlen(v.value.value_string.begin);
+        }
+        const jio_cfg_element e = {.value = v, .key = {.begin = definition_key_strings[i], .len = strlen(definition_key_strings[i])}};
+        res = jio_cfg_element_insert(io_ctx, definitions, e);
+        if (res != JIO_RESULT_SUCCESS)
+        {
+            jio_cfg_section_destroy(io_ctx, definitions, 1);
+            jio_cfg_section_destroy(io_ctx, problem_section, 1);
+            JDM_ERROR("Could not insert element \"%s\" in the section \"%s\"", definition_key_strings[i], "definitions");
+            goto failed;
+        }
+    }
+
+    res = jio_cfg_section_insert(io_ctx, problem_section, definitions);
+    if (res != JIO_RESULT_SUCCESS)
+    {
+        jio_cfg_section_destroy(io_ctx, definitions, 1);
+        jio_cfg_section_destroy(io_ctx, problem_section, 1);
+        JDM_ERROR("Could not insert definitions subsection in the problem section, reason: %s", jio_result_to_str(res));
+        goto failed;
+    }
+
+
+    //  The simulation and solve subsection
+    jio_cfg_section* sim_and_sol;
+    const jio_string_segment name_sim_and_sol = {.begin = "simulation and solver", .len = sizeof("simulation and solver") - 1};
+    res = jio_cfg_section_create(io_ctx, name_sim_and_sol, &sim_and_sol);
+    if (res != JIO_RESULT_SUCCESS)
+    {
+        jio_cfg_section_destroy(io_ctx, sim_and_sol, 1);
+        jio_cfg_section_destroy(io_ctx, problem_section, 1);
+        JDM_ERROR("Could not create simulation and solve section");
+        goto failed;
+    }
+    static const char* sim_and_sol_key_strings[] =
+            {
+                    "gravity",
+                    "thread count",
+                    "convergence criterion",
+                    "maximum iterations",
+                    "relaxation factor",
+            };
+    jio_cfg_value values_gravity[3] =
+            {
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = config->problem.sim_and_sol.gravity[0]},
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = config->problem.sim_and_sol.gravity[1]},
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = config->problem.sim_and_sol.gravity[2]},
+            };
+    jio_cfg_value sim_and_sol_values[] =
+            {
+                    {.type = JIO_CFG_TYPE_ARRAY, .value.value_array = {.count = 3, .capacity = 3, .values = values_gravity}},
+                    {.type = JIO_CFG_TYPE_INT, .value.value_int = config->problem.sim_and_sol.max_iterations},
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = config->problem.sim_and_sol.convergence_criterion},
+                    {.type = JIO_CFG_TYPE_INT, .value.value_int = config->problem.sim_and_sol.max_iterations},
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = config->problem.sim_and_sol.relaxation_factor},
+            };
+    static_assert(sizeof(sim_and_sol_key_strings) / sizeof(*sim_and_sol_key_strings) == sizeof(sim_and_sol_values) / sizeof(*sim_and_sol_values));
+    const unsigned sim_and_sol_entries = sizeof(sim_and_sol_key_strings) / sizeof(*sim_and_sol_key_strings);
+    for (unsigned i = 0; i < sim_and_sol_entries; ++i)
+    {
+        const jio_cfg_element e = {.value = sim_and_sol_values[i], .key = {.begin = sim_and_sol_key_strings[i], .len = strlen(sim_and_sol_key_strings[i])}};
+        res = jio_cfg_element_insert(io_ctx, sim_and_sol, e);
+        if (res != JIO_RESULT_SUCCESS)
+        {
+            jio_cfg_section_destroy(io_ctx, sim_and_sol, 1);
+            jio_cfg_section_destroy(io_ctx, problem_section, 1);
+            JDM_ERROR("Could not insert element \"%s\" in the section \"%s\"", sim_and_sol_key_strings[i], "simulation and solver");
+            goto failed;
+        }
+    }
+
+    res = jio_cfg_section_insert(io_ctx, problem_section, sim_and_sol);
+    if (res != JIO_RESULT_SUCCESS)
+    {
+        jio_cfg_section_destroy(io_ctx, sim_and_sol, 1);
+        jio_cfg_section_destroy(io_ctx, problem_section, 1);
+        JDM_ERROR("Could not insert simulation and solver subsection in the problem section, reason: %s", jio_result_to_str(res));
+        goto failed;
+    }
+
+    res = jio_cfg_section_insert(io_ctx, root_section, problem_section);
+    if (res != JIO_RESULT_SUCCESS)
+    {
+        jio_cfg_section_destroy(io_ctx, problem_section, 1);
+        JDM_ERROR("Could not insert problem section in the root section, reason: %s", jio_result_to_str(res));
+        goto failed;
+    }
+
+    //      The display section
+    jio_cfg_section* display;
+    const jio_string_segment name_display = {.begin = "display", .len = sizeof("display") - 1};
+    res = jio_cfg_section_create(io_ctx, name_display, &display);
+    if (res != JIO_RESULT_SUCCESS)
+    {
+        jio_cfg_section_destroy(io_ctx, display, 1);
+        jio_cfg_section_destroy(io_ctx, problem_section, 1);
+        JDM_ERROR("Could not create display section");
+        goto failed;
+    }
+    static const char* display_key_strings[] =
+            {
+                    "radius scale",
+                    "deformation scale",
+                    "deformed color",
+                    "DoF point colors",
+                    "DoF point scales",
+                    "force radius ratio",
+                    "force head ratio",
+                    "force length ratio",
+            };
+
+    jio_cfg_value array_deformed_color[4] =
+            {
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = (double)config->display.deformed_color.r / 255.0 },
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = (double)config->display.deformed_color.g / 255.0 },
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = (double)config->display.deformed_color.b / 255.0 },
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = (double)config->display.deformed_color.a / 255.0 },
+            };
+
+    jio_cfg_value dof0_color[4] =
+            {
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = (double)config->display.dof_point_colors[0].r / 255.0 },
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = (double)config->display.dof_point_colors[0].g / 255.0 },
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = (double)config->display.dof_point_colors[0].b / 255.0 },
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = (double)config->display.dof_point_colors[0].a / 255.0 },
+            };
+    jio_cfg_value dof1_color[4] =
+            {
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = (double)config->display.dof_point_colors[1].r / 255.0 },
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = (double)config->display.dof_point_colors[1].g / 255.0 },
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = (double)config->display.dof_point_colors[1].b / 255.0 },
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = (double)config->display.dof_point_colors[1].a / 255.0 },
+            };
+    jio_cfg_value dof2_color[4] =
+            {
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = (double)config->display.dof_point_colors[2].r / 255.0 },
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = (double)config->display.dof_point_colors[2].g / 255.0 },
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = (double)config->display.dof_point_colors[2].b / 255.0 },
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = (double)config->display.dof_point_colors[2].a / 255.0 },
+            };
+    jio_cfg_value dof3_color[4] =
+            {
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = (double)config->display.dof_point_colors[3].r / 255.0 },
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = (double)config->display.dof_point_colors[3].g / 255.0 },
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = (double)config->display.dof_point_colors[3].b / 255.0 },
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = (double)config->display.dof_point_colors[3].a / 255.0 },
+            };
+    jio_cfg_value array_dof_point_colors[4] =
+            {
+                    {.type = JIO_CFG_TYPE_ARRAY, .value.value_array = {.capacity = 4, .count = 4, .values = dof0_color}},
+                    {.type = JIO_CFG_TYPE_ARRAY, .value.value_array = {.capacity = 4, .count = 4, .values = dof1_color}},
+                    {.type = JIO_CFG_TYPE_ARRAY, .value.value_array = {.capacity = 4, .count = 4, .values = dof2_color}},
+                    {.type = JIO_CFG_TYPE_ARRAY, .value.value_array = {.capacity = 4, .count = 4, .values = dof3_color}},
+            };
+
+    jio_cfg_value array_dof_point_scales[4] =
+            {
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = config->display.dof_point_scales[0] },
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = config->display.dof_point_scales[1] },
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = config->display.dof_point_scales[2] },
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = config->display.dof_point_scales[3] },
+            };
+    const jio_cfg_value display_values[] =
+            {
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = config->display.radius_scale},
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = config->display.deformation_scale},
+                    {.type = JIO_CFG_TYPE_ARRAY, .value.value_array = {.count = 4, .capacity = 4, .values = array_deformed_color}},
+                    {.type = JIO_CFG_TYPE_ARRAY, .value.value_array = {.count = 4, .capacity = 4, .values = array_dof_point_colors}},
+                    {.type = JIO_CFG_TYPE_ARRAY, .value.value_array = {.count = 4, .capacity = 4, .values = array_dof_point_scales}},
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = config->display.force_radius_ratio},
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = config->display.force_head_ratio},
+                    {.type = JIO_CFG_TYPE_REAL, .value.value_real = config->display.force_length_ratio},
+            };
+    static_assert(sizeof(display_key_strings) / sizeof(*display_key_strings) == sizeof(display_values) / sizeof(*display_values));
+    const unsigned display_entries = sizeof(display_key_strings) / sizeof(*display_key_strings);
+    for (unsigned i = 0; i < display_entries; ++i)
+    {
+        const jio_cfg_element e = {.value = display_values[i], .key = {.begin = display_key_strings[i], .len = strlen(display_key_strings[i])}};
+        res = jio_cfg_element_insert(io_ctx, display, e);
+        if (res != JIO_RESULT_SUCCESS)
+        {
+            jio_cfg_section_destroy(io_ctx, display, 1);
+            JDM_ERROR("Could not insert element \"%s\" in the section \"%s\"", display_key_strings[i], "display");
+            goto failed;
+        }
+    }
+
+    res = jio_cfg_section_insert(io_ctx, root_section, display);
+    if (res != JIO_RESULT_SUCCESS)
+    {
+        jio_cfg_section_destroy(io_ctx, display, 1);
+        JDM_ERROR("Could not insert display section in the root section, reason: %s", jio_result_to_str(res));
+        goto failed;
+    }
+
+    //      The output section
+    jio_cfg_section* output;
+    const jio_string_segment name_output = {.begin = "output", .len = sizeof("output") - 1};
+    res = jio_cfg_section_create(io_ctx, name_output, &output);
+    if (res != JIO_RESULT_SUCCESS)
+    {
+        jio_cfg_section_destroy(io_ctx, output, 1);
+        jio_cfg_section_destroy(io_ctx, problem_section, 1);
+        JDM_ERROR("Could not create output section");
+        goto failed;
+    }
+    static const char* output_key_strings[] =
+            {
+                    "point output",
+                    "element output",
+            };
+
+    const jio_cfg_value output_values[] =
+            {
+                    {.type = JIO_CFG_TYPE_STRING, .value.value_string = {.begin = config->output.point_output_file}},
+                    {.type = JIO_CFG_TYPE_STRING, .value.value_string = {.begin = config->output.element_output_file}},
+            };
+    static_assert(sizeof(output_key_strings) / sizeof(*output_key_strings) == sizeof(output_values) / sizeof(*output_values));
+    const unsigned output_entries = sizeof(output_key_strings) / sizeof(*output_key_strings);
+    for (unsigned i = 0; i < output_entries; ++i)
+    {
+        jio_cfg_value v = definition_values[i];
+        if (v.type == JIO_CFG_TYPE_STRING && v.value.value_string.begin)
+        {
+            v.value.value_string.len = strlen(v.value.value_string.begin);
+        }
+        const jio_cfg_element e = {.value = v, .key = {.begin = output_key_strings[i], .len = strlen(output_key_strings[i])}};
+        res = jio_cfg_element_insert(io_ctx, output, e);
+        if (res != JIO_RESULT_SUCCESS)
+        {
+            jio_cfg_section_destroy(io_ctx, output, 1);
+            JDM_ERROR("Could not insert element \"%s\" in the section \"%s\"", output_key_strings[i], "output");
+            goto failed;
+        }
+    }
+
+    res = jio_cfg_section_insert(io_ctx, root_section, output);
+    if (res != JIO_RESULT_SUCCESS)
+    {
+        jio_cfg_section_destroy(io_ctx, output, 1);
+        JDM_ERROR("Could not insert output section in the root section, reason: %s", jio_result_to_str(res));
+        goto failed;
+    }
+
+    const size_t required_size = jio_cfg_print_size(root_section, 1, true, true);
+//    char* out_buffer = ill_jalloc(G_JALLOCATOR, required_size + 1);
+//    assert(out_buffer);
+
+    jio_memory_file* out_file;
+    res = jio_memory_file_create(io_ctx, filename, &out_file, 1, 1, required_size);
+    if (res != JIO_RESULT_SUCCESS)
+    {
+        JDM_ERROR("Could not create output memory file for writing, reason: %s", jio_result_to_str(res));
+        goto failed;
+    }
+    jio_memory_file_info f_info = jio_memory_file_get_info(out_file);
+    
+    const size_t real_size = jio_cfg_print(root_section, (char*)f_info.memory, "=", true, true, false);
+    assert(real_size <= required_size);
+
+    jio_memory_file_destroy(out_file);
+    jio_cfg_section_destroy(io_ctx, root_section, 0);
+
+    JDM_LEAVE_FUNCTION;
+    return JTA_RESULT_SUCCESS;
+    
+failed:
+    jio_cfg_section_destroy(io_ctx, root_section, 0);
+    JDM_LEAVE_FUNCTION;
+    return JTA_RESULT_BAD_IO;
 }

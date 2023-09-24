@@ -608,5 +608,6 @@ void jta_free_problem(jta_problem_setup* problem)
     jio_memory_file_destroy(problem->file_profiles);
     jio_memory_file_destroy(problem->file_materials);
     jio_memory_file_destroy(problem->file_points);
+    problem->load_state = 0;
     JDM_LEAVE_FUNCTION;
 }

@@ -93,6 +93,22 @@ static void regenerate_meshes(jta_state* p_state, int skip_undeformed, int skip_
                 p_state->draw_state.undeformed_mesh = new_mesh;
             }
         }
+        vec4 geo_base;
+        f32 geo_radius;
+        gfx_find_bounding_sphere(&p_state->problem_setup.point_list, &geo_base, &geo_radius);
+        jta_camera_3d camera;
+        jta_camera_set(
+                &camera,                                    //  Camera
+                geo_base,                                   //  View target
+                geo_base,                                   //  Geometry center
+                geo_radius,                                 //  Geometry radius
+                vec4_add(geo_base, vec4_mul_one(VEC4(1, 1, 1), geo_radius)), //  Camera position
+                VEC4(0, 0, -1),                             //  Down
+                4.0f,                                       //  Turn sensitivity
+                1.0f                                        //  Move sensitivity
+                      );
+        p_state->draw_state.camera = camera;
+        p_state->draw_state.original_camera = camera;
     }
     if (!skip_deformed && (p_state->problem_state & JTA_PROBLEM_STATE_HAS_SOLUTION))
     {
@@ -913,10 +929,15 @@ static void toggle_display_mode(jrui_widget_base* widget, int pressed, void* par
             return;
         }
         break;
+    case JTA_DISPLAY_NONE:break;
     }
     if (pressed)
     {
         state->display_state |= dpy_state;
+        if (dpy_state == JTA_DISPLAY_UNDEFORMED && !state->draw_state.undeformed_mesh)
+        {
+            regenerate_meshes(state, 0, 1);
+        }
     }
     else
     {
@@ -1360,8 +1381,6 @@ static void update_file_option(jrui_widget_base* widget, const char* string, cha
 
     copy[name_len] = 0;
 
-    jrui_context* ctx = jrui_widget_get_context(widget);
-
     jrui_update_text_input_text(widget, copy);
     ill_jfree(G_JALLOCATOR, *p_dest);
     *p_dest = copy;
@@ -1384,26 +1403,26 @@ static void submit_element_output(jrui_widget_base* widget, const char* string, 
     update_file_option(widget, string, &p_state->master_config.output.element_output_file);
 }
 
-static void submit_general_output(jrui_widget_base* widget, const char* string, void* param)
-{
-    (void) param;
-    jta_state* const p_state = jrui_context_get_user_param(jrui_widget_get_context(widget));
-    update_file_option(widget, string, &p_state->master_config.output.general_output_file);
-}
-
-static void submit_matrix_output(jrui_widget_base* widget, const char* string, void* param)
-{
-    (void) param;
-    jta_state* const p_state = jrui_context_get_user_param(jrui_widget_get_context(widget));
-    update_file_option(widget, string, &p_state->master_config.output.matrix_output_file);
-}
-
-static void submit_figure_output(jrui_widget_base* widget, const char* string, void* param)
-{
-    (void) param;
-    jta_state* const p_state = jrui_context_get_user_param(jrui_widget_get_context(widget));
-    update_file_option(widget, string, &p_state->master_config.output.figure_output_file);
-}
+//static void submit_general_output(jrui_widget_base* widget, const char* string, void* param)
+//{
+//    (void) param;
+//    jta_state* const p_state = jrui_context_get_user_param(jrui_widget_get_context(widget));
+//    update_file_option(widget, string, &p_state->master_config.output.general_output_file);
+//}
+//
+//static void submit_matrix_output(jrui_widget_base* widget, const char* string, void* param)
+//{
+//    (void) param;
+//    jta_state* const p_state = jrui_context_get_user_param(jrui_widget_get_context(widget));
+//    update_file_option(widget, string, &p_state->master_config.output.matrix_output_file);
+//}
+//
+//static void submit_figure_output(jrui_widget_base* widget, const char* string, void* param)
+//{
+//    (void) param;
+//    jta_state* const p_state = jrui_context_get_user_param(jrui_widget_get_context(widget));
+//    update_file_option(widget, string, &p_state->master_config.output.figure_output_file);
+//}
 
 static void submit_config_output(jrui_widget_base* widget, const char* string, void* param)
 {
@@ -1450,6 +1469,65 @@ static void save_element_outputs(jrui_widget_base* widget, void* param)
     }
 }
 
+static void save_config(jrui_widget_base* widget, void* param)
+{
+    JDM_ENTER_FUNCTION;
+    const jta_state* const p_state = jrui_context_get_user_param(jrui_widget_get_context(widget));
+    if (p_state->master_config.output.configuration_file)
+    {
+        const jta_result res = jta_store_configuration(
+                p_state->io_ctx, p_state->master_config.output.configuration_file, &p_state->master_config);
+        if (res != JTA_RESULT_SUCCESS)
+        {
+            JDM_ERROR("Could not save config to file \"%s\", reason: %s", p_state->master_config.output.configuration_file, jta_result_to_str(res));
+        }
+    }
+    JDM_LEAVE_FUNCTION;
+}
+
+static jrui_result top_menu_output_replace(jta_config_output* cfg, jrui_widget_base* body);
+
+static void load_config(jrui_widget_base* widget, void* param)
+{
+    JDM_ENTER_FUNCTION;
+    jrui_context* ctx = jrui_widget_get_context(widget);
+    jta_state* const p_state = jrui_context_get_user_param(ctx);
+    if (p_state->master_config.output.configuration_file)
+    {
+        jta_config new_cfg;
+        jta_result res = jta_load_configuration(
+                p_state->io_ctx, p_state->master_config.output.configuration_file, &new_cfg);
+        if (res != JTA_RESULT_SUCCESS)
+        {
+            JDM_ERROR("Could not load new configuration from \"%s\", reason: %s", p_state->master_config.output.configuration_file,
+                      jta_result_to_str(res));
+        }
+        else
+        {
+            jta_config old_cfg = p_state->master_config;
+            p_state->master_config = new_cfg;
+            jta_free_configuration(&old_cfg);
+            mark_solution_invalid(p_state);
+            jta_free_problem(&p_state->problem_setup);
+            jta_solution_free(&p_state->problem_solution);
+            p_state->problem_state = 0;
+            p_state->display_state = 0;
+            jrui_widget_base* body = jrui_get_by_label(ctx, "body");
+            if (body)
+            {
+                jrui_widget_create_info dummy_replace = {.base_info = {.type = JRUI_WIDGET_TYPE_EMPTY, .label = "body"}};
+                jrui_replace_widget(body, dummy_replace);
+                body = jrui_get_by_label(ctx, "body");
+                if (body)
+                {
+                    top_menu_output_replace(&p_state->master_config.output, body);
+                }
+            }
+        }
+    }
+    JDM_LEAVE_FUNCTION;
+}
+
 static jrui_result top_menu_output_replace(jta_config_output* cfg, jrui_widget_base* body)
 {
     const float row_ratios[2] = {1.0f, 3.0f};
@@ -1486,52 +1564,52 @@ static jrui_result top_menu_output_replace(jta_config_output* cfg, jrui_widget_b
     static_assert(sizeof(row_ratios) / sizeof(*row_ratios) == sizeof(element_children) / sizeof(*element_children));
 
     //  General outputs
-    jrui_widget_create_info general_children[2] =
-            {
-                    {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = "General output:", .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_RIGHT}},
-                    {.text_input = {.base_info = {.type = JRUI_WIDGET_TYPE_TEXT_INPUT, .label = "output:general"}, .align_h_hint = JRUI_ALIGN_LEFT, .align_v_hint = JRUI_ALIGN_CENTER, .align_h_text = JRUI_ALIGN_RIGHT, .align_v_text = JRUI_ALIGN_CENTER, .submit_callback = submit_general_output, .current_text = cfg->general_output_file}},
-            };
-    jrui_widget_create_info general_row =
-            {
-                    .adjustable_row = {.base_info.type = JRUI_WIDGET_TYPE_ADJROW, .child_count = sizeof(general_children) / sizeof(*general_children), .children = general_children, .proportions = row_ratios},
-            };
-    jrui_widget_create_info border_general =
-            {
-                    .border = {.base_info.type = JRUI_WIDGET_TYPE_BORDER, .border_thickness = 1.0f, .child = &general_row}
-            };
-    static_assert(sizeof(row_ratios) / sizeof(*row_ratios) == sizeof(general_children) / sizeof(*general_children));
+//    jrui_widget_create_info general_children[2] =
+//            {
+//                    {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = "General output:", .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_RIGHT}},
+//                    {.text_input = {.base_info = {.type = JRUI_WIDGET_TYPE_TEXT_INPUT, .label = "output:general"}, .align_h_hint = JRUI_ALIGN_LEFT, .align_v_hint = JRUI_ALIGN_CENTER, .align_h_text = JRUI_ALIGN_RIGHT, .align_v_text = JRUI_ALIGN_CENTER, .submit_callback = submit_general_output, .current_text = cfg->general_output_file}},
+//            };
+//    jrui_widget_create_info general_row =
+//            {
+//                    .adjustable_row = {.base_info.type = JRUI_WIDGET_TYPE_ADJROW, .child_count = sizeof(general_children) / sizeof(*general_children), .children = general_children, .proportions = row_ratios},
+//            };
+//    jrui_widget_create_info border_general =
+//            {
+//                    .border = {.base_info.type = JRUI_WIDGET_TYPE_BORDER, .border_thickness = 1.0f, .child = &general_row}
+//            };
+//    static_assert(sizeof(row_ratios) / sizeof(*row_ratios) == sizeof(general_children) / sizeof(*general_children));
 
     //  Matrix outputs
-    jrui_widget_create_info matrix_children[2] =
-            {
-                    {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = "Matrix output:", .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_RIGHT}},
-                    {.text_input = {.base_info = {.type = JRUI_WIDGET_TYPE_TEXT_INPUT, .label = "output:matrix"}, .align_h_hint = JRUI_ALIGN_LEFT, .align_v_hint = JRUI_ALIGN_CENTER, .align_h_text = JRUI_ALIGN_RIGHT, .align_v_text = JRUI_ALIGN_CENTER, .submit_callback = submit_matrix_output, .current_text = cfg->matrix_output_file}},
-            };
-    jrui_widget_create_info matrix_row =
-            {
-                    .adjustable_row = {.base_info.type = JRUI_WIDGET_TYPE_ADJROW, .child_count = sizeof(matrix_children) / sizeof(*matrix_children), .children = matrix_children, .proportions = row_ratios},
-            };
-    jrui_widget_create_info border_matrix =
-            {
-                    .border = {.base_info.type = JRUI_WIDGET_TYPE_BORDER, .border_thickness = 1.0f, .child = &matrix_row}
-            };
-    static_assert(sizeof(row_ratios) / sizeof(*row_ratios) == sizeof(matrix_children) / sizeof(*matrix_children));
+//    jrui_widget_create_info matrix_children[2] =
+//            {
+//                    {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = "Matrix output:", .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_RIGHT}},
+//                    {.text_input = {.base_info = {.type = JRUI_WIDGET_TYPE_TEXT_INPUT, .label = "output:matrix"}, .align_h_hint = JRUI_ALIGN_LEFT, .align_v_hint = JRUI_ALIGN_CENTER, .align_h_text = JRUI_ALIGN_RIGHT, .align_v_text = JRUI_ALIGN_CENTER, .submit_callback = submit_matrix_output, .current_text = cfg->matrix_output_file}},
+//            };
+//    jrui_widget_create_info matrix_row =
+//            {
+//                    .adjustable_row = {.base_info.type = JRUI_WIDGET_TYPE_ADJROW, .child_count = sizeof(matrix_children) / sizeof(*matrix_children), .children = matrix_children, .proportions = row_ratios},
+//            };
+//    jrui_widget_create_info border_matrix =
+//            {
+//                    .border = {.base_info.type = JRUI_WIDGET_TYPE_BORDER, .border_thickness = 1.0f, .child = &matrix_row}
+//            };
+//    static_assert(sizeof(row_ratios) / sizeof(*row_ratios) == sizeof(matrix_children) / sizeof(*matrix_children));
 
     //  Figure outputs
-    jrui_widget_create_info figure_children[2] =
-            {
-                    {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = "Figure output:", .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_RIGHT}},
-                    {.text_input = {.base_info = {.type = JRUI_WIDGET_TYPE_TEXT_INPUT, .label = "output:figure"}, .align_h_hint = JRUI_ALIGN_LEFT, .align_v_hint = JRUI_ALIGN_CENTER, .align_h_text = JRUI_ALIGN_RIGHT, .align_v_text = JRUI_ALIGN_CENTER, .submit_callback = submit_figure_output, .current_text = cfg->figure_output_file}},
-            };
-    jrui_widget_create_info figure_row =
-            {
-                    .adjustable_row = {.base_info.type = JRUI_WIDGET_TYPE_ADJROW, .child_count = sizeof(figure_children) / sizeof(*figure_children), .children = figure_children, .proportions = row_ratios},
-            };
-    jrui_widget_create_info border_figure =
-            {
-                    .border = {.base_info.type = JRUI_WIDGET_TYPE_BORDER, .border_thickness = 1.0f, .child = &figure_row}
-            };
-    static_assert(sizeof(row_ratios) / sizeof(*row_ratios) == sizeof(figure_children) / sizeof(*figure_children));
+//    jrui_widget_create_info figure_children[2] =
+//            {
+//                    {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = "Figure output:", .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_RIGHT}},
+//                    {.text_input = {.base_info = {.type = JRUI_WIDGET_TYPE_TEXT_INPUT, .label = "output:figure"}, .align_h_hint = JRUI_ALIGN_LEFT, .align_v_hint = JRUI_ALIGN_CENTER, .align_h_text = JRUI_ALIGN_RIGHT, .align_v_text = JRUI_ALIGN_CENTER, .submit_callback = submit_figure_output, .current_text = cfg->figure_output_file}},
+//            };
+//    jrui_widget_create_info figure_row =
+//            {
+//                    .adjustable_row = {.base_info.type = JRUI_WIDGET_TYPE_ADJROW, .child_count = sizeof(figure_children) / sizeof(*figure_children), .children = figure_children, .proportions = row_ratios},
+//            };
+//    jrui_widget_create_info border_figure =
+//            {
+//                    .border = {.base_info.type = JRUI_WIDGET_TYPE_BORDER, .border_thickness = 1.0f, .child = &figure_row}
+//            };
+//    static_assert(sizeof(row_ratios) / sizeof(*row_ratios) == sizeof(figure_children) / sizeof(*figure_children));
 
     //  Configuration outputs
     jrui_widget_create_info configuration_children[2] =
@@ -1572,11 +1650,11 @@ static jrui_result top_menu_output_replace(jta_config_output* cfg, jrui_widget_b
                     {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text_alignment_horizontal = JRUI_ALIGN_CENTER, .text_alignment_vertical = JRUI_ALIGN_CENTER, .text = "Save figure"}},
 
             //  Config save
-                    {.button = {.base_info.type = JRUI_WIDGET_TYPE_BUTTON}},
+                    {.button = {.base_info.type = JRUI_WIDGET_TYPE_BUTTON, .btn_callback = save_config}},
                     {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text_alignment_horizontal = JRUI_ALIGN_CENTER, .text_alignment_vertical = JRUI_ALIGN_CENTER, .text = "Save config"}},
 
             //  Config load
-                    {.button = {.base_info.type = JRUI_WIDGET_TYPE_BUTTON}},
+                    {.button = {.base_info.type = JRUI_WIDGET_TYPE_BUTTON, .btn_callback = load_config}},
                     {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text_alignment_horizontal = JRUI_ALIGN_CENTER, .text_alignment_vertical = JRUI_ALIGN_CENTER, .text = "Load config"}},
             };
     jrui_widget_create_info button_stacks[] =
@@ -1595,19 +1673,21 @@ static jrui_result top_menu_output_replace(jta_config_output* cfg, jrui_widget_b
 //
 //                    //  Figure outputs
 //                    {.stack = {.base_info.type = JRUI_WIDGET_TYPE_STACK, .child_count = 2, .children = stack_contents_elements + 8}},
+
+                    //  Config save
+                    {.stack = {.base_info.type = JRUI_WIDGET_TYPE_STACK, .child_count = 2, .children = stack_contents_elements + 10}},
 //
-//                    //  Config save
-//                    {.stack = {.base_info.type = JRUI_WIDGET_TYPE_STACK, .child_count = 2, .children = stack_contents_elements + 10}},
-//
-//                    //  Config load
-//                    {.stack = {.base_info.type = JRUI_WIDGET_TYPE_STACK, .child_count = 2, .children = stack_contents_elements + 12}},
+                    //  Config load
+                    {.stack = {.base_info.type = JRUI_WIDGET_TYPE_STACK, .child_count = 2, .children = stack_contents_elements + 12}},
             };
     jrui_widget_create_info button_row =
             {.row = {.base_info.type = JRUI_WIDGET_TYPE_ROW, .child_count = sizeof(button_stacks) / sizeof(*button_stacks), .children = button_stacks}};
 
     jrui_widget_create_info contents[] =
             {
-            border_point, border_element, border_general, border_matrix, border_figure, border_configuration, button_row
+            border_point, border_element,
+//            border_general, border_matrix, border_figure,
+            border_configuration, button_row
             };
 
     jrui_widget_create_info replacement_body =
@@ -1882,7 +1962,7 @@ static jrui_result top_menu_solve_replace(jta_config_problem* cfg, jrui_widget_b
 
     char r_buffer_0[16];
     snprintf(r_buffer_0, sizeof(r_buffer_0), "%g", cfg->sim_and_sol.relaxation_factor);
-    float pos_r = 1.0f + log10f(cfg->sim_and_sol.convergence_criterion) / 6.0f;
+    float pos_r = cfg->sim_and_sol.relaxation_factor;
     if (pos_r < 0.0f)
     {
         pos_r = 0.0f;

@@ -10,8 +10,8 @@
 #include <jdm.h>
 
 gfx_result jta_draw_frame(
-        jta_vulkan_window_context* wnd_ctx, jta_ui_state* ui_state, mtx4 view_matrix, jta_structure_meshes* undeformed_meshes, jta_structure_meshes* deformed_meshes,
-        const jta_camera_3d* camera)
+        jta_vulkan_window_context* wnd_ctx, jta_ui_state* ui_state, jta_structure_meshes* undeformed_meshes,
+        jta_structure_meshes* deformed_meshes, const jta_camera_3d* camera, const jta_color background_color)
 {
     jta_timer timer_render;
     jta_timer_set(&timer_render);
@@ -62,7 +62,14 @@ gfx_result jta_draw_frame(
 
     VkClearValue clear_color =
             {
-                    .color = {.float32={0.0f, 0.0f, 0.0f, 0.0f}},
+                    .color = {.float32=
+                              {
+                                (float)background_color.r / 255.0f,
+                                (float)background_color.g / 255.0f,
+                                (float)background_color.b / 255.0f,
+                                (float)background_color.a / 255.0f,
+                              }
+                            },
             };
     VkClearValue clear_ds =
             {
@@ -184,7 +191,7 @@ gfx_result jta_draw_frame(
                         .proj = mtx4_projection(
                                 M_PI_2 * (1), ((f32) wnd_ctx->swapchain.window_extent.width) /
                                               ((f32) wnd_ctx->swapchain.window_extent.height), 1.0f, n, f),
-                        .view = view_matrix,
+                        .view = jta_camera_to_view_matrix(camera),
                         .view_direction = camera->uz,
                 };
         vkCmdPushConstants(cmd_buffer, wnd_ctx->layout_mesh, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ubo), &ubo);

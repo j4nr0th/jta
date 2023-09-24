@@ -43,13 +43,13 @@ struct jta_config_display_T
     float radius_scale;             //  Scale by which the (equivalent) radius of elements is exaggerated
     float deformation_scale;        //  Scale by which point_displacements are exaggerated
     jta_color deformed_color;       //  Color of the deformed mesh
-    char* material_cmap_file;       //  Path to the material color map (optional)
+//    char* material_cmap_file;       //  Path to the material color map (optional)
     jta_color dof_point_colors[4];  //  Colors for points with 0 DoFs, 1 DoF, 2 DoFs, and 3/all DoFs
     float dof_point_scales[4];      //  Scale by which to increase the point size compared to the radius of the largest element connected to it based on the DoFs of the point
     float force_radius_ratio;       //  Radius of the force arrows divided by the maximum node radius
     float force_head_ratio;         //  Ratio between the force arrows' head and tail
     float force_length_ratio;       //  Length of the largest force arrow as a fraction of the length of the longest element
-    char* stress_cmap_file;         //  Path to the stress color map (optional)
+//    char* stress_cmap_file;         //  Path to the stress color map (optional)
     jta_color background_color;
 };
 
@@ -61,9 +61,9 @@ struct jta_config_output_T
 {
     char* point_output_file;    //  Path to where point outputs are saved to (optional)
     char* element_output_file;  //  Path to where element outputs are saved to (optional)
-    char* general_output_file;  //  Path to where general outputs are saved to (optional)
-    char* matrix_output_file;   //  Path to where matrices are saved to (optional)
-    char* figure_output_file;   //  Path to where figures are saved to (optional)
+//    char* general_output_file;  //  Path to where general outputs are saved to (optional)
+//    char* matrix_output_file;   //  Path to where matrices are saved to (optional)
+//    char* figure_output_file;   //  Path to where figures are saved to (optional)
     char* configuration_file;   //  Path to where the configuration is stored
 };
 
@@ -80,6 +80,8 @@ struct jta_config_T
 typedef struct jta_config_T jta_config;
 
 jta_result jta_load_configuration(const jio_context* io_ctx, const char* filename, jta_config* p_out);
+
+jta_result jta_store_configuration(const jio_context* io_ctx, const char* filename, const jta_config* config);
 
 jta_result jta_free_configuration(jta_config* cfg);
 
