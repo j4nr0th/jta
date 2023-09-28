@@ -83,48 +83,48 @@ jta_load_materials(const jio_context* io_ctx, const jio_memory_file* mem_file, j
     jta_result res;
     uint32_t line_count = jio_memory_file_count_lines(mem_file);
 
-    f32* density = ill_jalloc(G_JALLOCATOR, sizeof(*density) * (line_count - 1));
+    f32* density = ill_alloc(G_ALLOCATOR, sizeof(*density) * (line_count - 1));
     if (!density)
     {
         JDM_ERROR("Could not allocate memory for material array");
         res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
-    f32* elastic_modulus = ill_jalloc(G_JALLOCATOR, sizeof(*elastic_modulus) * (line_count - 1));
+    f32* elastic_modulus = ill_alloc(G_ALLOCATOR, sizeof(*elastic_modulus) * (line_count - 1));
     if (!elastic_modulus)
     {
         JDM_ERROR("Could not allocate memory for material array");
-        ill_jfree(G_JALLOCATOR, density);
+        ill_jfree(G_ALLOCATOR, density);
         res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
-    f32* tensile_strength = ill_jalloc(G_JALLOCATOR, sizeof(*tensile_strength) * (line_count - 1));
+    f32* tensile_strength = ill_alloc(G_ALLOCATOR, sizeof(*tensile_strength) * (line_count - 1));
     if (!tensile_strength)
     {
         JDM_ERROR("Could not allocate memory for material array");
-        ill_jfree(G_JALLOCATOR, elastic_modulus);
-        ill_jfree(G_JALLOCATOR, density);
+        ill_jfree(G_ALLOCATOR, elastic_modulus);
+        ill_jfree(G_ALLOCATOR, density);
         res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
-    f32* compressive_strength = ill_jalloc(G_JALLOCATOR, sizeof(*compressive_strength) * (line_count - 1));
+    f32* compressive_strength = ill_alloc(G_ALLOCATOR, sizeof(*compressive_strength) * (line_count - 1));
     if (!compressive_strength)
     {
         JDM_ERROR("Could not allocate memory for material array");
-        ill_jfree(G_JALLOCATOR, tensile_strength);
-        ill_jfree(G_JALLOCATOR, elastic_modulus);
-        ill_jfree(G_JALLOCATOR, density);
+        ill_jfree(G_ALLOCATOR, tensile_strength);
+        ill_jfree(G_ALLOCATOR, elastic_modulus);
+        ill_jfree(G_ALLOCATOR, density);
         res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
-    jio_string_segment* labels = ill_jalloc(G_JALLOCATOR, sizeof(*labels) * (line_count - 1));
+    jio_string_segment* labels = ill_alloc(G_ALLOCATOR, sizeof(*labels) * (line_count - 1));
     if (!labels)
     {
         JDM_ERROR("Could not allocate memory for material array");
-        ill_jfree(G_JALLOCATOR, compressive_strength);
-        ill_jfree(G_JALLOCATOR, tensile_strength);
-        ill_jfree(G_JALLOCATOR, elastic_modulus);
-        ill_jfree(G_JALLOCATOR, density);
+        ill_jfree(G_ALLOCATOR, compressive_strength);
+        ill_jfree(G_ALLOCATOR, tensile_strength);
+        ill_jfree(G_ALLOCATOR, elastic_modulus);
+        ill_jfree(G_ALLOCATOR, density);
         res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
@@ -143,11 +143,11 @@ jta_load_materials(const jio_context* io_ctx, const jio_memory_file* mem_file, j
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Processing the material input file failed, reason: %s", jio_result_to_str(jio_res));
-        ill_jfree(G_JALLOCATOR, labels);
-        ill_jfree(G_JALLOCATOR, compressive_strength);
-        ill_jfree(G_JALLOCATOR, tensile_strength);
-        ill_jfree(G_JALLOCATOR, elastic_modulus);
-        ill_jfree(G_JALLOCATOR, density);
+        ill_jfree(G_ALLOCATOR, labels);
+        ill_jfree(G_ALLOCATOR, compressive_strength);
+        ill_jfree(G_ALLOCATOR, tensile_strength);
+        ill_jfree(G_ALLOCATOR, elastic_modulus);
+        ill_jfree(G_ALLOCATOR, density);
         res = JTA_RESULT_BAD_INPUT;
         goto end;
     }
@@ -162,7 +162,7 @@ jta_load_materials(const jio_context* io_ctx, const jio_memory_file* mem_file, j
     if (count != line_count - 1)
     {
         {
-            f32* const new_ptr = ill_jrealloc(G_JALLOCATOR, elastic_modulus, sizeof(*new_ptr) * count);
+            f32* const new_ptr = ill_jrealloc(G_ALLOCATOR, elastic_modulus, sizeof(*new_ptr) * count);
             if (!new_ptr)
             {
                 JDM_WARN("Failed shrinking the material array from %zu to %zu bytes",
@@ -174,7 +174,7 @@ jta_load_materials(const jio_context* io_ctx, const jio_memory_file* mem_file, j
             }
         }
         {
-            f32* const new_ptr = ill_jrealloc(G_JALLOCATOR, density, sizeof(*new_ptr) * count);
+            f32* const new_ptr = ill_jrealloc(G_ALLOCATOR, density, sizeof(*new_ptr) * count);
             if (!new_ptr)
             {
                 JDM_WARN("Failed shrinking the material array from %zu to %zu bytes",
@@ -186,7 +186,7 @@ jta_load_materials(const jio_context* io_ctx, const jio_memory_file* mem_file, j
             }
         }
         {
-            f32* const new_ptr = ill_jrealloc(G_JALLOCATOR, tensile_strength, sizeof(*new_ptr) * count);
+            f32* const new_ptr = ill_jrealloc(G_ALLOCATOR, tensile_strength, sizeof(*new_ptr) * count);
             if (!new_ptr)
             {
                 JDM_WARN("Failed shrinking the material array from %zu to %zu bytes",
@@ -198,7 +198,7 @@ jta_load_materials(const jio_context* io_ctx, const jio_memory_file* mem_file, j
             }
         }
         {
-            f32* const new_ptr = ill_jrealloc(G_JALLOCATOR, compressive_strength, sizeof(*new_ptr) * count);
+            f32* const new_ptr = ill_jrealloc(G_ALLOCATOR, compressive_strength, sizeof(*new_ptr) * count);
             if (!new_ptr)
             {
                 JDM_WARN("Failed shrinking the material array from %zu to %zu bytes",
@@ -210,7 +210,7 @@ jta_load_materials(const jio_context* io_ctx, const jio_memory_file* mem_file, j
             }
         }
         {
-            jio_string_segment * const new_ptr = ill_jrealloc(G_JALLOCATOR, labels, sizeof(*new_ptr) * count);
+            jio_string_segment * const new_ptr = ill_jrealloc(G_ALLOCATOR, labels, sizeof(*new_ptr) * count);
             if (!new_ptr)
             {
                 JDM_WARN("Failed shrinking the material array from %zu to %zu bytes",
@@ -235,11 +235,11 @@ void jta_free_materials(jta_material_list* material_list)
 {
     JDM_ENTER_FUNCTION;
 
-    ill_jfree(G_JALLOCATOR, material_list->density);
-    ill_jfree(G_JALLOCATOR, material_list->labels);
-    ill_jfree(G_JALLOCATOR, material_list->elastic_modulus);
-    ill_jfree(G_JALLOCATOR, material_list->compressive_strength);
-    ill_jfree(G_JALLOCATOR, material_list->tensile_strength);
+    ill_jfree(G_ALLOCATOR, material_list->density);
+    ill_jfree(G_ALLOCATOR, material_list->labels);
+    ill_jfree(G_ALLOCATOR, material_list->elastic_modulus);
+    ill_jfree(G_ALLOCATOR, material_list->compressive_strength);
+    ill_jfree(G_ALLOCATOR, material_list->tensile_strength);
 
     JDM_LEAVE_FUNCTION;
 }

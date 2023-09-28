@@ -88,15 +88,15 @@ static gfx_result mesh_allocate_vulkan_memory(jta_vulkan_window_context* ctx, jt
 
 static void clean_mesh_model(jta_model* model)
 {
-    ill_jfree(G_JALLOCATOR, model->vtx_array);
-    ill_jfree(G_JALLOCATOR, model->idx_array);
+    ill_jfree(G_ALLOCATOR, model->vtx_array);
+    ill_jfree(G_ALLOCATOR, model->idx_array);
     memset(model, 0, sizeof *model);
 }
 
 static gfx_result generate_truss_model(jta_model* const p_out, const u16 pts_per_side)
 {
     jta_vertex* vertices;
-    if (!(vertices = ill_jalloc(G_JALLOCATOR, (uint_fast64_t)2 * pts_per_side * sizeof *vertices)))
+    if (!(vertices = ill_alloc(G_ALLOCATOR, (uint_fast64_t)2 * pts_per_side * sizeof *vertices)))
     {
         JDM_ERROR("Could not allocate memory for truss model");
         return GFX_RESULT_BAD_ALLOC;
@@ -104,10 +104,10 @@ static gfx_result generate_truss_model(jta_model* const p_out, const u16 pts_per
     jta_vertex* const btm = vertices;
     jta_vertex* const top = vertices + pts_per_side;
     u16* indices;
-    if (!(indices = ill_jalloc(G_JALLOCATOR, (uint_fast64_t)3 * 2 * pts_per_side * sizeof *indices)))
+    if (!(indices = ill_alloc(G_ALLOCATOR, (uint_fast64_t)3 * 2 * pts_per_side * sizeof *indices)))
     {
         JDM_ERROR("Could not allocate memory for truss model");
-        ill_jfree(G_JALLOCATOR, vertices);
+        ill_jfree(G_ALLOCATOR, vertices);
         return GFX_RESULT_BAD_ALLOC;
     }
 
@@ -167,7 +167,7 @@ gfx_result mesh_init_truss(jta_mesh* mesh, u16 pts_per_side, jta_vulkan_window_c
     mesh->count = 0;
     mesh->capacity = DEFAULT_MESH_CAPACITY;
 
-    if (!(mesh->model_data = ill_jalloc(G_JALLOCATOR, mesh->capacity * sizeof(*mesh->model_data))))
+    if (!(mesh->model_data = ill_alloc(G_ALLOCATOR, mesh->capacity * sizeof(*mesh->model_data))))
     {
         JDM_ERROR("Could not allocate memory for mesh model array");
         clean_mesh_model(&mesh->model);
@@ -178,7 +178,7 @@ gfx_result mesh_init_truss(jta_mesh* mesh, u16 pts_per_side, jta_vulkan_window_c
     if ((gfx_res = mesh_allocate_vulkan_memory(ctx, mesh)) != GFX_RESULT_SUCCESS)
     {
         clean_mesh_model(&mesh->model);
-        ill_jfree(G_JALLOCATOR, mesh->model_data);
+        ill_jfree(G_ALLOCATOR, mesh->model_data);
         JDM_ERROR("Could not allocate vulkan memory for the truss mesh");
         JDM_LEAVE_FUNCTION;
         return gfx_res;
@@ -197,7 +197,7 @@ gfx_result mesh_init_truss(jta_mesh* mesh, u16 pts_per_side, jta_vulkan_window_c
 
 void mesh_destroy(const jta_vulkan_window_context* ctx, jta_mesh* mesh)
 {
-    ill_jfree(G_JALLOCATOR, mesh->model_data);
+    ill_jfree(G_ALLOCATOR, mesh->model_data);
     clean_mesh_model(&mesh->model);
 
     jta_vulkan_context_enqueue_destroy_buffer(ctx, mesh->instance_memory);
@@ -216,7 +216,7 @@ mesh_add_new(
         //  Reallocate memory for data on host side
         const u32 new_capacity = mesh->capacity + 64;
         jta_model_data* const new_ptr = ill_jrealloc(
-                G_JALLOCATOR, mesh->model_data, new_capacity * sizeof(*mesh->model_data));
+                G_ALLOCATOR, mesh->model_data, new_capacity * sizeof(*mesh->model_data));
         if (!new_ptr)
         {
             JDM_ERROR("Could not reallocate memory for mesh color array");
@@ -315,7 +315,7 @@ static gfx_result generate_sphere_model(jta_model* const p_out, const u16 order)
     u16* indices;
     const u32 max_index_count =
             3 * ((1 << (2 * order)));  //  3 per triangle, increases by a factor of 4 for each level of refinement
-    if (!(indices = ill_jalloc(G_JALLOCATOR, max_index_count * sizeof *indices)))
+    if (!(indices = ill_alloc(G_ALLOCATOR, max_index_count * sizeof *indices)))
     {
         JDM_ERROR("Could not allocate memory for sphere model");
         JDM_LEAVE_FUNCTION;
@@ -323,10 +323,10 @@ static gfx_result generate_sphere_model(jta_model* const p_out, const u16 order)
     }
     jta_vertex* vertices;
     const u32 max_vertex_count = 3 * ((1 << (2 * order)));  //  This is an upper bound
-    if (!(vertices = ill_jalloc(G_JALLOCATOR, max_vertex_count * sizeof *vertices)))
+    if (!(vertices = ill_alloc(G_ALLOCATOR, max_vertex_count * sizeof *vertices)))
     {
         JDM_ERROR("Could not allocate memory for sphere model");
-        ill_jfree(G_JALLOCATOR, indices);
+        ill_jfree(G_ALLOCATOR, indices);
         JDM_LEAVE_FUNCTION;
         return GFX_RESULT_BAD_ALLOC;
     }
@@ -337,12 +337,12 @@ static gfx_result generate_sphere_model(jta_model* const p_out, const u16 order)
     {
         vec4 p1, p2, p3;
     };
-    triangle* triangle_list = lin_jalloc(G_LIN_JALLOCATOR, sizeof(triangle) * (1 << (order * 2)));
+    triangle* triangle_list = lin_alloc(G_LIN_ALLOCATOR, sizeof(triangle) * (1 << (order * 2)));
     if (!triangle_list)
     {
         JDM_ERROR("Could not allocate buffer for sphere triangle generation");
-        ill_jfree(G_JALLOCATOR, vertices);
-        ill_jfree(G_JALLOCATOR, indices);
+        ill_jfree(G_ALLOCATOR, vertices);
+        ill_jfree(G_ALLOCATOR, indices);
         JDM_LEAVE_FUNCTION;
         return GFX_RESULT_BAD_ALLOC;
     }
@@ -472,8 +472,8 @@ static gfx_result generate_sphere_model(jta_model* const p_out, const u16 order)
         }
         indices[index_count++] = j;
     }
-    lin_jfree(G_LIN_JALLOCATOR, triangle_list);
-    jta_vertex* const new_ptr = ill_jrealloc(G_JALLOCATOR, vertices, vertex_count * sizeof(*vertices));
+    lin_jfree(G_LIN_ALLOCATOR, triangle_list);
+    jta_vertex* const new_ptr = ill_jrealloc(G_ALLOCATOR, vertices, vertex_count * sizeof(*vertices));
     if (!new_ptr)
     {
         JDM_WARN("Could not shrink memory used by vertex list");
@@ -507,7 +507,7 @@ gfx_result mesh_init_sphere(jta_mesh* mesh, u16 order, jta_vulkan_window_context
     mesh->count = 0;
     mesh->capacity = DEFAULT_MESH_CAPACITY;
 
-    if (!(mesh->model_data = ill_jalloc(G_JALLOCATOR, mesh->capacity * sizeof(*mesh->model_data))))
+    if (!(mesh->model_data = ill_alloc(G_ALLOCATOR, mesh->capacity * sizeof(*mesh->model_data))))
     {
         JDM_ERROR("Could not allocate memory for mesh model array");
         clean_mesh_model(&mesh->model);
@@ -517,7 +517,7 @@ gfx_result mesh_init_sphere(jta_mesh* mesh, u16 order, jta_vulkan_window_context
     if ((gfx_res = mesh_allocate_vulkan_memory(ctx, mesh)) != GFX_RESULT_SUCCESS)
     {
         clean_mesh_model(&mesh->model);
-        ill_jfree(G_JALLOCATOR, mesh->model_data);
+        ill_jfree(G_ALLOCATOR, mesh->model_data);
         JDM_ERROR("Could not allocate vulkan memory for the sphere mesh");
         JDM_LEAVE_FUNCTION;
         return gfx_res;
@@ -569,7 +569,7 @@ static gfx_result generate_cone_model(jta_model* const model, const u16 order)
     assert(order >= 3);
     jta_vertex* vertices;
     u32 vtx_count = 2 * order + 2;
-    if (!(vertices = (ill_jalloc(G_JALLOCATOR, vtx_count * sizeof *vertices))))
+    if (!(vertices = (ill_alloc(G_ALLOCATOR, vtx_count * sizeof *vertices))))
     {
         JDM_ERROR("Could not allocate memory for truss model");
         return GFX_RESULT_BAD_ALLOC;
@@ -578,10 +578,10 @@ static gfx_result generate_cone_model(jta_model* const model, const u16 order)
     jta_vertex* const btm = vertices + order;
     u16* indices;
     u32 idx_count = 3 * 2 * order;
-    if (!(indices = (ill_jalloc(G_JALLOCATOR, idx_count * sizeof *indices))))
+    if (!(indices = (ill_alloc(G_ALLOCATOR, idx_count * sizeof *indices))))
     {
         JDM_ERROR("Could not allocate memory for truss model");
-        ill_jfree(G_JALLOCATOR, vertices);
+        ill_jfree(G_ALLOCATOR, vertices);
         return GFX_RESULT_BAD_ALLOC;
     }
 
@@ -651,7 +651,7 @@ gfx_result mesh_init_cone(jta_mesh* mesh, u16 order, jta_vulkan_window_context* 
     mesh->count = 0;
     mesh->capacity = DEFAULT_MESH_CAPACITY;
 
-    if (!(mesh->model_data = ill_jalloc(G_JALLOCATOR, mesh->capacity * sizeof(*mesh->model_data))))
+    if (!(mesh->model_data = ill_alloc(G_ALLOCATOR, mesh->capacity * sizeof(*mesh->model_data))))
     {
         JDM_ERROR("Could not allocate memory for mesh model array");
         clean_mesh_model(&mesh->model);
@@ -662,7 +662,7 @@ gfx_result mesh_init_cone(jta_mesh* mesh, u16 order, jta_vulkan_window_context* 
     if ((gfx_res = mesh_allocate_vulkan_memory(ctx, mesh)) != GFX_RESULT_SUCCESS)
     {
         clean_mesh_model(&mesh->model);
-        ill_jfree(G_JALLOCATOR, mesh->model_data);
+        ill_jfree(G_ALLOCATOR, mesh->model_data);
         JDM_ERROR("Could not allocate vulkan memory for the cone mesh");
         JDM_LEAVE_FUNCTION;
         return gfx_res;
@@ -744,9 +744,9 @@ gfx_result jta_structure_meshes_generate_undeformed(
     JDM_ENTER_FUNCTION;
 
     gfx_result res = GFX_RESULT_SUCCESS;
-    void* const base = lin_jallocator_save_state(G_LIN_JALLOCATOR);
+    void* const base = lin_allocator_save_state(G_LIN_ALLOCATOR);
 
-    jta_structure_meshes* this = ill_jalloc(G_JALLOCATOR, sizeof(*this));
+    jta_structure_meshes* this = ill_alloc(G_ALLOCATOR, sizeof(*this));
     if (!this)
     {
         JDM_ERROR("Could not allocate memory for mesh");
@@ -758,7 +758,7 @@ gfx_result jta_structure_meshes_generate_undeformed(
     if (res != GFX_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not initialize cone mesh, reason: %s", gfx_result_to_str(res));
-        ill_jfree(G_JALLOCATOR, this);
+        ill_jfree(G_ALLOCATOR, this);
         goto end;
     }
     res = mesh_init_sphere(&this->spheres, 4, ctx);
@@ -766,7 +766,7 @@ gfx_result jta_structure_meshes_generate_undeformed(
     {
         JDM_ERROR("Could not initialize sphere mesh, reason: %s", gfx_result_to_str(res));
         mesh_destroy(ctx, &this->cones);
-        ill_jfree(G_JALLOCATOR, this);
+        ill_jfree(G_ALLOCATOR, this);
         goto end;
     }
     res = mesh_init_truss(&this->cylinders, 1 << 4, ctx);
@@ -775,13 +775,13 @@ gfx_result jta_structure_meshes_generate_undeformed(
         JDM_ERROR("Could not initialize truss mesh, reason: %s", gfx_result_to_str(res));
         mesh_destroy(ctx, &this->spheres);
         mesh_destroy(ctx, &this->cones);
-        ill_jfree(G_JALLOCATOR, this);
+        ill_jfree(G_ALLOCATOR, this);
         goto end;
     }
 
     //  Preprocess point positions
     const jta_point_list* point_list = &problem_setup->point_list;
-    vec4* const positions = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*positions) * point_list->count);
+    vec4* const positions = lin_alloc(G_LIN_ALLOCATOR, sizeof(*positions) * point_list->count);
     if (!positions)
     {
         JDM_ERROR("Could not allocate array to store preprocessed point positions in");
@@ -789,7 +789,7 @@ gfx_result jta_structure_meshes_generate_undeformed(
         mesh_destroy(ctx, &this->cylinders);
         mesh_destroy(ctx, &this->spheres);
         mesh_destroy(ctx, &this->cones);
-        ill_jfree(G_JALLOCATOR, this);
+        ill_jfree(G_ALLOCATOR, this);
         goto end;
     }
     for (uint32_t i_pt = 0; i_pt < point_list->count; ++i_pt)
@@ -824,12 +824,12 @@ gfx_result jta_structure_meshes_generate_undeformed(
             mesh_destroy(ctx, &this->cylinders);
             mesh_destroy(ctx, &this->spheres);
             mesh_destroy(ctx, &this->cones);
-            ill_jfree(G_JALLOCATOR, this);
+            ill_jfree(G_ALLOCATOR, this);
             goto end;
         }
     }
 
-    uint_fast8_t* const bcs_per_point = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*bcs_per_point) * point_list->count);
+    uint_fast8_t* const bcs_per_point = lin_alloc(G_LIN_ALLOCATOR, sizeof(*bcs_per_point) * point_list->count);
     if (!bcs_per_point)
     {
         JDM_ERROR("Could not allocate buffer for counting point DoFs");
@@ -837,7 +837,7 @@ gfx_result jta_structure_meshes_generate_undeformed(
         mesh_destroy(ctx, &this->cylinders);
         mesh_destroy(ctx, &this->spheres);
         mesh_destroy(ctx, &this->cones);
-        ill_jfree(G_JALLOCATOR, this);
+        ill_jfree(G_ALLOCATOR, this);
         goto end;
     }
 
@@ -859,7 +859,7 @@ gfx_result jta_structure_meshes_generate_undeformed(
             mesh_destroy(ctx, &this->cylinders);
             mesh_destroy(ctx, &this->spheres);
             mesh_destroy(ctx, &this->cones);
-            ill_jfree(G_JALLOCATOR, this);
+            ill_jfree(G_ALLOCATOR, this);
             goto end;
         }
     }
@@ -879,12 +879,12 @@ gfx_result jta_structure_meshes_generate_undeformed(
             mesh_destroy(ctx, &this->cylinders);
             mesh_destroy(ctx, &this->spheres);
             mesh_destroy(ctx, &this->cones);
-            ill_jfree(G_JALLOCATOR, this);
+            ill_jfree(G_ALLOCATOR, this);
             goto end;
         }
     }
 
-    lin_jfree(G_LIN_JALLOCATOR, bcs_per_point);
+    lin_jfree(G_LIN_ALLOCATOR, bcs_per_point);
 
     //  Generate force arrows for natural BCs
 
@@ -912,14 +912,14 @@ gfx_result jta_structure_meshes_generate_undeformed(
             mesh_destroy(ctx, &this->cylinders);
             mesh_destroy(ctx, &this->spheres);
             mesh_destroy(ctx, &this->cones);
-            ill_jfree(G_JALLOCATOR, this);
+            ill_jfree(G_ALLOCATOR, this);
             goto end;
         }
     }
 
-    lin_jfree(G_LIN_JALLOCATOR, positions);
+    lin_jfree(G_LIN_ALLOCATOR, positions);
 end:
-    lin_jallocator_restore_current(G_LIN_JALLOCATOR, base);
+    lin_allocator_restore_current(G_LIN_ALLOCATOR, base);
     *meshes = this;
     JDM_LEAVE_FUNCTION;
     return res;
@@ -932,9 +932,9 @@ gfx_result jta_structure_meshes_generate_deformed(
     JDM_ENTER_FUNCTION;
 
     gfx_result res = GFX_RESULT_SUCCESS;
-    void* const base = lin_jallocator_save_state(G_LIN_JALLOCATOR);
+    void* const base = lin_allocator_save_state(G_LIN_ALLOCATOR);
 
-    jta_structure_meshes* this = ill_jalloc(G_JALLOCATOR, sizeof(*this));
+    jta_structure_meshes* this = ill_alloc(G_ALLOCATOR, sizeof(*this));
     if (!this)
     {
         JDM_ERROR("Could not allocate memory for mesh");
@@ -946,7 +946,7 @@ gfx_result jta_structure_meshes_generate_deformed(
     if (res != GFX_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not initialize cone mesh, reason: %s", gfx_result_to_str(res));
-        ill_jfree(G_JALLOCATOR, this);
+        ill_jfree(G_ALLOCATOR, this);
         goto end;
     }
     res = mesh_init_sphere(&this->spheres, 4, ctx);
@@ -954,7 +954,7 @@ gfx_result jta_structure_meshes_generate_deformed(
     {
         JDM_ERROR("Could not initialize sphere mesh, reason: %s", gfx_result_to_str(res));
         mesh_destroy(ctx, &this->cones);
-        ill_jfree(G_JALLOCATOR, this);
+        ill_jfree(G_ALLOCATOR, this);
         goto end;
     }
     res = mesh_init_truss(&this->cylinders, 1 << 4, ctx);
@@ -963,12 +963,12 @@ gfx_result jta_structure_meshes_generate_deformed(
         JDM_ERROR("Could not initialize truss mesh, reason: %s", gfx_result_to_str(res));
         mesh_destroy(ctx, &this->spheres);
         mesh_destroy(ctx, &this->cones);
-        ill_jfree(G_JALLOCATOR, this);
+        ill_jfree(G_ALLOCATOR, this);
         goto end;
     }
     //  Preprocess point positions
     const jta_point_list* point_list = &problem_setup->point_list;
-    vec4* const positions = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*positions) * point_list->count);
+    vec4* const positions = lin_alloc(G_LIN_ALLOCATOR, sizeof(*positions) * point_list->count);
     if (!positions)
     {
         JDM_ERROR("Could not allocate array to store preprocessed point positions in");
@@ -976,7 +976,7 @@ gfx_result jta_structure_meshes_generate_deformed(
         mesh_destroy(ctx, &this->cylinders);
         mesh_destroy(ctx, &this->spheres);
         mesh_destroy(ctx, &this->cones);
-        ill_jfree(G_JALLOCATOR, this);
+        ill_jfree(G_ALLOCATOR, this);
         goto end;
     }
     for (uint32_t i_pt = 0; i_pt < point_list->count; ++i_pt)
@@ -1013,13 +1013,13 @@ gfx_result jta_structure_meshes_generate_deformed(
             mesh_destroy(ctx, &this->cylinders);
             mesh_destroy(ctx, &this->spheres);
             mesh_destroy(ctx, &this->cones);
-            ill_jfree(G_JALLOCATOR, this);
+            ill_jfree(G_ALLOCATOR, this);
             goto end;
         }
     }
 
-    jta_numerical_boundary_condition_type* const bcs_per_point = lin_jalloc(
-            G_LIN_JALLOCATOR, sizeof(*bcs_per_point) * point_list->count);
+    jta_numerical_boundary_condition_type* const bcs_per_point = lin_alloc(
+            G_LIN_ALLOCATOR, sizeof(*bcs_per_point) * point_list->count);
     if (!bcs_per_point)
     {
         JDM_ERROR("Could not allocate buffer for counting point DoFs");
@@ -1027,7 +1027,7 @@ gfx_result jta_structure_meshes_generate_deformed(
         mesh_destroy(ctx, &this->cylinders);
         mesh_destroy(ctx, &this->spheres);
         mesh_destroy(ctx, &this->cones);
-        ill_jfree(G_JALLOCATOR, this);
+        ill_jfree(G_ALLOCATOR, this);
         goto end;
     }
 
@@ -1046,7 +1046,7 @@ gfx_result jta_structure_meshes_generate_deformed(
             mesh_destroy(ctx, &this->cylinders);
             mesh_destroy(ctx, &this->spheres);
             mesh_destroy(ctx, &this->cones);
-            ill_jfree(G_JALLOCATOR, this);
+            ill_jfree(G_ALLOCATOR, this);
             goto end;
         }
         bcs_per_point[i_pt] += (type & JTA_NUMERICAL_BC_TYPE_X);
@@ -1059,7 +1059,7 @@ gfx_result jta_structure_meshes_generate_deformed(
             mesh_destroy(ctx, &this->cylinders);
             mesh_destroy(ctx, &this->spheres);
             mesh_destroy(ctx, &this->cones);
-            ill_jfree(G_JALLOCATOR, this);
+            ill_jfree(G_ALLOCATOR, this);
             goto end;
         }
         bcs_per_point[i_pt] += (type & JTA_NUMERICAL_BC_TYPE_Y);
@@ -1071,7 +1071,7 @@ gfx_result jta_structure_meshes_generate_deformed(
             mesh_destroy(ctx, &this->cylinders);
             mesh_destroy(ctx, &this->spheres);
             mesh_destroy(ctx, &this->cones);
-            ill_jfree(G_JALLOCATOR, this);
+            ill_jfree(G_ALLOCATOR, this);
             goto end;
         }
         bcs_per_point[i_pt] += (type & JTA_NUMERICAL_BC_TYPE_Z);
@@ -1095,7 +1095,7 @@ gfx_result jta_structure_meshes_generate_deformed(
             mesh_destroy(ctx, &this->cylinders);
             mesh_destroy(ctx, &this->spheres);
             mesh_destroy(ctx, &this->cones);
-            ill_jfree(G_JALLOCATOR, this);
+            ill_jfree(G_ALLOCATOR, this);
             goto end;
         }
     }
@@ -1103,7 +1103,7 @@ gfx_result jta_structure_meshes_generate_deformed(
     //  Generate force arrows for reaction forces
 
 
-    float* const reaction_magnitudes = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*reaction_magnitudes) * point_list->count);
+    float* const reaction_magnitudes = lin_alloc(G_LIN_ALLOCATOR, sizeof(*reaction_magnitudes) * point_list->count);
     if (!reaction_magnitudes)
     {
         JDM_ERROR("Could not allocate memory for reaction forces");
@@ -1111,7 +1111,7 @@ gfx_result jta_structure_meshes_generate_deformed(
         mesh_destroy(ctx, &this->cylinders);
         mesh_destroy(ctx, &this->spheres);
         mesh_destroy(ctx, &this->cones);
-        ill_jfree(G_JALLOCATOR, this);
+        ill_jfree(G_ALLOCATOR, this);
         goto end;
     }
 
@@ -1168,16 +1168,16 @@ gfx_result jta_structure_meshes_generate_deformed(
             mesh_destroy(ctx, &this->cylinders);
             mesh_destroy(ctx, &this->spheres);
             mesh_destroy(ctx, &this->cones);
-            ill_jfree(G_JALLOCATOR, this);
+            ill_jfree(G_ALLOCATOR, this);
             goto end;
         }
     }
 
-    lin_jfree(G_LIN_JALLOCATOR, reaction_magnitudes);
-    lin_jfree(G_LIN_JALLOCATOR, bcs_per_point);
-    lin_jfree(G_LIN_JALLOCATOR, positions);
+    lin_jfree(G_LIN_ALLOCATOR, reaction_magnitudes);
+    lin_jfree(G_LIN_ALLOCATOR, bcs_per_point);
+    lin_jfree(G_LIN_ALLOCATOR, positions);
     end:
-    lin_jallocator_restore_current(G_LIN_JALLOCATOR, base);
+    lin_allocator_restore_current(G_LIN_ALLOCATOR, base);
     *meshes = this;
     JDM_LEAVE_FUNCTION;
     return res;
@@ -1191,7 +1191,7 @@ void jta_structure_meshes_destroy(jta_vulkan_window_context* ctx, jta_structure_
         mesh_destroy(ctx, &meshes->cylinders);
         mesh_destroy(ctx, &meshes->cones);
         mesh_destroy(ctx, &meshes->spheres);
-        ill_jfree(G_JALLOCATOR, meshes);
+        ill_jfree(G_ALLOCATOR, meshes);
     }
 
     JDM_LEAVE_FUNCTION;

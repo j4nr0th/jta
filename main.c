@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <vulkan/vulkan.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <inttypes.h>
 
 #include <jmem/jmem.h>
@@ -15,9 +14,6 @@
 #include "gfx/camera.h"
 #include "gfx/bounding_box.h"
 #include "ui/jwin_handlers.h"
-#include "core/jtaelements.h"
-#include "core/jtanaturalbcs.h"
-#include "core/jtanumericalbcs.h"
 #include "config/config_loading.h"
 #include "ui/ui_tree.h"
 
@@ -52,7 +48,7 @@ static i32 jdm_error_hook_callback_function(
     return 0;
 }
 
-static void double_free_hook(ill_jallocator* allocator, void* param)
+static void double_free_hook(ill_allocator* allocator, void* param)
 {
     JDM_ENTER_FUNCTION;
     (void) param;
@@ -60,7 +56,7 @@ static void double_free_hook(ill_jallocator* allocator, void* param)
     JDM_LEAVE_FUNCTION;
 }
 
-static void invalid_alloc(ill_jallocator* allocator, void* param)
+static void invalid_alloc(ill_allocator* allocator, void* param)
 {
     JDM_ENTER_FUNCTION;
     (void) param;
@@ -68,12 +64,12 @@ static void invalid_alloc(ill_jallocator* allocator, void* param)
     JDM_LEAVE_FUNCTION;
 }
 
-static void jmem_trap(uint32_t idx, void* param)
-{
-    (void)param;
-    (void)idx;
-    __builtin_trap();
-}
+//static void jmem_trap(uint32_t idx, void* param)
+//{
+//    (void)param;
+//    (void)idx;
+//    __builtin_trap();
+//}
 
 static void jwin_err_report_fn(const char* msg, const char* file, int line, const char* function, void* state)
 {
@@ -85,6 +81,12 @@ static void jrui_error_callback(const char* msg, const char* function, const cha
 {
     (void) state;
     JDM_ERROR("JRUI error (%s:%d - %s): %s", file, line, function, msg);
+}
+
+static void jio_error_callback(void* state, const char* msg, const char* file, int line, const char* function)
+{
+    (void) state;
+    JDM_ERROR("JIO error (%s:%d - %s): %s", file, line, function, msg);
 }
 
 int main(int argc, char* argv[argc])
@@ -99,34 +101,33 @@ int main(int argc, char* argv[argc])
     jta_timer_set(&main_timer);
     //  Create allocators
 
-    G_LIN_JALLOCATOR = lin_jallocator_create(1 << 20);
-    if (!G_LIN_JALLOCATOR)
+    G_LIN_ALLOCATOR = lin_allocator_create(1 << 20);
+    if (!G_LIN_ALLOCATOR)
     {
         fputs("Could not create linear allocator\n", stderr);
         exit(EXIT_FAILURE);
     }
-    G_JALLOCATOR = ill_jallocator_create(1 << 20, 1);
-    if (!G_JALLOCATOR)
+    G_ALLOCATOR = ill_allocator_create(1 << 20, 1);
+    if (!G_ALLOCATOR)
     {
         fputs("Could not create base jallocator\n", stderr);
         exit(EXIT_FAILURE);
     }
-    ill_jallocator_set_bad_alloc_callback(G_JALLOCATOR, invalid_alloc, NULL);
-    ill_jallocator_set_double_free_callback(G_JALLOCATOR, double_free_hook, NULL);
-//    ill_jallocator_set_debug_trap(G_JALLOCATOR, 194, jmem_trap, NULL);
+    ill_allocator_set_bad_alloc_callback(G_ALLOCATOR, invalid_alloc, NULL);
+    ill_allocator_set_double_free_callback(G_ALLOCATOR, double_free_hook, NULL);
     {
         jdm_allocator_callbacks jdm_callbacks =
                 {
-                        .param = G_JALLOCATOR,
-                        .alloc = (void* (*)(void*, uint64_t)) ill_jalloc,
+                        .param = G_ALLOCATOR,
+                        .alloc = (void* (*)(void*, uint64_t)) ill_alloc,
                         .free = (void (*)(void*, void*)) ill_jfree,
                 };
         jdm_init_thread(
                 "master",
-#ifndef NEBUG
+#ifndef JTA_MINIMAL_LOG
                 JDM_MESSAGE_LEVEL_NONE,
 #else
-                JDM_MESSAGE_LEVEL_WARN,
+                JDM_MESSAGE_LEVEL_INFO,
 #endif
                 64,
                 64,
@@ -143,9 +144,30 @@ int main(int argc, char* argv[argc])
     JDM_TRACE("Initialization time: %g sec", dt);
 
     //  Load up the configuration
+    jio_error_callbacks io_error_callbacks =
+            {
+            .state = NULL,
+            .report = jio_error_callback,
+            };
+    jio_allocator_callbacks io_allocator_callbacks =
+            {
+            .param = G_ALLOCATOR,
+            .alloc = (void* (*)(void*, size_t)) ill_alloc,
+            .free = (void (*)(void*, void*)) ill_jfree,
+            .realloc = (void* (*)(void*, void*, size_t)) ill_jrealloc
+            };
+    jio_allocator_callbacks io_stack_allocator =
+            {
+            .param = G_LIN_ALLOCATOR,
+            .alloc = (void* (*)(void*, size_t)) lin_alloc,
+            .realloc = (void* (*)(void*, void*, size_t)) lin_jrealloc,
+            .free = (void (*)(void*, void*)) lin_jfree
+            };
     jio_context_create_info io_create_info =
             {
-
+                .error_callbacks = &io_error_callbacks,
+                .allocator_callbacks = &io_allocator_callbacks,
+                .stack_allocator_callbacks = &io_stack_allocator,
             };
     jio_result jio_res = jio_context_create(&io_create_info, &program_state.io_ctx);
     if (jio_res != JIO_RESULT_SUCCESS)
@@ -183,6 +205,7 @@ int main(int argc, char* argv[argc])
     else
     {
         memset(&program_state.master_config, 0, sizeof(program_state.master_config));
+        program_state.problem_setup.load_state = 0;
     }
 
 
@@ -198,10 +221,10 @@ int main(int argc, char* argv[argc])
     {
         const jwin_allocator_callbacks allocator_callbacks =
                 {
-                        .alloc = (void* (*)(void*, uint64_t)) ill_jalloc,
+                        .alloc = (void* (*)(void*, uint64_t)) ill_alloc,
                         .realloc = (void* (*)(void*, void*, uint64_t)) ill_jrealloc,
                         .free = (void (*)(void*, void*)) ill_jfree,
-                        .state = G_JALLOCATOR,
+                        .state = G_ALLOCATOR,
                 };
         const jwin_error_callbacks error_callbacks =
                 {
@@ -264,8 +287,8 @@ int main(int argc, char* argv[argc])
         jwin_window_get_size(program_state.main_wnd, &wnd_w, &wnd_h);
         const jrui_allocator_callbacks allocator_callbacks =
                 {
-                .state = G_JALLOCATOR,
-                .allocate = (void* (*)(void*, size_t)) ill_jalloc,
+                .state = G_ALLOCATOR,
+                .allocate = (void* (*)(void*, size_t)) ill_alloc,
                 .deallocate = (void (*)(void*, void*)) ill_jfree,
                 .reallocate = (void* (*)(void*, void*, size_t)) ill_jrealloc,
                 };
@@ -327,7 +350,7 @@ int main(int argc, char* argv[argc])
         }
         jta_ui_bind_font_texture(wnd_ctx, program_state.ui_state.ui_font_texture);
         jrui_context_set_user_param(program_state.ui_state.ui_context, &program_state);
-        jrui_update_toggle_button_state_by_label(program_state.ui_state.ui_context, "top menu:mesh", 1);
+        jrui_update_toggle_button_state_by_label(program_state.ui_state.ui_context, "top menu:problem", 1);
     }
 
 
@@ -353,7 +376,6 @@ int main(int argc, char* argv[argc])
 
 
 
-//    program_state.draw_state.view_matrix = jta_camera_to_view_matrix(&camera);
     program_state.ui_state.ui_vtx_buffer = 0;
     program_state.ui_state.ui_idx_buffer = 0;
     program_state.problem_solution = (jta_solution){};
@@ -460,31 +482,33 @@ int main(int argc, char* argv[argc])
     jdm_cleanup_thread();
     //  Clean up the allocators
     {
-        ill_jallocator* const allocator = G_JALLOCATOR;
-        G_JALLOCATOR = NULL;
+        ill_allocator* const allocator = G_ALLOCATOR;
+        G_ALLOCATOR = NULL;
+#ifdef JMEM_ALLOC_TRACKING
         uint64_t total_allocations, max_usage, total_allocated, biggest_allocation;
-        ill_jallocator_statistics(allocator, &biggest_allocation, &total_allocated, &max_usage, &total_allocations);
+        ill_allocator_statistics(allocator, &biggest_allocation, &total_allocated, &max_usage, &total_allocations);
         printf(
-                "G_JALLOCATOR statistics:\n\tBiggest allocation: %zu b (%g kB)\n\tTotal allocated memory: %g kB (%g MB)"
+                "G_ALLOCATOR statistics:\n\tBiggest allocation: %zu b (%g kB)\n\tTotal allocated memory: %g kB (%g MB)"
                 "\n\tMax usage: %g kB (%g MB)\n\tTotal allocations: %zu\n", (size_t) biggest_allocation,
                 (double) biggest_allocation / 1024.0, (double) total_allocated / 1024.0,
                 (double) total_allocated / 1024.0 / 1024.0, (double) max_usage / 1024.0,
                 (double) max_usage / 1024.0 / 1024.0, (size_t) total_allocations);
-#ifndef NDEBUG
+
         uint_fast32_t leaked_block_indices[256];
-        uint_fast32_t leaked_block_count = ill_jallocator_count_used_blocks(
+        uint_fast32_t leaked_block_count = ill_allocator_count_used_blocks(
                 allocator, sizeof(leaked_block_indices) / sizeof(*leaked_block_indices), leaked_block_indices);
         for (u32 i = 0; i < leaked_block_count; ++i)
         {
-            fprintf(stderr, "G_JALLOCATOR did not free block %"PRIuFAST32"\n", leaked_block_indices[i]);
+            fprintf(stderr, "G_ALLOCATOR did not free block %"PRIuFAST32"\n", leaked_block_indices[i]);
         }
+
 #endif
-        ill_jallocator_destroy(allocator);
+        ill_allocator_destroy(allocator);
     }
     {
-        lin_jallocator* const allocator = G_LIN_JALLOCATOR;
-        G_LIN_JALLOCATOR = NULL;
-        lin_jallocator_destroy(allocator);
+        lin_allocator* const allocator = G_LIN_ALLOCATOR;
+        G_LIN_ALLOCATOR = NULL;
+        lin_allocator_destroy(allocator);
     }
     return 0;
 }

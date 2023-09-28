@@ -5,13 +5,12 @@
 #include <jdm.h>
 #include "frame_queue.h"
 #include "../common/common.h"
-#include <ill_jalloc.h>
 
 gfx_result jta_frame_job_queue_create(unsigned int initial_capacity, jta_frame_job_queue** p_out)
 {
     JDM_ENTER_FUNCTION;
 
-    jta_frame_job_queue* const this = ill_jalloc(G_JALLOCATOR, sizeof(*this));
+    jta_frame_job_queue* const this = ill_alloc(G_ALLOCATOR, sizeof(*this));
     if (!this)
     {
         JDM_ERROR("Could not allocate memory for frame queue");
@@ -21,11 +20,11 @@ gfx_result jta_frame_job_queue_create(unsigned int initial_capacity, jta_frame_j
 
     this->job_capacity = initial_capacity;
     this->job_count = 0;
-    this->jobs = ill_jalloc(G_JALLOCATOR, sizeof(*this->jobs) * this->job_capacity);
+    this->jobs = ill_alloc(G_ALLOCATOR, sizeof(*this->jobs) * this->job_capacity);
     if (!this->jobs)
     {
         JDM_ERROR("Could not allocate memory for frame queue's job list");
-        ill_jfree(G_JALLOCATOR, this);
+        ill_jfree(G_ALLOCATOR, this);
         JDM_LEAVE_FUNCTION;
         return GFX_RESULT_BAD_ALLOC;
     }
@@ -45,8 +44,8 @@ void jta_frame_job_queue_destroy(jta_frame_job_queue* queue)
     {
         JDM_WARN("Frame queue was destroyed with %u jobs still enqueued", queue->job_count);
     }
-    ill_jfree(G_JALLOCATOR, queue->jobs);
-    ill_jfree(G_JALLOCATOR, queue);
+    ill_jfree(G_ALLOCATOR, queue->jobs);
+    ill_jfree(G_ALLOCATOR, queue);
 
     JDM_LEAVE_FUNCTION;
 }
@@ -72,7 +71,7 @@ gfx_result jta_frame_job_queue_add_job(jta_frame_job_queue* queue, void (* job_c
     if (queue->job_count == queue->job_capacity)
     {
         const unsigned new_capacity = queue->job_capacity << 1;
-        jta_frame_job* const new_ptr = ill_jrealloc(G_JALLOCATOR, queue->jobs, sizeof(*queue->jobs) * new_capacity);
+        jta_frame_job* const new_ptr = ill_jrealloc(G_ALLOCATOR, queue->jobs, sizeof(*queue->jobs) * new_capacity);
         if (!new_ptr)
         {
             JDM_ERROR("Could not reallocate frame job queue to %zu bytes", sizeof(*queue->jobs) * new_capacity);

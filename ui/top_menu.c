@@ -57,19 +57,19 @@ static void delete_mesh_job(void* param)
 {
     delete_mesh_job_data* const data = param;
     jta_structure_meshes_destroy(data->ctx, data->p_mesh);
-    ill_jfree(G_JALLOCATOR, data);
+    ill_jfree(G_ALLOCATOR, data);
 }
 
 static void regenerate_meshes(jta_state* p_state, int skip_undeformed, int skip_deformed)
 {
     JDM_ENTER_FUNCTION;
-    JDM_TRACE("Regenerating meshes (skip undeformed: %d, skip deformed: %d)", skip_undeformed, skip_deformed);
+//    JDM_TRACE("Regenerating meshes (skip undeformed: %d, skip deformed: %d)", skip_undeformed, skip_deformed);
     if (!skip_undeformed && (p_state->problem_state & JTA_PROBLEM_STATE_PROBLEM_LOADED))
     {
         jta_structure_meshes* const old_mesh = p_state->draw_state.undeformed_mesh;
         jta_structure_meshes* new_mesh;
         const gfx_result res = jta_structure_meshes_generate_undeformed(&new_mesh, &p_state->master_config.display, &p_state->problem_setup, p_state->draw_state.wnd_ctx);
-        if (res != JTA_RESULT_SUCCESS)
+        if (res != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not regenerate undeformed mesh, reason: %s", gfx_result_to_str(res));
         }
@@ -77,7 +77,7 @@ static void regenerate_meshes(jta_state* p_state, int skip_undeformed, int skip_
         {
             if (old_mesh)
             {
-                delete_mesh_job_data* const data = ill_jalloc(G_JALLOCATOR, sizeof(delete_mesh_job_data));
+                delete_mesh_job_data* const data = ill_alloc(G_ALLOCATOR, sizeof(delete_mesh_job_data));
                 if (data)
                 {
                     JDM_TRACE("Replacing undeformed mesh");
@@ -115,7 +115,7 @@ static void regenerate_meshes(jta_state* p_state, int skip_undeformed, int skip_
         jta_structure_meshes* const old_mesh = p_state->draw_state.deformed_mesh;
         jta_structure_meshes* new_mesh;
         const gfx_result res = jta_structure_meshes_generate_deformed(&new_mesh, &p_state->master_config.display, &p_state->problem_setup, &p_state->problem_solution, p_state->draw_state.wnd_ctx);
-        if (res != JTA_RESULT_SUCCESS)
+        if (res != GFX_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not regenerate deformed mesh, reason: %s", gfx_result_to_str(res));
         }
@@ -123,7 +123,7 @@ static void regenerate_meshes(jta_state* p_state, int skip_undeformed, int skip_
         {
             if (old_mesh)
             {
-                delete_mesh_job_data* const data = ill_jalloc(G_JALLOCATOR, sizeof(delete_mesh_job_data));
+                delete_mesh_job_data* const data = ill_alloc(G_ALLOCATOR, sizeof(delete_mesh_job_data));
                 if (data)
                 {
                     JDM_TRACE("Replacing deformed mesh");
@@ -145,6 +145,11 @@ static void regenerate_meshes(jta_state* p_state, int skip_undeformed, int skip_
 
 static void mark_solution_invalid(jta_state* p_state)
 {
+    JDM_ENTER_FUNCTION;
+    if (p_state->problem_state & JTA_PROBLEM_STATE_HAS_SOLUTION)
+    {
+        JDM_INFO("Solution marked as invalid");
+    }
     p_state->problem_state &= ~JTA_PROBLEM_STATE_HAS_SOLUTION;
     p_state->display_state &= ~JTA_DISPLAY_DEFORMED;
     jrui_widget_base* const toggle_button = jrui_get_by_label(p_state->ui_state.ui_context, "display:mode deformed");
@@ -153,6 +158,7 @@ static void mark_solution_invalid(jta_state* p_state)
     {
         jrui_update_toggle_button_state(toggle_button, 0);
     }
+    JDM_LEAVE_FUNCTION;
 }
 
 static void check_for_complete_problem(jta_state* p_state)
@@ -189,7 +195,7 @@ change_config_input_file(const char* string, jrui_widget_base* widget, const cha
     size_t name_len = strlen(string);
     if (!name_len) return;
     JDM_ENTER_FUNCTION;
-    char* const copy = ill_jalloc(G_JALLOCATOR, sizeof(*copy) * (name_len + 1));
+    char* const copy = ill_alloc(G_ALLOCATOR, sizeof(*copy) * (name_len + 1));
     if (!copy)
     {
         JDM_ERROR("Could not allocate %zu bytes for string buffer", sizeof(*copy) * (name_len + 1));
@@ -201,7 +207,7 @@ change_config_input_file(const char* string, jrui_widget_base* widget, const cha
     while (name_len && isspace(copy[name_len - 1])) {name_len -= 1;}
     if (!name_len)
     {
-        ill_jfree(G_JALLOCATOR, copy);
+        ill_jfree(G_ALLOCATOR, copy);
         goto end;
     }
 
@@ -212,13 +218,13 @@ change_config_input_file(const char* string, jrui_widget_base* widget, const cha
     {
         jrui_update_text_h_by_label(ctx, status_widget_label, "Not Found", JRUI_ALIGN_RIGHT, JRUI_ALIGN_CENTER);
         jrui_update_text_input_text(widget, *p_dest);
-        ill_jfree(G_JALLOCATOR, copy);
+        ill_jfree(G_ALLOCATOR, copy);
     }
     else
     {
         jrui_update_text_h_by_label(ctx, status_widget_label, "File Found", JRUI_ALIGN_RIGHT, JRUI_ALIGN_CENTER);
         jrui_update_text_input_text(widget, copy);
-        ill_jfree(G_JALLOCATOR, *p_dest);
+        ill_jfree(G_ALLOCATOR, *p_dest);
         *p_dest = copy;
     }
 
@@ -273,7 +279,7 @@ static int update_color_component(jrui_widget_base* widget, const char* string, 
     {
         goto no_replace;
     }
-    char* const copy = ill_jalloc(G_JALLOCATOR, sizeof(*copy) * (name_len + 1));
+    char* const copy = ill_alloc(G_ALLOCATOR, sizeof(*copy) * (name_len + 1));
     if (!copy)
     {
         JDM_ERROR("Could not allocate %zu bytes for string buffer", sizeof(*copy) * (name_len + 1));
@@ -285,7 +291,7 @@ static int update_color_component(jrui_widget_base* widget, const char* string, 
     while (name_len && isspace(copy[name_len - 1])) {name_len -= 1;}
     if (!name_len)
     {
-        ill_jfree(G_JALLOCATOR, copy);
+        ill_jfree(G_ALLOCATOR, copy);
         goto no_replace;
     }
 
@@ -297,12 +303,12 @@ static int update_color_component(jrui_widget_base* widget, const char* string, 
     if (end_p != copy + name_len || v < 0.0f || v > 1.0f)
     {
         JDM_ERROR("Could not convert input string \"%s\" to a float in the range [0, 1]", copy);
-        ill_jfree(G_JALLOCATOR, copy);
+        ill_jfree(G_ALLOCATOR, copy);
         goto no_replace;
     }
     p_color->data[component_idx] = (unsigned char)(v * 256.0f) - 1;
     jrui_update_text_input_hint(widget, copy);
-    ill_jfree(G_JALLOCATOR, copy);
+    ill_jfree(G_ALLOCATOR, copy);
 
     JDM_LEAVE_FUNCTION;
     return 1;
@@ -407,6 +413,7 @@ static void submit_element_file(jrui_widget_base* widget, const char* string, vo
 
 static void load_points_wrapper(jrui_widget_base* widget, void* param)
 {
+    (void)param;
     jrui_context* ctx = jrui_widget_get_context(widget);
     jta_state* const state = jrui_context_get_user_param(ctx);
     jta_result res = jta_load_points_from_file(
@@ -427,6 +434,7 @@ static void load_points_wrapper(jrui_widget_base* widget, void* param)
 
 static void load_materials_wrapper(jrui_widget_base* widget, void* param)
 {
+    (void)param;
     jrui_context* ctx = jrui_widget_get_context(widget);
     jta_state* const state = jrui_context_get_user_param(ctx);
     jta_result res = jta_load_materials_from_file(
@@ -447,6 +455,7 @@ static void load_materials_wrapper(jrui_widget_base* widget, void* param)
 
 static void load_profiles_wrapper(jrui_widget_base* widget, void* param)
 {
+    (void)param;
     jrui_context* ctx = jrui_widget_get_context(widget);
     jta_state* const state = jrui_context_get_user_param(ctx);
     jta_result res = jta_load_profiles_from_file(
@@ -467,6 +476,7 @@ static void load_profiles_wrapper(jrui_widget_base* widget, void* param)
 
 static void load_natbc_wrapper(jrui_widget_base* widget, void* param)
 {
+    (void)param;
     jrui_context* ctx = jrui_widget_get_context(widget);
     jta_state* const state = jrui_context_get_user_param(ctx);
     jta_result res = jta_load_natbc_from_file(
@@ -487,6 +497,7 @@ static void load_natbc_wrapper(jrui_widget_base* widget, void* param)
 
 static void load_numbc_wrapper(jrui_widget_base* widget, void* param)
 {
+    (void)param;
     jrui_context* ctx = jrui_widget_get_context(widget);
     jta_state* const state = jrui_context_get_user_param(ctx);
     jta_result res = jta_load_numbc_from_file(
@@ -507,6 +518,7 @@ static void load_numbc_wrapper(jrui_widget_base* widget, void* param)
 
 static void load_elements_wrapper(jrui_widget_base* widget, void* param)
 {
+    (void)param;
     jrui_context* ctx = jrui_widget_get_context(widget);
     jta_state* const state = jrui_context_get_user_param(ctx);
     jta_result res = jta_load_elements_from_file(
@@ -526,7 +538,9 @@ static void load_elements_wrapper(jrui_widget_base* widget, void* param)
 }
 
 static void load_all_problem(jrui_widget_base* widget, void* param)
-{jrui_context* ctx = jrui_widget_get_context(widget);
+{
+    (void)param;
+    jrui_context* ctx = jrui_widget_get_context(widget);
     jta_state* const state = jrui_context_get_user_param(ctx);
     jta_result res = jta_load_points_from_file(
             state->io_ctx, &state->problem_setup, state->master_config.problem.definition.points_file);
@@ -599,52 +613,77 @@ static void load_all_problem(jrui_widget_base* widget, void* param)
     {
         char err_buffer[64] = { 0 };
         (void)snprintf(err_buffer, sizeof(err_buffer), "Failed: %s", jta_result_to_str(res));
-        jrui_update_text_h_by_label(ctx, "problem:numerical BC status", err_buffer, JRUI_ALIGN_RIGHT, JRUI_ALIGN_CENTER);
+        jrui_update_text_h_by_label(ctx, "problem:element status", err_buffer, JRUI_ALIGN_RIGHT, JRUI_ALIGN_CENTER);
     }
     else
     {
-        jrui_update_text_h_by_label(ctx, "problem:numerical BC status", "Loaded", JRUI_ALIGN_RIGHT, JRUI_ALIGN_CENTER);
+        jrui_update_text_h_by_label(ctx, "problem:element status", "Loaded", JRUI_ALIGN_RIGHT, JRUI_ALIGN_CENTER);
         mark_solution_invalid(state);
     }
     check_for_complete_problem(state);
 }
 
-static jrui_result top_menu_problem_replace(jta_config_problem* cfg, jrui_widget_base* body)
+static const char* const STATE_LOADED = "Loaded", *const STATE_FOUND = "Found", *const STATE_NOT_LOADED = "Not loaded";
+
+static inline const char* find_file_state(jta_problem_load_state load_state, const char* path, jta_problem_load_state needed_state)
 {
+    if (load_state & needed_state)
+    {
+        return STATE_LOADED;
+    }
+    else if (path && file_exists(path))
+    {
+        return STATE_FOUND;
+    }
+    return STATE_NOT_LOADED;
+}
+
+static jrui_result top_menu_problem_replace(jta_problem_load_state load_state,jta_config_problem* cfg, jrui_widget_base* body)
+{
+    const char* pts_stat, *mat_stat, *pro_stat, *nat_stat, *num_stat, *elm_stat;
+
+    pts_stat = find_file_state(load_state, cfg->definition.points_file, JTA_PROBLEM_LOAD_STATE_HAS_POINTS);
+    mat_stat = find_file_state(load_state, cfg->definition.materials_file, JTA_PROBLEM_LOAD_STATE_HAS_MATERIALS);
+    pro_stat = find_file_state(load_state, cfg->definition.profiles_file, JTA_PROBLEM_LOAD_STATE_HAS_PROFILES);
+    nat_stat = find_file_state(load_state, cfg->definition.natural_bcs_file, JTA_PROBLEM_LOAD_STATE_HAS_NATBC);
+    num_stat = find_file_state(load_state, cfg->definition.numerical_bcs_file, JTA_PROBLEM_LOAD_STATE_HAS_NUMBC);
+    elm_stat = find_file_state(load_state, cfg->definition.elements_file, JTA_PROBLEM_LOAD_STATE_HAS_ELEMENTS);
+
+
     jrui_widget_create_info point_children[] =
             {
                 {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = "Point file:", .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_LEFT}},
-                {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = !cfg->definition.points_file ? "Not found" : "Loaded", .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_RIGHT, .base_info.label = "problem:point status"}},
+                {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = pts_stat, .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_RIGHT, .base_info.label = "problem:point status"}},
 
             };
     jrui_widget_create_info material_children[] =
             {
                     {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = "Material file:", .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_LEFT}},
-                    {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = !cfg->definition.materials_file ? "Not found" : "Loaded", .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_RIGHT, .base_info.label = "problem:material status"}},
+                    {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = mat_stat, .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_RIGHT, .base_info.label = "problem:material status"}},
 
             };
     jrui_widget_create_info profile_children[] =
             {
                     {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = "Profile file:", .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_LEFT}},
-                    {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = !cfg->definition.profiles_file ? "Not found" : "Loaded", .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_RIGHT, .base_info.label = "problem:profile status"}},
+                    {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = pro_stat, .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_RIGHT, .base_info.label = "problem:profile status"}},
 
             };
     jrui_widget_create_info natural_children[] =
             {
                     {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = "Natural BC file:", .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_LEFT}},
-                    {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = !cfg->definition.natural_bcs_file ? "Not found" : "Loaded", .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_RIGHT, .base_info.label = "problem:natural BC status"}},
+                    {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = nat_stat, .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_RIGHT, .base_info.label = "problem:natural BC status"}},
 
             };
     jrui_widget_create_info numerical_children[] =
             {
                     {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = "Numerical BC file:", .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_LEFT}},
-                    {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = !cfg->definition.numerical_bcs_file ? "Not found" : "Loaded", .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_RIGHT, .base_info.label = "problem:numerical BC status"}},
+                    {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = num_stat, .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_RIGHT, .base_info.label = "problem:numerical BC status"}},
 
             };
     jrui_widget_create_info element_children[] =
             {
                     {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = "Element file:", .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_LEFT}},
-                    {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = !cfg->definition.elements_file ? "Not found" : "Loaded", .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_RIGHT, .base_info.label = "problem:element status"}},
+                    {.text_h = {.base_info.type = JRUI_WIDGET_TYPE_TEXT_H, .text = elm_stat, .text_alignment_vertical = JRUI_ALIGN_CENTER, .text_alignment_horizontal = JRUI_ALIGN_RIGHT, .base_info.label = "problem:element status"}},
             };
     jrui_widget_create_info col_entry_rows[] =
             {
@@ -919,12 +958,14 @@ static void toggle_display_mode(jrui_widget_base* widget, int pressed, void* par
     default:return;
     case JTA_DISPLAY_DEFORMED:if ((state->problem_state & JTA_PROBLEM_STATE_HAS_SOLUTION) == 0)
         {
+            JDM_INFO("Can not display deformed mesh without solved problem");
             jrui_update_toggle_button_state(widget, 0);
             return;
         }
         break;
     case JTA_DISPLAY_UNDEFORMED: if ((state->problem_state & JTA_PROBLEM_STATE_PROBLEM_LOADED) == 0)
         {
+            JDM_INFO("Can not display deformed mesh loaded problem");
             jrui_update_toggle_button_state(widget, 0);
             return;
         }
@@ -1357,11 +1398,11 @@ static void update_file_option(jrui_widget_base* widget, const char* string, cha
     JDM_ENTER_FUNCTION;
     if (!name_len)
     {
-        ill_jfree(G_JALLOCATOR, *p_dest);
+        ill_jfree(G_ALLOCATOR, *p_dest);
         *p_dest = NULL;
         goto end;
     }
-    char* const copy = ill_jalloc(G_JALLOCATOR, sizeof(*copy) * (name_len + 1));
+    char* const copy = ill_alloc(G_ALLOCATOR, sizeof(*copy) * (name_len + 1));
     if (!copy)
     {
         JDM_ERROR("Could not allocate %zu bytes for string buffer", sizeof(*copy) * (name_len + 1));
@@ -1373,8 +1414,8 @@ static void update_file_option(jrui_widget_base* widget, const char* string, cha
     while (name_len && isspace(copy[name_len - 1])) {name_len -= 1;}
     if (!name_len)
     {
-        ill_jfree(G_JALLOCATOR, copy);
-        ill_jfree(G_JALLOCATOR, *p_dest);
+        ill_jfree(G_ALLOCATOR, copy);
+        ill_jfree(G_ALLOCATOR, *p_dest);
         *p_dest = NULL;
         goto end;
     }
@@ -1382,7 +1423,7 @@ static void update_file_option(jrui_widget_base* widget, const char* string, cha
     copy[name_len] = 0;
 
     jrui_update_text_input_text(widget, copy);
-    ill_jfree(G_JALLOCATOR, *p_dest);
+    ill_jfree(G_ALLOCATOR, *p_dest);
     *p_dest = copy;
 
 end:
@@ -1472,6 +1513,7 @@ static void save_element_outputs(jrui_widget_base* widget, void* param)
 static void save_config(jrui_widget_base* widget, void* param)
 {
     JDM_ENTER_FUNCTION;
+    (void)param;
     const jta_state* const p_state = jrui_context_get_user_param(jrui_widget_get_context(widget));
     if (p_state->master_config.output.configuration_file)
     {
@@ -1490,6 +1532,7 @@ static jrui_result top_menu_output_replace(jta_config_output* cfg, jrui_widget_b
 static void load_config(jrui_widget_base* widget, void* param)
 {
     JDM_ENTER_FUNCTION;
+    (void)param;
     jrui_context* ctx = jrui_widget_get_context(widget);
     jta_state* const p_state = jrui_context_get_user_param(ctx);
     if (p_state->master_config.output.configuration_file)
@@ -1713,9 +1756,6 @@ static void submit_gravity(jrui_widget_base* widget, const char* string, void* p
     if (idx < sizeof(p_state->master_config.problem.sim_and_sol.gravity) / sizeof(*p_state->master_config.problem.sim_and_sol.gravity))
     {
         convert_to_float_value(widget, string, -INFINITY, INFINITY, p_state->master_config.problem.sim_and_sol.gravity + idx);
-        p_state->problem_setup.gravity.x = p_state->master_config.problem.sim_and_sol.gravity[0];
-        p_state->problem_setup.gravity.y = p_state->master_config.problem.sim_and_sol.gravity[1];
-        p_state->problem_setup.gravity.z = p_state->master_config.problem.sim_and_sol.gravity[2];
         mark_solution_invalid(p_state);
     }
 }
@@ -1749,6 +1789,7 @@ static void submit_convergence(jrui_widget_base* widget, const char* string, voi
 static void submit_convergence_drag(jrui_widget_base* widget, float v, void* param)
 {
     JDM_ENTER_FUNCTION;
+    (void)param;
     jrui_context* ctx = jrui_widget_get_context(widget);
     jta_state* const state = jrui_context_get_user_param(ctx);
     
@@ -1803,6 +1844,7 @@ static void submit_relaxation(jrui_widget_base* widget, const char* string, void
 static void submit_relaxation_drag(jrui_widget_base* widget, float v, void* param)
 {
     JDM_ENTER_FUNCTION;
+    (void)param;
     jrui_context* ctx = jrui_widget_get_context(widget);
     jta_state* const state = jrui_context_get_user_param(ctx);
 
@@ -1823,6 +1865,7 @@ static void submit_relaxation_drag(jrui_widget_base* widget, float v, void* para
 static void submit_the_problem_to_solve(jrui_widget_base* widget, void* param)
 {
     JDM_ENTER_FUNCTION;
+    (void)param;
     jrui_context* ctx = jrui_widget_get_context(widget);
     jta_state* const p_state = jrui_context_get_user_param(ctx);
     if ((p_state->problem_state & JTA_PROBLEM_STATE_HAS_SOLUTION) != 0)
@@ -1834,9 +1877,10 @@ static void submit_the_problem_to_solve(jrui_widget_base* widget, void* param)
         (p_state->problem_setup.load_state & JTA_PROBLEM_LOAD_STATE_HAS_NATBC) &&
         (p_state->problem_setup.load_state & JTA_PROBLEM_LOAD_STATE_HAS_NUMBC))
     {
+        const vec4 g = VEC4(p_state->master_config.problem.sim_and_sol.gravity[0], p_state->master_config.problem.sim_and_sol.gravity[1], p_state->master_config.problem.sim_and_sol.gravity[2]);
         jta_solution_free(&p_state->problem_solution);
         jta_result res = jta_solve_problem(
-                &p_state->master_config.problem, &p_state->problem_setup, &p_state->problem_solution);
+                &p_state->master_config.problem, &p_state->problem_setup, &p_state->problem_solution, g);
         if (res != JTA_RESULT_SUCCESS)
         {
             JDM_ERROR("Could not solve problem, reason: %s", jta_result_to_str(res));
@@ -2035,47 +2079,60 @@ static jrui_result top_menu_mesh_replace(jrui_widget_base* body)
 static void top_menu_toggle_on_callback(jrui_widget_base* widget, int pressed, void* param)
 {
     const top_menu_button button = (top_menu_button)(uintptr_t)param;
-    if (!pressed || button < TOP_MENU_PROBLEM || button >= TOP_MENU_COUNT)
+    if (button < TOP_MENU_PROBLEM || button >= TOP_MENU_COUNT)
     {
         return;
     }
     JDM_ENTER_FUNCTION;
     jrui_context* ctx = jrui_widget_get_context(widget);
-    //  Set other button's states to zero
-    for (top_menu_button btn = 0; btn < TOP_MENU_COUNT; ++btn)
+    if (pressed)
     {
-        if (button != btn)
+        //  Set other button's states to zero
+        for (top_menu_button btn = 0; btn < TOP_MENU_COUNT; ++btn)
         {
-            jrui_update_toggle_button_state_by_label(ctx, TOP_MENU_LABELS[btn], 0);
+            if (button != btn)
+            {
+                jrui_update_toggle_button_state_by_label(ctx, TOP_MENU_LABELS[btn], 0);
+            }
+        }
+        
+        // Replace the body of the UI with what the actual menu entry wants
+        jta_state* const state = jrui_context_get_user_param(ctx);
+        jrui_widget_base* const body = jrui_get_by_label(ctx, "body");
+        jrui_result replace_res;
+        switch (button)
+        {
+        case TOP_MENU_PROBLEM:
+            replace_res = top_menu_problem_replace(state->problem_setup.load_state, &state->master_config.problem, body);
+            break;
+        case TOP_MENU_DISPLAY:
+            replace_res = top_menu_display_replace((int)(state->display_state & JTA_DISPLAY_UNDEFORMED), (int)(state->display_state & JTA_DISPLAY_DEFORMED), &state->master_config.display, body);
+            break;
+        case TOP_MENU_OUTPUT:
+            replace_res = top_menu_output_replace(&state->master_config.output, body);
+            break;
+        case TOP_MENU_SOLVE:
+            replace_res = top_menu_solve_replace(&state->master_config.problem, body);
+            break;
+        case TOP_MENU_MESH:
+            replace_res = top_menu_mesh_replace(body);
+            break;
+        default:assert(0);
+        }
+        if (replace_res != JRUI_RESULT_SUCCESS)
+        {
+            JDM_ERROR("Could not replace UI body widget, reason: %s (%s)", jrui_result_to_str(replace_res), jrui_result_message(replace_res));
         }
     }
-    
-    // Replace the body of the UI with what the actual menu entry wants
-    jta_state* const state = jrui_context_get_user_param(ctx);
-    jrui_widget_base* const body = jrui_get_by_label(ctx, "body");
-    jrui_result replace_res;
-    switch (button)
+    else
     {
-    case TOP_MENU_PROBLEM:
-        replace_res = top_menu_problem_replace(&state->master_config.problem, body);
-        break;
-    case TOP_MENU_DISPLAY:
-        replace_res = top_menu_display_replace((int)(state->display_state & JTA_DISPLAY_UNDEFORMED), (int)(state->display_state & JTA_DISPLAY_DEFORMED), &state->master_config.display, body);
-        break;
-    case TOP_MENU_OUTPUT:
-        replace_res = top_menu_output_replace(&state->master_config.output, body);
-        break;
-    case TOP_MENU_SOLVE:
-        replace_res = top_menu_solve_replace(&state->master_config.problem, body);
-        break;
-    case TOP_MENU_MESH:
-        replace_res = top_menu_mesh_replace(body);
-        break;
-    default:assert(0);
-    }
-    if (replace_res != JRUI_RESULT_SUCCESS)
-    {
-        JDM_ERROR("Could not replace UI body widget, reason: %s (%s)", jrui_result_to_str(replace_res), jrui_result_message(replace_res));
+        static const jrui_widget_create_info replacement_body = {.base_info = {.type = JRUI_WIDGET_TYPE_EMPTY, .label = "body"}};
+        jrui_widget_base* const body = jrui_get_by_label(ctx, "body");
+        jrui_result body_res = jrui_replace_widget(body, replacement_body);
+        if (body_res != JRUI_RESULT_SUCCESS)
+        {
+            JDM_ERROR("Could not replace body with empty space, reason: %s (%s)", jrui_result_to_str(body_res), jrui_result_message(body_res));
+        }
     }
     JDM_LEAVE_FUNCTION;
 }

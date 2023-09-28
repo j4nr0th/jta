@@ -140,61 +140,61 @@ jta_result jta_load_elements(
     JDM_ENTER_FUNCTION;
     jta_result res;
     uint32_t line_count = jio_memory_file_count_lines(mem_file);
-    uint32_t* i_point0 = ill_jalloc(G_JALLOCATOR, sizeof(*i_point0) * (line_count - 1));
+    uint32_t* i_point0 = ill_alloc(G_ALLOCATOR, sizeof(*i_point0) * (line_count - 1));
     if (!i_point0)
     {
         JDM_ERROR("Could not allocate memory for element array");
         res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
-    uint32_t* i_point1 = ill_jalloc(G_JALLOCATOR, sizeof(*i_point1) * (line_count - 1));
+    uint32_t* i_point1 = ill_alloc(G_ALLOCATOR, sizeof(*i_point1) * (line_count - 1));
     if (!i_point1)
     {
         JDM_ERROR("Could not allocate memory for element array");
-        ill_jfree(G_JALLOCATOR, i_point0);
+        ill_jfree(G_ALLOCATOR, i_point0);
         res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
 
-    uint32_t* i_material = ill_jalloc(G_JALLOCATOR, sizeof(*i_material) * (line_count - 1));
+    uint32_t* i_material = ill_alloc(G_ALLOCATOR, sizeof(*i_material) * (line_count - 1));
     if (!i_material)
     {
         JDM_ERROR("Could not allocate memory for element array");
-        ill_jfree(G_JALLOCATOR, i_point0);
-        ill_jfree(G_JALLOCATOR, i_point1);
+        ill_jfree(G_ALLOCATOR, i_point0);
+        ill_jfree(G_ALLOCATOR, i_point1);
         res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
-    uint32_t* i_profile = ill_jalloc(G_JALLOCATOR, sizeof(*i_profile) * (line_count - 1));
+    uint32_t* i_profile = ill_alloc(G_ALLOCATOR, sizeof(*i_profile) * (line_count - 1));
     if (!i_profile)
     {
         JDM_ERROR("Could not allocate memory for element array");
-        ill_jfree(G_JALLOCATOR, i_point0);
-        ill_jfree(G_JALLOCATOR, i_point1);
-        ill_jfree(G_JALLOCATOR, i_material);
+        ill_jfree(G_ALLOCATOR, i_point0);
+        ill_jfree(G_ALLOCATOR, i_point1);
+        ill_jfree(G_ALLOCATOR, i_material);
         res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
-    jio_string_segment* labels = ill_jalloc(G_JALLOCATOR, sizeof(*labels) * (line_count - 1));
+    jio_string_segment* labels = ill_alloc(G_ALLOCATOR, sizeof(*labels) * (line_count - 1));
     if (!labels)
     {
         JDM_ERROR("Could not allocate memory for element array");
-        ill_jfree(G_JALLOCATOR, i_point0);
-        ill_jfree(G_JALLOCATOR, i_point1);
-        ill_jfree(G_JALLOCATOR, i_material);
-        ill_jfree(G_JALLOCATOR, i_profile);
+        ill_jfree(G_ALLOCATOR, i_point0);
+        ill_jfree(G_ALLOCATOR, i_point1);
+        ill_jfree(G_ALLOCATOR, i_material);
+        ill_jfree(G_ALLOCATOR, i_profile);
         res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
-    f32* lengths = ill_jalloc(G_JALLOCATOR, sizeof(*lengths) * (line_count - 1));
+    f32* lengths = ill_alloc(G_ALLOCATOR, sizeof(*lengths) * (line_count - 1));
     if (!lengths)
     {
         JDM_ERROR("Could not allocate memory for element array");
-        ill_jfree(G_JALLOCATOR, i_point0);
-        ill_jfree(G_JALLOCATOR, i_point1);
-        ill_jfree(G_JALLOCATOR, i_material);
-        ill_jfree(G_JALLOCATOR, i_profile);
-        ill_jfree(G_JALLOCATOR, labels);
+        ill_jfree(G_ALLOCATOR, i_point0);
+        ill_jfree(G_ALLOCATOR, i_point1);
+        ill_jfree(G_ALLOCATOR, i_material);
+        ill_jfree(G_ALLOCATOR, i_profile);
+        ill_jfree(G_ALLOCATOR, labels);
         res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
@@ -210,7 +210,7 @@ jta_result jta_load_elements(
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Processing the element input file failed, reason: %s", jio_result_to_str(jio_res));
-        ill_jfree(G_JALLOCATOR, i_point1);
+        ill_jfree(G_ALLOCATOR, i_point1);
         res = JTA_RESULT_BAD_INPUT;
         goto end;
     }
@@ -226,7 +226,7 @@ jta_result jta_load_elements(
     {
         //  Point 0 array
         {
-            uint32_t* const new_ptr = ill_jrealloc(G_JALLOCATOR, i_point0, sizeof(*new_ptr) * count);
+            uint32_t* const new_ptr = ill_jrealloc(G_ALLOCATOR, i_point0, sizeof(*new_ptr) * count);
             if (!new_ptr)
             {
                 JDM_WARN("Failed shrinking the element array from %zu to %zu bytes",
@@ -239,7 +239,7 @@ jta_result jta_load_elements(
         }
         //  Point 1 array
         {
-            uint32_t* const new_ptr = ill_jrealloc(G_JALLOCATOR, i_point1, sizeof(*new_ptr) * count);
+            uint32_t* const new_ptr = ill_jrealloc(G_ALLOCATOR, i_point1, sizeof(*new_ptr) * count);
             if (!new_ptr)
             {
                 JDM_WARN("Failed shrinking the element array from %zu to %zu bytes",
@@ -252,7 +252,7 @@ jta_result jta_load_elements(
         }
         //  Profile array
         {
-            uint32_t* const new_ptr = ill_jrealloc(G_JALLOCATOR, i_profile, sizeof(*new_ptr) * count);
+            uint32_t* const new_ptr = ill_jrealloc(G_ALLOCATOR, i_profile, sizeof(*new_ptr) * count);
             if (!new_ptr)
             {
                 JDM_WARN("Failed shrinking the element array from %zu to %zu bytes",
@@ -265,7 +265,7 @@ jta_result jta_load_elements(
         }
         //  Material array
         {
-            uint32_t* const new_ptr = ill_jrealloc(G_JALLOCATOR, i_material, sizeof(*new_ptr) * count);
+            uint32_t* const new_ptr = ill_jrealloc(G_ALLOCATOR, i_material, sizeof(*new_ptr) * count);
             if (!new_ptr)
             {
                 JDM_WARN("Failed shrinking the element array from %zu to %zu bytes",
@@ -278,7 +278,7 @@ jta_result jta_load_elements(
         }
         //  Label array
         {
-            jio_string_segment * const new_ptr = ill_jrealloc(G_JALLOCATOR, labels, sizeof(*new_ptr) * count);
+            jio_string_segment * const new_ptr = ill_jrealloc(G_ALLOCATOR, labels, sizeof(*new_ptr) * count);
             if (!new_ptr)
             {
                 JDM_WARN("Failed shrinking the element array from %zu to %zu bytes",
@@ -291,7 +291,7 @@ jta_result jta_load_elements(
         }
         //  Length array
         {
-            f32 * const new_ptr = ill_jrealloc(G_JALLOCATOR, lengths, sizeof(*new_ptr) * count);
+            f32 * const new_ptr = ill_jrealloc(G_ALLOCATOR, lengths, sizeof(*new_ptr) * count);
             if (!new_ptr)
             {
                 JDM_WARN("Failed shrinking the element array from %zu to %zu bytes",
@@ -354,12 +354,12 @@ void jta_free_elements(jta_element_list* element_list)
 {
     JDM_ENTER_FUNCTION;
 
-    ill_jfree(G_JALLOCATOR, element_list->labels);
-    ill_jfree(G_JALLOCATOR, element_list->i_point0);
-    ill_jfree(G_JALLOCATOR, element_list->i_point1);
-    ill_jfree(G_JALLOCATOR, element_list->i_profile);
-    ill_jfree(G_JALLOCATOR, element_list->i_material);
-    ill_jfree(G_JALLOCATOR, element_list->lengths);
+    ill_jfree(G_ALLOCATOR, element_list->labels);
+    ill_jfree(G_ALLOCATOR, element_list->i_point0);
+    ill_jfree(G_ALLOCATOR, element_list->i_point1);
+    ill_jfree(G_ALLOCATOR, element_list->i_profile);
+    ill_jfree(G_ALLOCATOR, element_list->i_material);
+    ill_jfree(G_ALLOCATOR, element_list->lengths);
 
     JDM_LEAVE_FUNCTION;
 }

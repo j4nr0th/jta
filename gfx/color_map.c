@@ -71,8 +71,8 @@ void jta_scalar_cmap_free(jta_scalar_cmap* cmap)
 {
     JDM_ENTER_FUNCTION;
 
-    ill_jfree(G_JALLOCATOR, cmap->values);
-    ill_jfree(G_JALLOCATOR, cmap->colors);
+    ill_jfree(G_ALLOCATOR, cmap->values);
+    ill_jfree(G_ALLOCATOR, cmap->colors);
 
     memset(cmap, 0, sizeof(*cmap));
 
@@ -160,7 +160,7 @@ static bool (*SCALAR_CMAP_CONVERTER_FUNCTIONS[5])(jio_string_segment* segment, v
 jta_result jta_scalar_cmap_from_csv(const jio_context* io_ctx, const char* filename, jta_scalar_cmap* out_cmap)
 {
     JDM_ENTER_FUNCTION;
-    jta_result res;
+    jta_result res = JTA_RESULT_SUCCESS;
     float* values = NULL;
     vec4* colors = NULL;
 
@@ -175,7 +175,7 @@ jta_result jta_scalar_cmap_from_csv(const jio_context* io_ctx, const char* filen
 
     uint32_t line_count = jio_memory_file_count_lines(file);
 
-    values = ill_jalloc(G_JALLOCATOR, sizeof(*values) * (line_count - 1));
+    values = ill_alloc(G_ALLOCATOR, sizeof(*values) * (line_count - 1));
     if (!values)
     {
         JDM_ERROR("Could not allocate memory for colormap values");
@@ -184,7 +184,7 @@ jta_result jta_scalar_cmap_from_csv(const jio_context* io_ctx, const char* filen
         goto failed;
     }
 
-    colors = ill_jalloc(G_JALLOCATOR, sizeof(*colors) * (line_count - 1));
+    colors = ill_alloc(G_ALLOCATOR, sizeof(*colors) * (line_count - 1));
     if (!colors)
     {
         JDM_ERROR("Could not allocate memory for colormap colors");
@@ -229,7 +229,7 @@ jta_result jta_scalar_cmap_from_csv(const jio_context* io_ctx, const char* filen
     const uint32_t count = value_cvt.count;
     if (line_count - 1 > count)
     {
-        float* const new_values = ill_jrealloc(G_JALLOCATOR, values, sizeof(*values) * count);
+        float* const new_values = ill_jrealloc(G_ALLOCATOR, values, sizeof(*values) * count);
         if (!new_values)
         {
             JDM_WARN("Could not shrink the values array for the colormap from \"%s\"", filename);
@@ -238,7 +238,7 @@ jta_result jta_scalar_cmap_from_csv(const jio_context* io_ctx, const char* filen
         {
             values = new_values;
         }
-        vec4* const new_colors = ill_jrealloc(G_JALLOCATOR, colors, sizeof(*colors) * count);
+        vec4* const new_colors = ill_jrealloc(G_ALLOCATOR, colors, sizeof(*colors) * count);
         if (!new_colors)
         {
             JDM_WARN("Could not shrink the colors array for the colormap from \"%s\"", filename);
@@ -256,7 +256,7 @@ jta_result jta_scalar_cmap_from_csv(const jio_context* io_ctx, const char* filen
     return JTA_RESULT_SUCCESS;
 
 failed:
-    ill_jfree(G_JALLOCATOR, values);
-    ill_jfree(G_JALLOCATOR, colors);
+    ill_jfree(G_ALLOCATOR, values);
+    ill_jfree(G_ALLOCATOR, colors);
     return res;
 }

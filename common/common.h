@@ -55,8 +55,8 @@ typedef union jta_color_T jta_color;
 #include <jmem/jmem.h>
 
 
-extern lin_jallocator* G_LIN_JALLOCATOR;
-extern ill_jallocator* G_JALLOCATOR;
+extern lin_allocator* G_LIN_ALLOCATOR;
+extern ill_allocator* G_ALLOCATOR;
 
 #include <assert.h>
 

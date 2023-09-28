@@ -86,36 +86,36 @@ jta_result jta_load_natural_boundary_conditions(
     jta_result res;
     uint32_t line_count = jio_memory_file_count_lines(mem_file);
 
-    f32* x = ill_jalloc(G_JALLOCATOR, sizeof(*x) * (line_count - 1));
+    f32* x = ill_alloc(G_ALLOCATOR, sizeof(*x) * (line_count - 1));
     if (!x)
     {
         JDM_ERROR("Could not allocate memory for natural boundary condition array");
         res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
-    f32* y = ill_jalloc(G_JALLOCATOR, sizeof(*y) * (line_count - 1));
+    f32* y = ill_alloc(G_ALLOCATOR, sizeof(*y) * (line_count - 1));
     if (!y)
     {
-        ill_jfree(G_JALLOCATOR, x);
+        ill_jfree(G_ALLOCATOR, x);
         JDM_ERROR("Could not allocate memory for natural boundary condition array");
         res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
-    f32* z = ill_jalloc(G_JALLOCATOR, sizeof(*z) * (line_count - 1));
+    f32* z = ill_alloc(G_ALLOCATOR, sizeof(*z) * (line_count - 1));
     if (!z)
     {
-        ill_jfree(G_JALLOCATOR, x);
-        ill_jfree(G_JALLOCATOR, y);
+        ill_jfree(G_ALLOCATOR, x);
+        ill_jfree(G_ALLOCATOR, y);
         JDM_ERROR("Could not allocate memory for natural boundary condition array");
         res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
-    uint32_t* i_pts = ill_jalloc(G_JALLOCATOR, sizeof(*i_pts) * (line_count - 1));
+    uint32_t* i_pts = ill_alloc(G_ALLOCATOR, sizeof(*i_pts) * (line_count - 1));
     if (!i_pts)
     {
-        ill_jfree(G_JALLOCATOR, x);
-        ill_jfree(G_JALLOCATOR, y);
-        ill_jfree(G_JALLOCATOR, z);
+        ill_jfree(G_ALLOCATOR, x);
+        ill_jfree(G_ALLOCATOR, y);
+        ill_jfree(G_ALLOCATOR, z);
         JDM_ERROR("Could not allocate memory for natural boundary condition array");
         res = JTA_RESULT_BAD_ALLOC;
         goto end;
@@ -133,10 +133,10 @@ jta_result jta_load_natural_boundary_conditions(
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Processing the natural boundary conditions input file failed, reason: %s", jio_result_to_str(jio_res));
-        ill_jfree(G_JALLOCATOR, i_pts);
-        ill_jfree(G_JALLOCATOR, x);
-        ill_jfree(G_JALLOCATOR, y);
-        ill_jfree(G_JALLOCATOR, z);
+        ill_jfree(G_ALLOCATOR, i_pts);
+        ill_jfree(G_ALLOCATOR, x);
+        ill_jfree(G_ALLOCATOR, y);
+        ill_jfree(G_ALLOCATOR, z);
         res = JTA_RESULT_BAD_INPUT;
         goto end;
     }
@@ -150,7 +150,7 @@ jta_result jta_load_natural_boundary_conditions(
 
     if (count != line_count - 1)
     {
-        f32* new_ptr = ill_jrealloc(G_JALLOCATOR, x, sizeof(*new_ptr) * count);
+        f32* new_ptr = ill_jrealloc(G_ALLOCATOR, x, sizeof(*new_ptr) * count);
         if (!new_ptr)
         {
             JDM_WARN("Failed shrinking the natural boundary condition array from %zu to %zu bytes", sizeof(*x) * (line_count - 1), sizeof(*new_ptr) * count);
@@ -159,7 +159,7 @@ jta_result jta_load_natural_boundary_conditions(
         {
             x = new_ptr;
         }
-        new_ptr = ill_jrealloc(G_JALLOCATOR, y, sizeof(*new_ptr) * count);
+        new_ptr = ill_jrealloc(G_ALLOCATOR, y, sizeof(*new_ptr) * count);
         if (!new_ptr)
         {
             JDM_WARN("Failed shrinking the natural boundary condition array from %zu to %zu bytes", sizeof(*y) * (line_count - 1), sizeof(*new_ptr) * count);
@@ -168,7 +168,7 @@ jta_result jta_load_natural_boundary_conditions(
         {
             y = new_ptr;
         }
-        new_ptr = ill_jrealloc(G_JALLOCATOR, z, sizeof(*new_ptr) * count);
+        new_ptr = ill_jrealloc(G_ALLOCATOR, z, sizeof(*new_ptr) * count);
         if (!new_ptr)
         {
             JDM_WARN("Failed shrinking the natural boundary condition array from %zu to %zu bytes", sizeof(*z) * (line_count - 1), sizeof(*new_ptr) * count);
@@ -177,7 +177,7 @@ jta_result jta_load_natural_boundary_conditions(
         {
             z = new_ptr;
         }
-        uint32_t* const new_ptr1 = ill_jrealloc(G_JALLOCATOR, i_pts, sizeof(*new_ptr1) * count);
+        uint32_t* const new_ptr1 = ill_jrealloc(G_ALLOCATOR, i_pts, sizeof(*new_ptr1) * count);
         if (!new_ptr1)
         {
             JDM_WARN("Failed shrinking the natural boundary condition array from %zu to %zu bytes", sizeof(*i_pts) * (line_count - 1), sizeof(*new_ptr1) * count);
@@ -245,10 +245,10 @@ void jta_free_natural_boundary_conditions(jta_natural_boundary_condition_list* b
 {
     JDM_ENTER_FUNCTION;
 
-    ill_jfree(G_JALLOCATOR, bcs->i_point);
-    ill_jfree(G_JALLOCATOR, bcs->x);
-    ill_jfree(G_JALLOCATOR, bcs->y);
-    ill_jfree(G_JALLOCATOR, bcs->z);
+    ill_jfree(G_ALLOCATOR, bcs->i_point);
+    ill_jfree(G_ALLOCATOR, bcs->x);
+    ill_jfree(G_ALLOCATOR, bcs->y);
+    ill_jfree(G_ALLOCATOR, bcs->z);
 
     JDM_LEAVE_FUNCTION;
 }

@@ -17,7 +17,7 @@ static const char* const POINT_COLUMN_LABELS[] =
         "m"
         };
 
-static size_t POINT_COLUMN_COUNT = sizeof(POINT_COLUMN_LABELS) / sizeof(*POINT_COLUMN_LABELS);
+//static size_t POINT_COLUMN_COUNT = sizeof(POINT_COLUMN_LABELS) / sizeof(*POINT_COLUMN_LABELS);
 
 jta_result jta_save_point_solution(const char* filename, const jta_point_list* points, const jta_solution* solution)
 {
@@ -67,7 +67,7 @@ static const char* const ELEMENT_COLUMN_LABELS[] =
                 "Mass",
         };
 
-static size_t ELEMENT_COLUMN_COUNT = sizeof(ELEMENT_COLUMN_LABELS) / sizeof(*ELEMENT_COLUMN_LABELS);
+//static size_t ELEMENT_COLUMN_COUNT = sizeof(ELEMENT_COLUMN_LABELS) / sizeof(*ELEMENT_COLUMN_LABELS);
 jta_result jta_save_element_solution(
         const char* filename, const jta_element_list* elements, const jta_point_list* points, const jta_solution* solution)
 {

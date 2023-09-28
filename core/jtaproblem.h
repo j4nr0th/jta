@@ -37,7 +37,6 @@ struct jta_problem_setup_T
     jta_material_list material_list;                         //  Material list parsed from input file
     jta_natural_boundary_condition_list natural_bcs;     //  Natural BC list parsed from input file
     jta_numerical_boundary_condition_list numerical_bcs; //  Numerical BC list parsed from input file
-    vec4 gravity;//  Gravitational acceleration vector set in the input file
 };
 
 jta_result jta_load_problem(const jio_context* io_ctx, const jta_config_problem* cfg, jta_problem_setup* problem);

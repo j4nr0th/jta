@@ -80,36 +80,36 @@ jta_result jta_load_points(const jio_context* io_ctx, const jio_memory_file* mem
     jta_result res;
     uint32_t line_count = jio_memory_file_count_lines(mem_file);
 
-    f32* x = ill_jalloc(G_JALLOCATOR, sizeof(*x) * (line_count - 1));
+    f32* x = ill_alloc(G_ALLOCATOR, sizeof(*x) * (line_count - 1));
     if (!x)
     {
         JDM_ERROR("Could not allocate memory for point array");
         res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
-    f32* y = ill_jalloc(G_JALLOCATOR, sizeof(*y) * (line_count - 1));
+    f32* y = ill_alloc(G_ALLOCATOR, sizeof(*y) * (line_count - 1));
     if (!y)
     {
-        ill_jfree(G_JALLOCATOR, x);
+        ill_jfree(G_ALLOCATOR, x);
         JDM_ERROR("Could not allocate memory for point array");
         res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
-    f32* z = ill_jalloc(G_JALLOCATOR, sizeof(*z) * (line_count - 1));
+    f32* z = ill_alloc(G_ALLOCATOR, sizeof(*z) * (line_count - 1));
     if (!z)
     {
-        ill_jfree(G_JALLOCATOR, x);
-        ill_jfree(G_JALLOCATOR, y);
+        ill_jfree(G_ALLOCATOR, x);
+        ill_jfree(G_ALLOCATOR, y);
         JDM_ERROR("Could not allocate memory for point array");
         res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
-    jio_string_segment* ss = ill_jalloc(G_JALLOCATOR, sizeof(*ss) * (line_count - 1));
+    jio_string_segment* ss = ill_alloc(G_ALLOCATOR, sizeof(*ss) * (line_count - 1));
     if (!ss)
     {
-        ill_jfree(G_JALLOCATOR, x);
-        ill_jfree(G_JALLOCATOR, y);
-        ill_jfree(G_JALLOCATOR, z);
+        ill_jfree(G_ALLOCATOR, x);
+        ill_jfree(G_ALLOCATOR, y);
+        ill_jfree(G_ALLOCATOR, z);
         JDM_ERROR("Could not allocate memory for point array");
         res = JTA_RESULT_BAD_ALLOC;
         goto end;
@@ -127,10 +127,10 @@ jta_result jta_load_points(const jio_context* io_ctx, const jio_memory_file* mem
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Processing the point input file failed, reason: %s", jio_result_to_str(jio_res));
-        ill_jfree(G_JALLOCATOR, ss);
-        ill_jfree(G_JALLOCATOR, x);
-        ill_jfree(G_JALLOCATOR, y);
-        ill_jfree(G_JALLOCATOR, z);
+        ill_jfree(G_ALLOCATOR, ss);
+        ill_jfree(G_ALLOCATOR, x);
+        ill_jfree(G_ALLOCATOR, y);
+        ill_jfree(G_ALLOCATOR, z);
         res = JTA_RESULT_BAD_INPUT;
         goto end;
     }
@@ -141,20 +141,20 @@ jta_result jta_load_points(const jio_context* io_ctx, const jio_memory_file* mem
 
     const uint32_t count = float_data[0].count;
     assert(count <= line_count - 1);
-    f32* const max_radius = ill_jalloc(G_JALLOCATOR, sizeof(*max_radius) * count);
+    f32* const max_radius = ill_alloc(G_ALLOCATOR, sizeof(*max_radius) * count);
     if (!max_radius)
     {
-        ill_jfree(G_JALLOCATOR, x);
-        ill_jfree(G_JALLOCATOR, y);
-        ill_jfree(G_JALLOCATOR, z);
-        ill_jfree(G_JALLOCATOR, ss);
+        ill_jfree(G_ALLOCATOR, x);
+        ill_jfree(G_ALLOCATOR, y);
+        ill_jfree(G_ALLOCATOR, z);
+        ill_jfree(G_ALLOCATOR, ss);
         JDM_ERROR("Could not allocate memory for point array");
         res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
     if (count != line_count - 1)
     {
-        f32* new_ptr = ill_jrealloc(G_JALLOCATOR, x, sizeof(*new_ptr) * count);
+        f32* new_ptr = ill_jrealloc(G_ALLOCATOR, x, sizeof(*new_ptr) * count);
         if (!new_ptr)
         {
             JDM_WARN("Failed shrinking the point array from %zu to %zu bytes", sizeof(*x) * (line_count - 1), sizeof(*new_ptr) * count);
@@ -163,7 +163,7 @@ jta_result jta_load_points(const jio_context* io_ctx, const jio_memory_file* mem
         {
             x = new_ptr;
         }
-        new_ptr = ill_jrealloc(G_JALLOCATOR, y, sizeof(*new_ptr) * count);
+        new_ptr = ill_jrealloc(G_ALLOCATOR, y, sizeof(*new_ptr) * count);
         if (!new_ptr)
         {
             JDM_WARN("Failed shrinking the point array from %zu to %zu bytes", sizeof(*y) * (line_count - 1), sizeof(*new_ptr) * count);
@@ -172,7 +172,7 @@ jta_result jta_load_points(const jio_context* io_ctx, const jio_memory_file* mem
         {
             y = new_ptr;
         }
-        new_ptr = ill_jrealloc(G_JALLOCATOR, z, sizeof(*new_ptr) * count);
+        new_ptr = ill_jrealloc(G_ALLOCATOR, z, sizeof(*new_ptr) * count);
         if (!new_ptr)
         {
             JDM_WARN("Failed shrinking the point array from %zu to %zu bytes", sizeof(*z) * (line_count - 1), sizeof(*new_ptr) * count);
@@ -181,7 +181,7 @@ jta_result jta_load_points(const jio_context* io_ctx, const jio_memory_file* mem
         {
             z = new_ptr;
         }
-        jio_string_segment* const new_ptr1 = ill_jrealloc(G_JALLOCATOR, ss, sizeof(*new_ptr1) * count);
+        jio_string_segment* const new_ptr1 = ill_jrealloc(G_ALLOCATOR, ss, sizeof(*new_ptr1) * count);
         if (!new_ptr1)
         {
             JDM_WARN("Failed shrinking the point array from %zu to %zu bytes", sizeof(*ss) * (line_count - 1), sizeof(*new_ptr1) * count);
@@ -205,11 +205,11 @@ void jta_free_points(jta_point_list* list)
 {
     JDM_ENTER_FUNCTION;
 
-    ill_jfree(G_JALLOCATOR, list->p_z);
-    ill_jfree(G_JALLOCATOR, list->p_y);
-    ill_jfree(G_JALLOCATOR, list->p_x);
-    ill_jfree(G_JALLOCATOR, list->label);
-    ill_jfree(G_JALLOCATOR, list->max_radius);
+    ill_jfree(G_ALLOCATOR, list->p_z);
+    ill_jfree(G_ALLOCATOR, list->p_y);
+    ill_jfree(G_ALLOCATOR, list->p_x);
+    ill_jfree(G_ALLOCATOR, list->label);
+    ill_jfree(G_ALLOCATOR, list->max_radius);
 
     JDM_LEAVE_FUNCTION;
 }

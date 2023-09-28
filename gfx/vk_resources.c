@@ -144,6 +144,8 @@ static gfx_result score_physical_device(
         JDM_ERROR("Could not enumerate device extension properties for device, reason: %s(%d)", vk_result_to_str(vk_res), vk_res);
         return GFX_RESULT_BAD_VK_CALL;
     }
+    (void)n_prop_buffer;
+    (void)n_queue_buffer;
     assert(device_extensions <= n_prop_buffer);
     vk_res = vkEnumerateDeviceExtensionProperties(device, NULL, &device_extensions, ext_buffer);
     if (vk_res != VK_SUCCESS)
@@ -276,7 +278,7 @@ jta_vulkan_context_create(
     VkResult vk_res;
     gfx_result res;
 
-    jta_vulkan_context* this = ill_jalloc(G_JALLOCATOR, sizeof(*this));
+    jta_vulkan_context* this = ill_alloc(G_ALLOCATOR, sizeof(*this));
     if (!this)
     {
         JDM_ERROR("Failed allocating memory for vulkan context");
@@ -306,7 +308,7 @@ jta_vulkan_context_create(
             goto failed;
         }
         VkLayerProperties* layer_properties;
-        layer_properties = lin_jalloc(G_LIN_JALLOCATOR, count * sizeof(*layer_properties));
+        layer_properties = lin_alloc(G_LIN_ALLOCATOR, count * sizeof(*layer_properties));
         if (!layer_properties)
         {
             JDM_ERROR("Failed allocating memory for vulkan layer properties array");
@@ -316,7 +318,7 @@ jta_vulkan_context_create(
         vk_res = vkEnumerateInstanceLayerProperties(&count, layer_properties);
         if (vk_res != VK_SUCCESS)
         {
-            lin_jfree(G_LIN_JALLOCATOR, layer_properties);
+            lin_jfree(G_LIN_ALLOCATOR, layer_properties);
             JDM_ERROR("Vulkan error with enumerating instance layer properties: %s(%d)", vk_result_to_str(vk_res), vk_res);
             res = GFX_RESULT_BAD_VK_CALL;
             goto failed;
@@ -337,7 +339,7 @@ jta_vulkan_context_create(
                 }
             }
         }
-        lin_jfree(G_LIN_JALLOCATOR, layer_properties);
+        lin_jfree(G_LIN_ALLOCATOR, layer_properties);
 
         if (req_layers_found != REQUIRED_LAYERS_COUNT)
         {
@@ -355,7 +357,7 @@ jta_vulkan_context_create(
         }
 
         VkExtensionProperties* extension_properties;
-        extension_properties = lin_jalloc(G_LIN_JALLOCATOR, count * sizeof(*extension_properties));
+        extension_properties = lin_alloc(G_LIN_ALLOCATOR, count * sizeof(*extension_properties));
         if (!extension_properties)
         {
             JDM_ERROR("Failed allocating memory for extension properties");
@@ -365,7 +367,7 @@ jta_vulkan_context_create(
         vk_res = vkEnumerateInstanceExtensionProperties(NULL, &count, extension_properties);
         if (vk_res != VK_SUCCESS)
         {
-            lin_jfree(G_LIN_JALLOCATOR, extension_properties);
+            lin_jfree(G_LIN_ALLOCATOR, extension_properties);
             JDM_ERROR("Vulkan error with enumerating extension layer properties: %s(%d)", vk_result_to_str(vk_res), vk_res);
             res = GFX_RESULT_BAD_VK_CALL;
             goto failed;
@@ -379,19 +381,19 @@ jta_vulkan_context_create(
         //  Add debug layers
         required_extension_count += 2;
 #endif
-        const char** const required_extension_names = lin_jalloc(G_LIN_JALLOCATOR, sizeof(const char*) * required_extension_count);
+        const char** const required_extension_names = lin_alloc(G_LIN_ALLOCATOR, sizeof(const char*) * required_extension_count);
         if (!required_extension_names)
         {
-            lin_jfree(G_LIN_JALLOCATOR, extension_properties);
+            lin_jfree(G_LIN_ALLOCATOR, extension_properties);
             JDM_ERROR("Failed allocating memory for required extension array");
             res = GFX_RESULT_BAD_ALLOC;
             goto failed;
         }
-        size_t* const required_extension_lengths = lin_jalloc(G_LIN_JALLOCATOR, sizeof(size_t) * required_extension_count);
+        size_t* const required_extension_lengths = lin_alloc(G_LIN_ALLOCATOR, sizeof(size_t) * required_extension_count);
         if (!required_extension_lengths)
         {
-            lin_jfree(G_LIN_JALLOCATOR, required_extension_names);
-            lin_jfree(G_LIN_JALLOCATOR, extension_properties);
+            lin_jfree(G_LIN_ALLOCATOR, required_extension_names);
+            lin_jfree(G_LIN_ALLOCATOR, extension_properties);
             JDM_ERROR("Failed allocating memory for required extension array");
             res = GFX_RESULT_BAD_ALLOC;
             goto failed;
@@ -450,9 +452,9 @@ jta_vulkan_context_create(
                 };
 
         vk_res = vkCreateInstance(&create_info, allocator, &instance);
-        lin_jfree(G_LIN_JALLOCATOR, required_extension_lengths);
-        lin_jfree(G_LIN_JALLOCATOR, required_extension_names);
-        lin_jfree(G_LIN_JALLOCATOR, extension_properties);
+        lin_jfree(G_LIN_ALLOCATOR, required_extension_lengths);
+        lin_jfree(G_LIN_ALLOCATOR, required_extension_names);
+        lin_jfree(G_LIN_ALLOCATOR, extension_properties);
         if (vk_res != VK_SUCCESS)
         {
             JDM_ERROR("Failed creating vulkan instance with desired extensions and layers, reason: %s(%d)", vk_result_to_str(vk_res), vk_res);
@@ -524,7 +526,7 @@ jta_vulkan_context_create(
         vkDestroyInstance(this->instance, NULL);
         this->instance = VK_NULL_HANDLE;
     }
-    ill_jfree(G_JALLOCATOR, this);
+    ill_jfree(G_ALLOCATOR, this);
     JDM_LEAVE_FUNCTION;
     return res;
 }
@@ -590,7 +592,7 @@ void jta_vulkan_context_destroy(jta_vulkan_context* ctx)
     ctx->vkDestroyDebugUtilsMessengerEXT(ctx->instance, ctx->dbg_messenger, NULL);
 #endif
     vkDestroyInstance(ctx->instance, ctx->allocator);
-    ill_jfree(G_JALLOCATOR, ctx);
+    ill_jfree(G_ALLOCATOR, ctx);
 }
 
 static gfx_result create_swapchain(
@@ -601,7 +603,7 @@ static gfx_result create_swapchain(
     JDM_ENTER_FUNCTION;
     gfx_result res = GFX_RESULT_SUCCESS;
     //  Create the window surface
-    void* const base = lin_jallocator_save_state(G_LIN_JALLOCATOR);
+    void* const base = lin_allocator_save_state(G_LIN_ALLOCATOR);
 
     VkResult vk_res;
     uint32_t n_images;
@@ -640,7 +642,7 @@ static gfx_result create_swapchain(
         {
             max_buffer_size = pm_count * sizeof(VkPresentModeKHR);
         }
-        void* ptr_buffer = lin_jalloc(G_LIN_JALLOCATOR, max_buffer_size);
+        void* ptr_buffer = lin_alloc(G_LIN_ALLOCATOR, max_buffer_size);
         if (!ptr_buffer)
         {
             JDM_ERROR("Could not allocate memory for the buffer used for presentation mode/surface formats");
@@ -671,7 +673,7 @@ static gfx_result create_swapchain(
                 break;
             }
         }
-        lin_jfree(G_LIN_JALLOCATOR, ptr_buffer);
+        lin_jfree(G_LIN_ALLOCATOR, ptr_buffer);
         extent = surface_capabilities.minImageExtent;
         if (extent.width != ~0u)
         {
@@ -747,7 +749,7 @@ static gfx_result create_swapchain(
             JDM_ERROR("Could not find the number of swapchain images, reason: %s", vk_result_to_str(vk_res));
             goto failed;
         }
-        views = ill_jalloc(G_JALLOCATOR, n_images * sizeof(*views));
+        views = ill_alloc(G_ALLOCATOR, n_images * sizeof(*views));
         if (!views)
         {
             JDM_ERROR("Could not allocate memory for the views");
@@ -755,7 +757,7 @@ static gfx_result create_swapchain(
             goto failed;
         }
         {
-            VkImage* images = lin_jalloc(G_LIN_JALLOCATOR, n_images * sizeof(VkImage));
+            VkImage* images = lin_alloc(G_LIN_ALLOCATOR, n_images * sizeof(VkImage));
             if (!images)
             {
                 JDM_ERROR("Could not allocate memory for swapchain images");
@@ -802,7 +804,7 @@ static gfx_result create_swapchain(
                     goto failed;
                 }
             }
-            lin_jfree(G_LIN_JALLOCATOR, images);
+            lin_jfree(G_LIN_ALLOCATOR, images);
         }
     }
 
@@ -898,7 +900,7 @@ static gfx_result create_swapchain(
 
     //  Create command buffers
     {
-        cmd_buffers = ill_jalloc(G_JALLOCATOR, sizeof(VkCommandBuffer) * frames_in_flight);
+        cmd_buffers = ill_alloc(G_ALLOCATOR, sizeof(VkCommandBuffer) * frames_in_flight);
         if (!cmd_buffers)
         {
             JDM_ERROR("Could not allocate memory for command buffer array");
@@ -922,17 +924,17 @@ static gfx_result create_swapchain(
 
     //  Create frame objects (semaphores and fences)
     {
-        sem_available = ill_jalloc(G_JALLOCATOR, sizeof(VkSemaphore) * frames_in_flight);
+        sem_available = ill_alloc(G_ALLOCATOR, sizeof(VkSemaphore) * frames_in_flight);
         if (!sem_available)
         {
             JDM_ERROR("Could not allocate memory for semaphores");
             res = GFX_RESULT_BAD_ALLOC;
             goto failed;
         }
-        sem_present = ill_jalloc(G_JALLOCATOR, sizeof(VkSemaphore) * frames_in_flight);
+        sem_present = ill_alloc(G_ALLOCATOR, sizeof(VkSemaphore) * frames_in_flight);
         if (!sem_present)
         {
-            ill_jfree(G_JALLOCATOR, sem_available);
+            ill_jfree(G_ALLOCATOR, sem_available);
             JDM_ERROR("Could not allocate memory for semaphores");
             res = GFX_RESULT_BAD_ALLOC;
             goto failed;
@@ -953,8 +955,8 @@ static gfx_result create_swapchain(
                     vkDestroySemaphore(device, sem_available[j], NULL);
                     vkDestroySemaphore(device, sem_present[j], NULL);
                 }
-                ill_jfree(G_JALLOCATOR, sem_available);
-                ill_jfree(G_JALLOCATOR, sem_present);
+                ill_jfree(G_ALLOCATOR, sem_available);
+                ill_jfree(G_ALLOCATOR, sem_present);
                 sem_available = NULL;
                 sem_present = NULL;
                 goto failed;
@@ -970,15 +972,15 @@ static gfx_result create_swapchain(
                     vkDestroySemaphore(device, sem_available[j], NULL);
                     vkDestroySemaphore(device, sem_present[j], NULL);
                 }
-                ill_jfree(G_JALLOCATOR, sem_available);
-                ill_jfree(G_JALLOCATOR, sem_present);
+                ill_jfree(G_ALLOCATOR, sem_available);
+                ill_jfree(G_ALLOCATOR, sem_present);
                 sem_available = NULL;
                 sem_present = NULL;
                 goto failed;
             }
         }
 
-        fen_swap = ill_jalloc(G_JALLOCATOR, sizeof(VkFence) * frames_in_flight);
+        fen_swap = ill_alloc(G_ALLOCATOR, sizeof(VkFence) * frames_in_flight);
         if (!fen_swap)
         {
             JDM_ERROR("Could not allocate memory for fence array");
@@ -1000,7 +1002,7 @@ static gfx_result create_swapchain(
                 {
                     vkDestroyFence(device, fen_swap[i], NULL);
                 }
-                ill_jfree(G_JALLOCATOR, fen_swap);
+                ill_jfree(G_ALLOCATOR, fen_swap);
                 fen_swap = NULL;
                 res = GFX_RESULT_BAD_VK_CALL;
                 goto failed;
@@ -1010,7 +1012,7 @@ static gfx_result create_swapchain(
 
     //  Create frame job queues
     {
-        frame_queues = ill_jalloc(G_JALLOCATOR, sizeof(*frame_queues) * frames_in_flight);
+        frame_queues = ill_alloc(G_ALLOCATOR, sizeof(*frame_queues) * frames_in_flight);
         if (!frame_queues)
         {
             JDM_ERROR("Could not allocate memory for frame job queues");
@@ -1027,7 +1029,7 @@ static gfx_result create_swapchain(
                 {
                     jta_frame_job_queue_destroy(frame_queues[j]);
                 }
-                ill_jfree(G_JALLOCATOR, frame_queues);
+                ill_jfree(G_ALLOCATOR, frame_queues);
                 frame_queues = NULL;
                 goto failed;
             }
@@ -1061,7 +1063,7 @@ failed:
         {
             jta_frame_job_queue_destroy(frame_queues[i]);
         }
-        ill_jfree(G_JALLOCATOR, frame_queues);
+        ill_jfree(G_ALLOCATOR, frame_queues);
     }
     if (fen_swap != VK_NULL_HANDLE)
     {
@@ -1069,7 +1071,7 @@ failed:
         {
             vkDestroyFence(device, fen_swap[i], NULL);
         }
-        ill_jfree(G_JALLOCATOR, fen_swap);
+        ill_jfree(G_ALLOCATOR, fen_swap);
     }
     if (sem_available != VK_NULL_HANDLE)
     {
@@ -1077,7 +1079,7 @@ failed:
         {
             vkDestroySemaphore(device, sem_available[i], NULL);
         }
-        ill_jfree(G_JALLOCATOR, sem_available);
+        ill_jfree(G_ALLOCATOR, sem_available);
     }
     if (sem_present != VK_NULL_HANDLE)
     {
@@ -1085,12 +1087,12 @@ failed:
         {
             vkDestroySemaphore(device, sem_present[i], NULL);
         }
-        ill_jfree(G_JALLOCATOR, sem_present);
+        ill_jfree(G_ALLOCATOR, sem_present);
     }
     if (cmd_buffers != VK_NULL_HANDLE)
     {
         vkFreeCommandBuffers(device, cmd_pool, frames_in_flight, cmd_buffers);
-        ill_jfree(G_JALLOCATOR, cmd_buffers);
+        ill_jfree(G_ALLOCATOR, cmd_buffers);
     }
     if (depth_view != VK_NULL_HANDLE)
     {
@@ -1110,13 +1112,13 @@ failed:
         {
             vkDestroyImageView(device, views[i], NULL);
         }
-        ill_jfree(G_JALLOCATOR, views);
+        ill_jfree(G_ALLOCATOR, views);
     }
     if (swapchain != VK_NULL_HANDLE)
     {
         vkDestroySwapchainKHR(device, swapchain, NULL);
     }
-    lin_jallocator_restore_current(G_LIN_JALLOCATOR, base);
+    lin_allocator_restore_current(G_LIN_ALLOCATOR, base);
     JDM_LEAVE_FUNCTION;
     return res;
 }
@@ -1128,24 +1130,24 @@ static void destroy_swapchain(VkDevice device, jta_vulkan_swapchain* this)
     {
         jta_frame_job_queue_destroy(this->frame_queues[i]);
     }
-    ill_jfree(G_JALLOCATOR, this->frame_queues);
+    ill_jfree(G_ALLOCATOR, this->frame_queues);
     for (unsigned i = 0; i < this->frames_in_flight; ++i)
     {
         vkDestroyFence(device, this->fen_swap[i], NULL);
     }
-    ill_jfree(G_JALLOCATOR, this->fen_swap);
+    ill_jfree(G_ALLOCATOR, this->fen_swap);
     for (unsigned i = 0; i < this->frames_in_flight; ++i)
     {
         vkDestroySemaphore(device, this->sem_available[i], NULL);
     }
-    ill_jfree(G_JALLOCATOR, this->sem_available);
+    ill_jfree(G_ALLOCATOR, this->sem_available);
     for (unsigned i = 0; i < this->frames_in_flight; ++i)
     {
         vkDestroySemaphore(device, this->sem_present[i], NULL);
     }
-    ill_jfree(G_JALLOCATOR, this->sem_present);
+    ill_jfree(G_ALLOCATOR, this->sem_present);
     vkFreeCommandBuffers(device, this->cmd_pool, this->frames_in_flight, this->cmd_buffers);
-    ill_jfree(G_JALLOCATOR, this->cmd_buffers);
+    ill_jfree(G_ALLOCATOR, this->cmd_buffers);
     vkDestroyImageView(device, this->depth_view, NULL);
 
     jvm_image_destroy(this->depth_img);
@@ -1157,7 +1159,7 @@ static void destroy_swapchain(VkDevice device, jta_vulkan_swapchain* this)
     {
         vkDestroyImageView(device, this->image_views[i], NULL);
     }
-    ill_jfree(G_JALLOCATOR, this->image_views);
+    ill_jfree(G_ALLOCATOR, this->image_views);
 
     vkDestroySwapchainKHR(device, this->swapchain, NULL);
 
@@ -1170,7 +1172,7 @@ static gfx_result render_pass_state_create(
 {
     JDM_ENTER_FUNCTION;
     gfx_result res;
-    VkFramebuffer* framebuffers = ill_jalloc(G_JALLOCATOR, sizeof(VkFramebuffer) * swapchain->image_count);
+    VkFramebuffer* framebuffers = ill_alloc(G_ALLOCATOR, sizeof(VkFramebuffer) * swapchain->image_count);
     if (!framebuffers)
     {
         JDM_ERROR("Could not allocate memory for framebuffer array");
@@ -1205,7 +1207,7 @@ static gfx_result render_pass_state_create(
             JDM_ERROR("Could not create framebuffer %u out of %u, reason: %s(%d)", i + 1, swapchain->image_count,
                       vk_result_to_str(vk_res), vk_res);
             res = GFX_RESULT_NO_FRAMEBUFFER;
-            ill_jfree(G_JALLOCATOR, framebuffers);
+            ill_jfree(G_ALLOCATOR, framebuffers);
             framebuffers = NULL;
             goto failed;
         }
@@ -1217,7 +1219,7 @@ static gfx_result render_pass_state_create(
     return GFX_RESULT_SUCCESS;
 
 failed:
-    ill_jfree(G_JALLOCATOR, framebuffers);
+    ill_jfree(G_ALLOCATOR, framebuffers);
     JDM_LEAVE_FUNCTION;
     return res;
 }
@@ -1228,7 +1230,7 @@ static gfx_result render_pass_state_destroy(VkDevice device, jta_vulkan_render_p
     {
         vkDestroyFramebuffer(device, this->framebuffers[i], NULL);
     }
-    ill_jfree(G_JALLOCATOR, this->framebuffers);
+    ill_jfree(G_ALLOCATOR, this->framebuffers);
     return GFX_RESULT_SUCCESS;
 }
 
@@ -1289,7 +1291,7 @@ gfx_result
 jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_vulkan_window_context** p_out)
 {
     JDM_ENTER_FUNCTION;
-    jta_vulkan_window_context* this = ill_jalloc(G_JALLOCATOR, sizeof(*this));
+    jta_vulkan_window_context* this = ill_alloc(G_ALLOCATOR, sizeof(*this));
     if (!this)
     {
         JDM_ERROR("Failed allocating memory for vulkan window context");
@@ -1304,7 +1306,7 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
     this->window = win;
     
     //  Create window surface
-    void* const base = lin_jallocator_save_state(G_LIN_JALLOCATOR);
+    void* const base = lin_allocator_save_state(G_LIN_ALLOCATOR);
 
     VkResult vk_res;
     int swapchain_done = 0;
@@ -1359,7 +1361,7 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
             res = GFX_RESULT_BAD_VK_CALL;
             goto failed;
         }
-        VkPhysicalDevice* const devices = lin_jalloc(G_LIN_JALLOCATOR, sizeof(VkPhysicalDevice) * physical_device_count);
+        VkPhysicalDevice* const devices = lin_alloc(G_LIN_ALLOCATOR, sizeof(VkPhysicalDevice) * physical_device_count);
         if (!devices)
         {
             JDM_ERROR("Could not allocate buffer for physical device list");
@@ -1394,14 +1396,14 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
         assert(max_queues != 0);
 
         //  Allocate buffers to hold these extensions and queue families
-        VkExtensionProperties* const extensions = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*extensions) * max_extensions);
+        VkExtensionProperties* const extensions = lin_alloc(G_LIN_ALLOCATOR, sizeof(*extensions) * max_extensions);
         if (!extensions)
         {
             JDM_ERROR("Could not allocate memory for device extension array");
             res = GFX_RESULT_BAD_ALLOC;
             goto failed;
         }
-        VkQueueFamilyProperties* const queues = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*queues) * max_queues);
+        VkQueueFamilyProperties* const queues = lin_alloc(G_LIN_ALLOCATOR, sizeof(*queues) * max_queues);
         if (!queues)
         {
             JDM_ERROR("Could not allocate memory for device queues");
@@ -1427,9 +1429,9 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
             }
         }
 
-        lin_jfree(G_LIN_JALLOCATOR, queues);
-        lin_jfree(G_LIN_JALLOCATOR, extensions);
-        lin_jfree(G_LIN_JALLOCATOR, devices);
+        lin_jfree(G_LIN_ALLOCATOR, queues);
+        lin_jfree(G_LIN_ALLOCATOR, extensions);
+        lin_jfree(G_LIN_ALLOCATOR, devices);
 
         if (best_score == -1)
         {
@@ -1511,11 +1513,12 @@ jta_vulkan_window_context_create(jwin_window* win, jta_vulkan_context* ctx, jta_
 
     jvm_allocation_callbacks allocation_callbacks =
             {
-            .state = G_JALLOCATOR,
-            .allocate = (void* (*)(void*, uint64_t)) ill_jalloc,
+            .state = G_ALLOCATOR,
+            .allocate = (void* (*)(void*, uint64_t)) ill_alloc,
             .free = (void (*)(void*, void*)) ill_jfree,
             .reallocate = (void* (*)(void*, void*, uint64_t)) ill_jrealloc,
             };
+    (void)allocation_callbacks;
 
     jvm_error_callbacks error_callbacks =
             {
@@ -2496,7 +2499,7 @@ failed:
         vkDestroyRenderPass(device, render_pass_ui, NULL);
     }
 
-    lin_jallocator_restore_current(G_LIN_JALLOCATOR, base);
+    lin_allocator_restore_current(G_LIN_ALLOCATOR, base);
     JDM_LEAVE_FUNCTION;
     return res;
 }
@@ -2536,7 +2539,7 @@ void jta_vulkan_window_context_destroy(jta_vulkan_window_context* ctx)
     vkDestroySurfaceKHR(ctx->ctx->instance, ctx->window_surface, NULL);
     vkDestroyDevice(ctx->device, NULL);
     //    memset(ctx, 0xCC, sizeof(*ctx));
-    ill_jfree(G_JALLOCATOR, ctx);
+    ill_jfree(G_ALLOCATOR, ctx);
     JDM_LEAVE_FUNCTION;
 }
 

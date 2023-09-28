@@ -2,13 +2,13 @@
 // Created by jan on 23.7.2023.
 //
 #include <inttypes.h>
-#include <float.h>
 #include <matrices/sparse_row_compressed.h>
 #include <solvers/jacobi_point_iteration.h>
 #include "jtasolve.h"
 #include <jdm.h>
 
-jta_result jta_solve_problem(const jta_config_problem* cfg, const jta_problem_setup* problem, jta_solution* solution)
+jta_result jta_solve_problem(
+        const jta_config_problem* cfg, const jta_problem_setup* problem, jta_solution* solution, vec4 gravity)
 {
     JDM_ENTER_FUNCTION;
     jmtx_matrix_crs* stiffness_matrix = NULL;
@@ -17,38 +17,43 @@ jta_result jta_solve_problem(const jta_config_problem* cfg, const jta_problem_se
     float* point_masses = NULL;
     float* forces = NULL;
     float* deformations = NULL;
-    void* const base = lin_jallocator_save_state(G_LIN_JALLOCATOR);
+    void* const base = lin_allocator_save_state(G_LIN_ALLOCATOR);
+    jta_result res;
 
-    point_masses = ill_jalloc(G_JALLOCATOR, sizeof(*point_masses) * point_count);
+
+    point_masses = ill_alloc(G_ALLOCATOR, sizeof(*point_masses) * point_count);
     if (!point_masses)
     {
         JDM_ERROR("Could not allocate array for %zu point masses", (size_t) sizeof(*point_masses) * point_count);
+        res = JTA_RESULT_BAD_ALLOC;
         goto failed;
     }
 
-    forces = ill_jalloc(G_JALLOCATOR, sizeof(*forces) * total_dofs);
+    forces = ill_alloc(G_ALLOCATOR, sizeof(*forces) * total_dofs);
     if (!forces)
     {
         JDM_ERROR("Could not allocate array for %zu element_forces", (size_t) sizeof(*forces) * total_dofs);
+        res = JTA_RESULT_BAD_ALLOC;
         goto failed;
     }
 
-    deformations = ill_jalloc(G_JALLOCATOR, sizeof(*deformations) * total_dofs);
+    deformations = ill_alloc(G_ALLOCATOR, sizeof(*deformations) * total_dofs);
     if (!deformations)
     {
         JDM_ERROR("Could not allocate array for %zu point_displacements", (size_t) sizeof(*deformations) * total_dofs);
+        res = JTA_RESULT_BAD_ALLOC;
         goto failed;
     }
 
+    jta_timer timer_mtx;
+    jta_timer_set(&timer_mtx);
     const jmtx_allocator_callbacks allocator_callbacks =
             {
-                    .alloc = (void* (*)(void*, uint64_t)) ill_jalloc,
+                    .alloc = (void* (*)(void*, uint64_t)) ill_alloc,
                     .realloc = (void* (*)(void*, void*, uint64_t)) ill_jrealloc,
                     .free = (void (*)(void*, void*)) ill_jfree,
-                    .state = G_JALLOCATOR,
+                    .state = G_ALLOCATOR,
             };
-
-    jta_result res;
     jmtx_result jmtx_res = jmtx_matrix_crs_new(
             &stiffness_matrix, total_dofs, total_dofs, 6 * 6 * total_dofs, &allocator_callbacks);
     if (jmtx_res != JMTX_RESULT_SUCCESS)
@@ -68,9 +73,11 @@ jta_result jta_solve_problem(const jta_config_problem* cfg, const jta_problem_se
         JDM_ERROR("Could not build global system matrices, reason: %s", jta_result_to_str(res));
         goto failed;
     }
+    f64 time_mtx = jta_timer_get(&timer_mtx);
+    JDM_TRACE("Matrix building took %g seconds", time_mtx);
 
     memset(forces, 0, sizeof(*forces) * total_dofs);
-    res = jta_apply_natural_bcs(point_count, &problem->natural_bcs, problem->gravity, point_masses, forces);
+    res = jta_apply_natural_bcs(point_count, &problem->natural_bcs, gravity, point_masses, forces);
     if (res != JTA_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not apply natural BCs, reason: %s", jta_result_to_str(res));
@@ -78,41 +85,44 @@ jta_result jta_solve_problem(const jta_config_problem* cfg, const jta_problem_se
     }
 
     jmtx_matrix_crs* k_reduced;
-    float* f_r = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*f_r) * total_dofs);
+    float* f_r = lin_alloc(G_LIN_ALLOCATOR, sizeof(*f_r) * total_dofs);
     if (!f_r)
     {
         JDM_ERROR("Could not allocate %zu bytes for reduced force vector", sizeof(*f_r) * total_dofs);
         res = JTA_RESULT_BAD_ALLOC;
         goto failed;
     }
-    bool* dofs = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*dofs) * total_dofs);
+    bool* dofs = lin_alloc(G_LIN_ALLOCATOR, sizeof(*dofs) * total_dofs);
     if (!dofs)
     {
         JDM_ERROR("Could not allocate %zu bytes for the list of free DOFs", sizeof(*dofs) * total_dofs);
         res = JTA_RESULT_BAD_ALLOC;
-        lin_jfree(G_LIN_JALLOCATOR, f_r);
+        lin_jfree(G_LIN_ALLOCATOR, f_r);
         goto failed;
     }
-    float* u_r = lin_jalloc(G_LIN_JALLOCATOR, sizeof(*u_r) * total_dofs);
+    float* u_r = lin_alloc(G_LIN_ALLOCATOR, sizeof(*u_r) * total_dofs);
     if (!u_r)
     {
         JDM_ERROR("Could not allocate %zu bytes for reduced force vector", sizeof(*u_r) * total_dofs);
-        lin_jfree(G_LIN_JALLOCATOR, f_r);
-        lin_jfree(G_LIN_JALLOCATOR, dofs);
+        lin_jfree(G_LIN_ALLOCATOR, dofs);
+        lin_jfree(G_LIN_ALLOCATOR, f_r);
         res = JTA_RESULT_BAD_ALLOC;
         goto failed;
     }
 
 
+    jta_timer_set(&timer_mtx);
     res = jta_reduce_system(point_count, stiffness_matrix, &problem->numerical_bcs, &k_reduced, dofs);
     if (res != JTA_RESULT_SUCCESS)
     {
         JDM_ERROR("Could not apply reduce the system of equations to solve, reason: %s", jta_result_to_str(res));
-        lin_jfree(G_LIN_JALLOCATOR, f_r);
-        lin_jfree(G_LIN_JALLOCATOR, u_r);
-        lin_jfree(G_LIN_JALLOCATOR, dofs);
+        lin_jfree(G_LIN_ALLOCATOR, u_r);
+        lin_jfree(G_LIN_ALLOCATOR, dofs);
+        lin_jfree(G_LIN_ALLOCATOR, f_r);
         goto failed;
     }
+    time_mtx = jta_timer_get(&timer_mtx);
+    JDM_TRACE("Reducing the matrix took %g seconds", time_mtx);
 
     uint32_t p_g, p_r;
     for (p_g = 0, p_r = 0; p_g < point_count * 3; ++p_g)
@@ -152,9 +162,9 @@ jta_result jta_solve_problem(const jta_config_problem* cfg, const jta_problem_se
     {
         JDM_ERROR("Failed solving the problem using Jacobi's method, error reached %g after %"PRIu32" iterations. This"
                   " likely means that the square of error reached %g, which gives %g as its sqrt.", final_error, iter_count, INFINITY, final_error);
-        lin_jfree(G_LIN_JALLOCATOR, f_r);
-        lin_jfree(G_LIN_JALLOCATOR, u_r);
-        lin_jfree(G_LIN_JALLOCATOR, dofs);
+        lin_jfree(G_LIN_ALLOCATOR, u_r);
+        lin_jfree(G_LIN_ALLOCATOR, dofs);
+        lin_jfree(G_LIN_ALLOCATOR, f_r);
         res = JTA_RESULT_BAD_PROBLEM;
         goto failed;
     }
@@ -183,9 +193,9 @@ jta_result jta_solve_problem(const jta_config_problem* cfg, const jta_problem_se
         }
 #endif
     }
-    lin_jfree(G_LIN_JALLOCATOR, u_r);
+    lin_jfree(G_LIN_ALLOCATOR, u_r);
     u_r = NULL;
-    lin_jfree(G_LIN_JALLOCATOR, dofs);
+    lin_jfree(G_LIN_ALLOCATOR, dofs);
     dofs = NULL;
 
     //  Strongly apply numerical boundary conditions
@@ -232,7 +242,7 @@ jta_result jta_solve_problem(const jta_config_problem* cfg, const jta_problem_se
     {
         forces[i] = f_r[i] - forces[i];
     }
-    lin_jfree(G_LIN_JALLOCATOR, f_r);
+    lin_jfree(G_LIN_ALLOCATOR, f_r);
 
     (void)jmtx_matrix_crs_destroy(stiffness_matrix);
 
@@ -248,14 +258,14 @@ jta_result jta_solve_problem(const jta_config_problem* cfg, const jta_problem_se
     JDM_LEAVE_FUNCTION;
     return res;
 failed:
-    lin_jallocator_restore_current(G_LIN_JALLOCATOR, base);
+    lin_allocator_restore_current(G_LIN_ALLOCATOR, base);
     if (stiffness_matrix)
     {
         jmtx_matrix_crs_destroy(stiffness_matrix);
     }
-    ill_jfree(G_JALLOCATOR, deformations);
-    ill_jfree(G_JALLOCATOR, forces);
-    ill_jfree(G_JALLOCATOR, point_masses);
+    ill_jfree(G_ALLOCATOR, deformations);
+    ill_jfree(G_ALLOCATOR, forces);
+    ill_jfree(G_ALLOCATOR, point_masses);
     JDM_LEAVE_FUNCTION;
     return res;
 }
@@ -264,13 +274,13 @@ void jta_solution_free(jta_solution* solution)
 {
     JDM_ENTER_FUNCTION;
 
-    ill_jfree(G_JALLOCATOR, solution->point_masses);
-    ill_jfree(G_JALLOCATOR, solution->point_reactions);
-    ill_jfree(G_JALLOCATOR, solution->point_displacements);
+    ill_jfree(G_ALLOCATOR, solution->point_masses);
+    ill_jfree(G_ALLOCATOR, solution->point_reactions);
+    ill_jfree(G_ALLOCATOR, solution->point_displacements);
 
-    ill_jfree(G_JALLOCATOR, solution->element_masses);
-    ill_jfree(G_JALLOCATOR, solution->element_forces);
-    ill_jfree(G_JALLOCATOR, solution->element_stresses);
+    ill_jfree(G_ALLOCATOR, solution->element_masses);
+    ill_jfree(G_ALLOCATOR, solution->element_forces);
+    ill_jfree(G_ALLOCATOR, solution->element_stresses);
 
     JDM_LEAVE_FUNCTION;
 }
@@ -281,27 +291,27 @@ jta_result jta_postprocess(const jta_problem_setup* problem, jta_solution* solut
     const jta_point_list* const points = &problem->point_list;
     const jta_element_list* const elements = &problem->element_list;
 
-    float* const stresses = ill_jalloc(G_JALLOCATOR, sizeof(*stresses) * elements->count);
+    float* const stresses = ill_alloc(G_ALLOCATOR, sizeof(*stresses) * elements->count);
     if (!stresses)
     {
         JDM_ERROR("Could not allocate memory for element stresses");
         JDM_LEAVE_FUNCTION;
         return JTA_RESULT_BAD_ALLOC;
     }
-    float* const forces = ill_jalloc(G_JALLOCATOR, sizeof(*forces) * elements->count);
+    float* const forces = ill_alloc(G_ALLOCATOR, sizeof(*forces) * elements->count);
     if (!forces)
     {
         JDM_ERROR("Could not allocate memory for element forces");
-        ill_jfree(G_JALLOCATOR, stresses);
+        ill_jfree(G_ALLOCATOR, stresses);
         JDM_LEAVE_FUNCTION;
         return JTA_RESULT_BAD_ALLOC;
     }
-    float* const masses = ill_jalloc(G_JALLOCATOR, sizeof(*masses) * elements->count);
+    float* const masses = ill_alloc(G_ALLOCATOR, sizeof(*masses) * elements->count);
     if (!masses)
     {
         JDM_ERROR("Could not allocate memory for element masses");
-        ill_jfree(G_JALLOCATOR, masses);
-        ill_jfree(G_JALLOCATOR, stresses);
+        ill_jfree(G_ALLOCATOR, masses);
+        ill_jfree(G_ALLOCATOR, stresses);
         JDM_LEAVE_FUNCTION;
         return JTA_RESULT_BAD_ALLOC;
     }
@@ -337,11 +347,11 @@ jta_result jta_postprocess(const jta_problem_setup* problem, jta_solution* solut
     if (solution->element_count)
     {
         solution->element_count = 0;
-        ill_jfree(G_JALLOCATOR, solution->element_masses);
+        ill_jfree(G_ALLOCATOR, solution->element_masses);
         solution->element_masses = NULL;
-        ill_jfree(G_JALLOCATOR, solution->element_forces);
+        ill_jfree(G_ALLOCATOR, solution->element_forces);
         solution->element_forces = NULL;
-        ill_jfree(G_JALLOCATOR, solution->element_stresses);
+        ill_jfree(G_ALLOCATOR, solution->element_stresses);
         solution->element_stresses = NULL;
     }
     solution->element_count = elements->count;

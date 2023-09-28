@@ -207,7 +207,6 @@ static void truss_key_press(const jwin_event_key_press* e, void* param)
     JDM_ENTER_FUNCTION;
     jta_state* const state = param;
     jrui_context* const ui_ctx = state->ui_state.ui_context;
-    static int solved = 0;
     int handled_by_ui = 0;
     //  Forward keys to UI
     switch (e->keycode)

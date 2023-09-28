@@ -28,7 +28,8 @@ struct jta_solution_T
 
 typedef struct jta_solution_T jta_solution;
 
-jta_result jta_solve_problem(const jta_config_problem* cfg, const jta_problem_setup* problem, jta_solution* solution);
+jta_result jta_solve_problem(
+        const jta_config_problem* cfg, const jta_problem_setup* problem, jta_solution* solution, vec4 gravity);
 
 jta_result jta_postprocess(const jta_problem_setup* problem, jta_solution* solution);
 

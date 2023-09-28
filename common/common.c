@@ -3,8 +3,8 @@
 //
 #include "common.h"
 
-ill_jallocator* G_JALLOCATOR = NULL;
-lin_jallocator* G_LIN_JALLOCATOR = NULL;
+ill_allocator* G_ALLOCATOR = NULL;
+lin_allocator* G_LIN_ALLOCATOR = NULL;
 
 void jta_timer_set(jta_timer* timer)
 {

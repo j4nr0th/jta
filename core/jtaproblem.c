@@ -10,6 +10,7 @@
 static inline void jta_add_to_global_entries_3x3(const mtx4* mtx, uint32_t first_row, uint32_t first_col, jmtx_matrix_crs* out)
 {
     int beef;
+    (void)beef;
     if (mtx->s00 != 0)
     {
         jmtx_matrix_crs_add_to_entry(out, first_row + 0, first_col + 0, mtx->s00);
@@ -224,6 +225,7 @@ jta_result jta_make_global_matrices(
         //  Now set the global matrix entries
 
         int beef = 0;
+        (void)beef;
         jta_add_to_global_entries_3x3(&mtx_ta00t, 3 * i_pt0, 3 * i_pt0, out_k);
         assert(jmtx_matrix_crs_beef_check(out_k, &beef) == JMTX_RESULT_SUCCESS);
         assert(beef == 0xBeef);
@@ -300,6 +302,7 @@ jta_result jta_apply_numerical_bcs(
             uint32_t pos[1] = { 3 * i_pt + 2 };
             jmtx_result res = jmtx_matrix_crs_set_row(out_k, 3 * i_pt + 2, 1, pos, val);
             assert(res == JMTX_RESULT_SUCCESS);
+            (void)res;
             f_out[3 * i_pt + 2] = point_list->p_z[i_pt] - numerical_bcs->z[idx];
         }
 
@@ -309,6 +312,7 @@ jta_result jta_apply_numerical_bcs(
             uint32_t pos[1] = { 3 * i_pt + 1 };
             jmtx_result res = jmtx_matrix_crs_set_row(out_k, 3 * i_pt + 1, 1, pos, val);
             assert(res == JMTX_RESULT_SUCCESS);
+            (void)res;
             f_out[3 * i_pt + 1] = point_list->p_y[i_pt] - numerical_bcs->y[idx];
         }
 
@@ -318,6 +322,7 @@ jta_result jta_apply_numerical_bcs(
             uint32_t pos[1] = { 3 * i_pt + 0 };
             jmtx_result res = jmtx_matrix_crs_set_row(out_k, 3 * i_pt + 0, 1, pos, val);
             assert(res == JMTX_RESULT_SUCCESS);
+            (void)res;
             f_out[3 * i_pt + 0] = point_list->p_x[i_pt] - numerical_bcs->x[idx];
         }
     }
@@ -559,8 +564,6 @@ jta_result jta_load_problem(const jio_context* io_ctx, const jta_config_problem*
     problem->natural_bcs = natural_boundary_conditions;
     problem->numerical_bcs = numerical_boundary_conditions;
 
-    problem->gravity = VEC4(cfg->sim_and_sol.gravity[0], cfg->sim_and_sol.gravity[1], cfg->sim_and_sol.gravity[2]);
-
     JDM_LEAVE_FUNCTION;
     return JTA_RESULT_SUCCESS;
 failed:
@@ -588,6 +591,8 @@ failed:
     {
         jio_memory_file_destroy(p_point_file);
     }
+    problem->load_state = JTA_PROBLEM_LOAD_STATE_HAS_ELEMENTS|JTA_PROBLEM_LOAD_STATE_HAS_POINTS|JTA_PROBLEM_LOAD_STATE_HAS_MATERIALS|
+            JTA_PROBLEM_LOAD_STATE_HAS_PROFILES|JTA_PROBLEM_LOAD_STATE_HAS_NATBC|JTA_PROBLEM_LOAD_STATE_HAS_NUMBC;
     JDM_LEAVE_FUNCTION;
     return res;
 }
@@ -595,19 +600,49 @@ failed:
 void jta_free_problem(jta_problem_setup* problem)
 {
     JDM_ENTER_FUNCTION;
+    if (problem->load_state & JTA_PROBLEM_LOAD_STATE_HAS_POINTS)
+    {
+        jta_free_points(&problem->point_list);
+        jio_memory_file_destroy(problem->file_points);
+        problem->load_state &= ~JTA_PROBLEM_LOAD_STATE_HAS_POINTS;
+    }
 
-    jta_free_points(&problem->point_list);
-    jta_free_materials(&problem->material_list);
-    jta_free_profiles(&problem->profile_list);
-    jta_free_elements(&problem->element_list);
-    jta_free_natural_boundary_conditions(&problem->natural_bcs);
-    jta_free_numerical_boundary_conditions(&problem->numerical_bcs);
-    jio_memory_file_destroy(problem->file_num);
-    jio_memory_file_destroy(problem->file_nat);
-    jio_memory_file_destroy(problem->file_elements);
-    jio_memory_file_destroy(problem->file_profiles);
-    jio_memory_file_destroy(problem->file_materials);
-    jio_memory_file_destroy(problem->file_points);
+    if (problem->load_state & JTA_PROBLEM_LOAD_STATE_HAS_MATERIALS)
+    {
+        jta_free_materials(&problem->material_list);
+        jio_memory_file_destroy(problem->file_materials);
+        problem->load_state &= ~JTA_PROBLEM_LOAD_STATE_HAS_MATERIALS;
+    }
+
+    if (problem->load_state & JTA_PROBLEM_LOAD_STATE_HAS_PROFILES)
+    {
+        jta_free_profiles(&problem->profile_list);
+        jio_memory_file_destroy(problem->file_profiles);
+        problem->load_state &= ~JTA_PROBLEM_LOAD_STATE_HAS_PROFILES;
+    }
+
+    if (problem->load_state & JTA_PROBLEM_LOAD_STATE_HAS_NUMBC)
+    {
+        jio_memory_file_destroy(problem->file_num);
+        jta_free_numerical_boundary_conditions(&problem->numerical_bcs);
+        problem->load_state &= ~JTA_PROBLEM_LOAD_STATE_HAS_NUMBC;
+    }
+
+    if (problem->load_state & JTA_PROBLEM_LOAD_STATE_HAS_NATBC)
+    {
+        jio_memory_file_destroy(problem->file_nat);
+        jta_free_natural_boundary_conditions(&problem->natural_bcs);
+        problem->load_state &= ~JTA_PROBLEM_LOAD_STATE_HAS_NATBC;
+    }
+
+    if (problem->load_state & JTA_PROBLEM_LOAD_STATE_HAS_ELEMENTS)
+    {
+        jta_free_elements(&problem->element_list);
+        jio_memory_file_destroy(problem->file_elements);
+        problem->load_state &= ~JTA_PROBLEM_LOAD_STATE_HAS_ELEMENTS;
+    }
+
+    memset(problem, 0xCC, sizeof(*problem));
     problem->load_state = 0;
     JDM_LEAVE_FUNCTION;
 }

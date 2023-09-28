@@ -8,24 +8,6 @@
 #include <jio/iocfg.h>
 #include "config_loading.h"
 
-static void* jio_alloc(void* param, uint64_t size)
-{
-    assert(param == G_JALLOCATOR);
-    return ill_jalloc(param, size);
-}
-
-static void* jio_realloc(void* param, void* ptr, uint64_t new_size)
-{
-    assert(param == G_JALLOCATOR);
-    return ill_jrealloc(param, ptr, new_size);
-}
-
-static void jio_free(void* param, void* ptr)
-{
-    assert(param == G_JALLOCATOR);
-    ill_jfree(param, ptr);
-}
-
 
 static char* get_str_from_section(const jio_cfg_section* section, const char* key_name, bool optional, bool* p_found)
 {
@@ -57,7 +39,7 @@ static char* get_str_from_section(const jio_cfg_section* section, const char* ke
         JDM_LEAVE_FUNCTION;
         return NULL;
     }
-    char* out_ptr = ill_jalloc(G_JALLOCATOR, val.value.value_string.len + 1);
+    char* out_ptr = ill_alloc(G_ALLOCATOR, val.value.value_string.len + 1);
     if (!out_ptr)
     {
         JDM_ERROR("Could not allocate %zu bytes of memory for the entry", (size_t)val.value.value_string.len + 1);
@@ -232,12 +214,12 @@ static jta_result load_problem_config(const jio_cfg_section* section, jta_config
     ||  !(cfg->definition.numerical_bcs_file = get_str_from_section(definitions_section, "numerical BCs", false, NULL)))
     {
         JDM_ERROR("Could not get required entry from section \"%.*s\"", (int)definitions_section_name.len, definitions_section_name.begin);
-        ill_jfree(G_JALLOCATOR, cfg->definition.points_file);
-        ill_jfree(G_JALLOCATOR, cfg->definition.materials_file);
-        ill_jfree(G_JALLOCATOR, cfg->definition.profiles_file);
-        ill_jfree(G_JALLOCATOR, cfg->definition.materials_file);
-        ill_jfree(G_JALLOCATOR, cfg->definition.natural_bcs_file);
-        ill_jfree(G_JALLOCATOR, cfg->definition.numerical_bcs_file);
+        ill_jfree(G_ALLOCATOR, cfg->definition.points_file);
+        ill_jfree(G_ALLOCATOR, cfg->definition.materials_file);
+        ill_jfree(G_ALLOCATOR, cfg->definition.profiles_file);
+        ill_jfree(G_ALLOCATOR, cfg->definition.materials_file);
+        ill_jfree(G_ALLOCATOR, cfg->definition.natural_bcs_file);
+        ill_jfree(G_ALLOCATOR, cfg->definition.numerical_bcs_file);
         JDM_LEAVE_FUNCTION;
         return JTA_RESULT_BAD_CFG_ENTRY;
     }
@@ -254,12 +236,12 @@ static jta_result load_problem_config(const jio_cfg_section* section, jta_config
     ||  !get_float_from_section(sim_sol_section, "relaxation factor", &cfg->sim_and_sol.relaxation_factor, FLT_MIN, FLT_MAX))
     {
         JDM_ERROR("Could not get required entry from section \"%.*s\"", (int)definitions_section_name.len, definitions_section_name.begin);
-        ill_jfree(G_JALLOCATOR, cfg->definition.points_file);
-        ill_jfree(G_JALLOCATOR, cfg->definition.materials_file);
-        ill_jfree(G_JALLOCATOR, cfg->definition.profiles_file);
-        ill_jfree(G_JALLOCATOR, cfg->definition.materials_file);
-        ill_jfree(G_JALLOCATOR, cfg->definition.natural_bcs_file);
-        ill_jfree(G_JALLOCATOR, cfg->definition.numerical_bcs_file);
+        ill_jfree(G_ALLOCATOR, cfg->definition.points_file);
+        ill_jfree(G_ALLOCATOR, cfg->definition.materials_file);
+        ill_jfree(G_ALLOCATOR, cfg->definition.profiles_file);
+        ill_jfree(G_ALLOCATOR, cfg->definition.materials_file);
+        ill_jfree(G_ALLOCATOR, cfg->definition.natural_bcs_file);
+        ill_jfree(G_ALLOCATOR, cfg->definition.numerical_bcs_file);
         JDM_LEAVE_FUNCTION;
         return JTA_RESULT_BAD_CFG_ENTRY;
     }
@@ -270,12 +252,12 @@ static jta_result load_problem_config(const jio_cfg_section* section, jta_config
 
 static void free_problem_config(jta_config_problem* cfg)
 {
-    ill_jfree(G_JALLOCATOR, cfg->definition.points_file);
-    ill_jfree(G_JALLOCATOR, cfg->definition.materials_file);
-    ill_jfree(G_JALLOCATOR, cfg->definition.profiles_file);
-    ill_jfree(G_JALLOCATOR, cfg->definition.elements_file);
-    ill_jfree(G_JALLOCATOR, cfg->definition.natural_bcs_file);
-    ill_jfree(G_JALLOCATOR, cfg->definition.numerical_bcs_file);
+    ill_jfree(G_ALLOCATOR, cfg->definition.points_file);
+    ill_jfree(G_ALLOCATOR, cfg->definition.materials_file);
+    ill_jfree(G_ALLOCATOR, cfg->definition.profiles_file);
+    ill_jfree(G_ALLOCATOR, cfg->definition.elements_file);
+    ill_jfree(G_ALLOCATOR, cfg->definition.natural_bcs_file);
+    ill_jfree(G_ALLOCATOR, cfg->definition.numerical_bcs_file);
     memset(cfg, 0, sizeof(*cfg));
 }
 
@@ -292,8 +274,8 @@ static jta_color jta_color_from_floats(const float array[4])
 
 static void free_display_config(jta_config_display* cfg)
 {
-//    ill_jfree(G_JALLOCATOR, cfg->material_cmap_file);
-//    ill_jfree(G_JALLOCATOR, cfg->stress_cmap_file);
+//    ill_jfree(G_ALLOCATOR, cfg->material_cmap_file);
+//    ill_jfree(G_ALLOCATOR, cfg->stress_cmap_file);
     memset(cfg, 0, sizeof(*cfg));
 }
 
@@ -303,7 +285,7 @@ static jta_result load_display_config(const jio_cfg_section* section, jta_config
     //  Load the definition entries
 
     float def_color[4];
-    bool found;
+//    bool found;
     const jio_string_segment section_name = jio_cfg_section_get_name(section);
 //    cfg->material_cmap_file = get_str_from_section(section, "material color map", true, &found);
 //    if (!cfg->material_cmap_file)
@@ -329,7 +311,7 @@ static jta_result load_display_config(const jio_cfg_section* section, jta_config
 //        else
 //        {
 //            JDM_ERROR("Could not get entry from section \"%.*s\"", (int)section_name.len, section_name.begin);
-//            ill_jfree(G_JALLOCATOR, cfg->material_cmap_file);
+//            ill_jfree(G_ALLOCATOR, cfg->material_cmap_file);
 //            goto failed;
 //        }
 //    }
@@ -344,8 +326,8 @@ static jta_result load_display_config(const jio_cfg_section* section, jta_config
     )
     {
         JDM_ERROR("Could not get required entry from section \"%.*s\"", (int)section_name.len, section_name.begin);
-//        ill_jfree(G_JALLOCATOR, cfg->stress_cmap_file);
-//        ill_jfree(G_JALLOCATOR, cfg->material_cmap_file);
+//        ill_jfree(G_ALLOCATOR, cfg->stress_cmap_file);
+//        ill_jfree(G_ALLOCATOR, cfg->material_cmap_file);
         goto failed;
     }
 
@@ -412,8 +394,8 @@ static jta_result load_display_config(const jio_cfg_section* section, jta_config
     JDM_LEAVE_FUNCTION;
     return JTA_RESULT_SUCCESS;
 failed:
-//    ill_jfree(G_JALLOCATOR, cfg->stress_cmap_file);
-//    ill_jfree(G_JALLOCATOR, cfg->material_cmap_file);
+//    ill_jfree(G_ALLOCATOR, cfg->stress_cmap_file);
+//    ill_jfree(G_ALLOCATOR, cfg->material_cmap_file);
     JDM_LEAVE_FUNCTION;
     return JTA_RESULT_BAD_CFG_ENTRY;
 }
@@ -421,12 +403,12 @@ failed:
 
 static void free_output_configuration(jta_config_output* cfg)
 {
-    ill_jfree(G_JALLOCATOR, cfg->point_output_file);
-    ill_jfree(G_JALLOCATOR, cfg->element_output_file);
-//    ill_jfree(G_JALLOCATOR, cfg->general_output_file);
-//    ill_jfree(G_JALLOCATOR, cfg->matrix_output_file);
-//    ill_jfree(G_JALLOCATOR, cfg->figure_output_file);
-    ill_jfree(G_JALLOCATOR, cfg->configuration_file);
+    ill_jfree(G_ALLOCATOR, cfg->point_output_file);
+    ill_jfree(G_ALLOCATOR, cfg->element_output_file);
+//    ill_jfree(G_ALLOCATOR, cfg->general_output_file);
+//    ill_jfree(G_ALLOCATOR, cfg->matrix_output_file);
+//    ill_jfree(G_ALLOCATOR, cfg->figure_output_file);
+    ill_jfree(G_ALLOCATOR, cfg->configuration_file);
 }
 
 static jta_result load_output_config(const char* filename, const jio_cfg_section* section, jta_config_output* cfg)
@@ -435,7 +417,7 @@ static jta_result load_output_config(const char* filename, const jio_cfg_section
     memset(cfg, 0, sizeof(*cfg));
     const size_t filename_len = strlen(filename);
     assert(filename_len != 0);
-    char* const filename_copy = ill_jalloc(G_JALLOCATOR, sizeof(*filename_copy) * (filename_len + 1));
+    char* const filename_copy = ill_alloc(G_ALLOCATOR, sizeof(*filename_copy) * (filename_len + 1));
     if (!filename_copy)
     {
         JDM_ERROR("Could not allocate memory for filename");
@@ -470,11 +452,11 @@ static jta_result load_output_config(const char* filename, const jio_cfg_section
         {
             if (!found)
             {
-                JDM_WARN("Entry \"%s\" in section \"%.*s\" was not specified, default value will be used", entry_names[i], (int)section_name.len, section_name.begin);
+                JDM_INFO("Entry \"%s\" in section \"%.*s\" was not specified, default value will be used", entry_names[i], (int)section_name.len, section_name.begin);
             }
             else
             {
-                ill_jfree(G_JALLOCATOR, filename_copy);
+                ill_jfree(G_ALLOCATOR, filename_copy);
                 free_output_configuration(cfg);
                 JDM_LEAVE_FUNCTION;
                 return JTA_RESULT_BAD_CFG_ENTRY;
@@ -888,7 +870,7 @@ jta_result jta_store_configuration(const jio_context* io_ctx, const char* filena
     }
 
     const size_t required_size = jio_cfg_print_size(root_section, 1, true, true);
-//    char* out_buffer = ill_jalloc(G_JALLOCATOR, required_size + 1);
+//    char* out_buffer = ill_alloc(G_ALLOCATOR, required_size + 1);
 //    assert(out_buffer);
 
     jio_memory_file* out_file;
@@ -901,6 +883,7 @@ jta_result jta_store_configuration(const jio_context* io_ctx, const char* filena
     jio_memory_file_info f_info = jio_memory_file_get_info(out_file);
     
     const size_t real_size = jio_cfg_print(root_section, (char*)f_info.memory, "=", true, true, false);
+    (void)real_size;
     assert(real_size <= required_size);
 
     jio_memory_file_destroy(out_file);

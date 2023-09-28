@@ -83,26 +83,26 @@ jta_result jta_load_profiles(const jio_context* io_ctx, const jio_memory_file* m
     JDM_ENTER_FUNCTION;
     jta_result res;
     uint32_t line_count = jio_memory_file_count_lines(mem_file);
-    f32* area = ill_jalloc(G_JALLOCATOR, sizeof(*area) * (line_count - 1));
+    f32* area = ill_alloc(G_ALLOCATOR, sizeof(*area) * (line_count - 1));
     if (!area)
     {
         JDM_ERROR("Could not allocate memory for point array");
         res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
-    f32* smoa = ill_jalloc(G_JALLOCATOR, sizeof(*smoa) * (line_count - 1));
+    f32* smoa = ill_alloc(G_ALLOCATOR, sizeof(*smoa) * (line_count - 1));
     if (!smoa)
     {
-        ill_jfree(G_JALLOCATOR, area);
+        ill_jfree(G_ALLOCATOR, area);
         JDM_ERROR("Could not allocate memory for point array");
         res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
-    jio_string_segment* ss = ill_jalloc(G_JALLOCATOR, sizeof(*ss) * (line_count - 1));
+    jio_string_segment* ss = ill_alloc(G_ALLOCATOR, sizeof(*ss) * (line_count - 1));
     if (!ss)
     {
-        ill_jfree(G_JALLOCATOR, area);
-        ill_jfree(G_JALLOCATOR, smoa);
+        ill_jfree(G_ALLOCATOR, area);
+        ill_jfree(G_ALLOCATOR, smoa);
         JDM_ERROR("Could not allocate memory for point array");
         res = JTA_RESULT_BAD_ALLOC;
         goto end;
@@ -123,9 +123,9 @@ jta_result jta_load_profiles(const jio_context* io_ctx, const jio_memory_file* m
     if (jio_res != JIO_RESULT_SUCCESS)
     {
         JDM_ERROR("Processing the profile input file failed, reason: %s", jio_result_to_str(jio_res));
-        ill_jfree(G_JALLOCATOR, area);
-        ill_jfree(G_JALLOCATOR, smoa);
-        ill_jfree(G_JALLOCATOR, ss);
+        ill_jfree(G_ALLOCATOR, area);
+        ill_jfree(G_ALLOCATOR, smoa);
+        ill_jfree(G_ALLOCATOR, ss);
         res = JTA_RESULT_BAD_INPUT;
         goto end;
     }
@@ -135,19 +135,19 @@ jta_result jta_load_profiles(const jio_context* io_ctx, const jio_memory_file* m
 
     const uint32_t count = parse_float_data[0].count;
     assert(count <= line_count - 1);
-    f32* const equivalent_radius = ill_jalloc(G_JALLOCATOR, sizeof(*equivalent_radius) * count);
+    f32* const equivalent_radius = ill_alloc(G_ALLOCATOR, sizeof(*equivalent_radius) * count);
     if (!equivalent_radius)
     {
-        ill_jfree(G_JALLOCATOR, area);
-        ill_jfree(G_JALLOCATOR, smoa);
-        ill_jfree(G_JALLOCATOR, ss);
+        ill_jfree(G_ALLOCATOR, area);
+        ill_jfree(G_ALLOCATOR, smoa);
+        ill_jfree(G_ALLOCATOR, ss);
         JDM_ERROR("Could not allocate memory for profile array");
         res = JTA_RESULT_BAD_ALLOC;
         goto end;
     }
     if (count != line_count - 1)
     {
-        f32* new_ptr = ill_jrealloc(G_JALLOCATOR, area, sizeof(*new_ptr) * count);
+        f32* new_ptr = ill_jrealloc(G_ALLOCATOR, area, sizeof(*new_ptr) * count);
         if (!new_ptr)
         {
             JDM_WARN("Failed shrinking the profile array from %zu to %zu bytes", sizeof(*area) * (line_count - 1), sizeof(*new_ptr) * count);
@@ -156,7 +156,7 @@ jta_result jta_load_profiles(const jio_context* io_ctx, const jio_memory_file* m
         {
             area = new_ptr;
         }
-        new_ptr = ill_jrealloc(G_JALLOCATOR, smoa, sizeof(*new_ptr) * count);
+        new_ptr = ill_jrealloc(G_ALLOCATOR, smoa, sizeof(*new_ptr) * count);
         if (!new_ptr)
         {
             JDM_WARN("Failed shrinking the profile array from %zu to %zu bytes", sizeof(*smoa) * (line_count - 1), sizeof(*new_ptr) * count);
@@ -165,7 +165,7 @@ jta_result jta_load_profiles(const jio_context* io_ctx, const jio_memory_file* m
         {
             smoa = new_ptr;
         }
-        jio_string_segment* const new_ptr1 = ill_jrealloc(G_JALLOCATOR, ss, sizeof(*new_ptr1) * count);
+        jio_string_segment* const new_ptr1 = ill_jrealloc(G_ALLOCATOR, ss, sizeof(*new_ptr1) * count);
         if (!new_ptr1)
         {
             JDM_WARN("Failed shrinking the profile array from %zu to %zu bytes", sizeof(*ss) * (line_count - 1), sizeof(*new_ptr1) * count);
@@ -223,10 +223,10 @@ void jta_free_profiles(jta_profile_list* profile_list)
 {
     JDM_ENTER_FUNCTION;
 
-    ill_jfree(G_JALLOCATOR, profile_list->labels);
-    ill_jfree(G_JALLOCATOR, profile_list->area);
-    ill_jfree(G_JALLOCATOR, profile_list->second_moment_of_area);
-    ill_jfree(G_JALLOCATOR, profile_list->equivalent_radius);
+    ill_jfree(G_ALLOCATOR, profile_list->labels);
+    ill_jfree(G_ALLOCATOR, profile_list->area);
+    ill_jfree(G_ALLOCATOR, profile_list->second_moment_of_area);
+    ill_jfree(G_ALLOCATOR, profile_list->equivalent_radius);
 
     JDM_LEAVE_FUNCTION;
 }

@@ -10,7 +10,7 @@ gfx_result jta_texture_load(
         jta_texture** p_out)
 {
     JDM_ENTER_FUNCTION;
-    jta_texture* const this = ill_jalloc(G_JALLOCATOR, sizeof(*this));
+    jta_texture* const this = ill_alloc(G_ALLOCATOR, sizeof(*this));
     if (!this)
     {
         JDM_ERROR("Could not allocate memory for texture struct");
@@ -36,7 +36,7 @@ gfx_result jta_texture_load(
     if (vk_res != VK_SUCCESS)
     {
         JDM_ERROR("Could not allocate texture image, reason: %s (%d)", vk_result_to_str(vk_res), vk_res);
-        ill_jfree(G_JALLOCATOR, this);
+        ill_jfree(G_ALLOCATOR, this);
         JDM_LEAVE_FUNCTION;
         return GFX_RESULT_BAD_VK_CALL;
     }
@@ -287,7 +287,7 @@ gfx_result jta_texture_destroy(const jta_vulkan_window_context* ctx, jta_texture
         vkDestroyImageView(ctx->device, tex->view, NULL);
     }
     jvm_image_destroy(tex->img);
-    ill_jfree(G_JALLOCATOR, tex);
+    ill_jfree(G_ALLOCATOR, tex);
 
     JDM_LEAVE_FUNCTION;
     return GFX_RESULT_SUCCESS;

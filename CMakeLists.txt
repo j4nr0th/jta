@@ -45,13 +45,18 @@ add_executable(jta main.c
         core/jtaexport.c
         core/jtaexport.h)
 
-add_compile_definitions(JALLOC_TRAP_COUNT=128)
-add_compile_definitions(JALLOC_TRACKING=1)
-add_compile_definitions(JDM_STACKTRACE=1)
-add_compile_definitions(JVM_TRACK_ALLOCATIONS)
+
+if (NOT(CMAKE_BUILD_TYPE STREQUAL "Release"))
+    add_compile_definitions(JMEM_ALLOC_TRAP_COUNT=128)
+    add_compile_definitions(JMEM_ALLOC_TRACKING=1)
+    add_compile_definitions(JDM_STACKTRACE=1)
+    add_compile_definitions(JVM_TRACK_ALLOCATIONS)
+else ()
+    add_compile_definitions(JTA_MINIMAL_LOG)
+endif ()
 
 if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
-    target_compile_options(jta PRIVATE -Wall -Wextra)
+    target_compile_options(jta PRIVATE -Wall -Wextra -Werror)
 endif ()
 
 include(cmake/Shaders.cmake)
